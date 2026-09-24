@@ -1,73 +1,65 @@
 import { useState } from 'react';
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-  Legend,
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from 'recharts';
 import { useApi } from '../hooks/useApi';
 import { metricsApi, servicesApi } from '../api/endpoints';
-import { AsyncView } from '../components/states';
-import { PageHeader } from '../components/ui';
+import { PageHeader, Card, MetricCard, FilterBar, Select, AsyncView } from '../components/ui';
+import { CHART, chartAxisProps, chartTooltipStyle } from '../components/chart';
 
-/** Metrics module (Epic 7). Seed CPU/memory/error/latency/5xx/restart data. */
+/** Metrics module (Part 21): current-value cards + restrained time-series charts. */
 export function Metrics() {
   const [service, setService] = useState('');
   const services = useApi(() => servicesApi.list(), []);
   const metrics = useApi(() => metricsApi.list({ service }), [service]);
 
   return (
-    <div>
+    <div className="stack">
       <PageHeader
         title="Metrics"
-        subtitle="Performance metrics via the CloudWatch Metrics adapter boundary. Phase 1 = seeded data."
+        subtitle="Performance metrics via the CloudWatch Metrics adapter boundary. Phase 1 uses seeded data."
         source="MOCK"
       />
-      <div className="filters">
-        <select value={service} onChange={(e) => setService(e.target.value)}>
+      <FilterBar>
+        <Select value={service} onChange={(e) => setService(e.target.value)} aria-label="Filter by service">
           <option value="">All services</option>
-          {services.data?.data.map((s) => (
-            <option key={s.id} value={s.name}>{s.name}</option>
-          ))}
-        </select>
-      </div>
+          {services.data?.data.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+        </Select>
+      </FilterBar>
 
       <AsyncView state={metrics}>
         {(m) => {
-          const chart = [...m.data]
-            .slice(0, 24)
-            .reverse()
-            .map((x) => ({
-              t: new Date(x.timestamp).toLocaleTimeString(),
-              cpu: Math.round(x.cpuPercent),
-              memory: Math.round(x.memoryPercent),
-              latency: Math.round(x.latencyMsP95),
-              errorRate: Number(x.errorRate.toFixed(2)),
-              http5xx: x.http5xxCount,
-              requests: x.requestCount,
-              restarts: x.instanceRestarts,
-            }));
-
-          const totalRestarts = m.data.reduce((n, x) => n + x.instanceRestarts, 0);
+          const latest = m.data[0];
+          const chart = [...m.data].slice(0, 24).reverse().map((x) => ({
+            t: new Date(x.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            cpu: Math.round(x.cpuPercent),
+            memory: Math.round(x.memoryPercent),
+            latency: Math.round(x.latencyMsP95),
+            errorRate: Number(x.errorRate.toFixed(2)),
+            requests: x.requestCount,
+            http5xx: x.http5xxCount,
+          }));
           const total5xx = m.data.reduce((n, x) => n + x.http5xxCount, 0);
+          const restarts = m.data.reduce((n, x) => n + x.instanceRestarts, 0);
 
           return (
             <>
-              <div className="grid cards" style={{ marginBottom: 16 }}>
-                <div className="card stat"><div className="label">Samples</div><div className="value">{m.data.length}</div></div>
-                <div className="card stat"><div className="label">Total 5xx</div><div className="value" style={{ color: 'var(--bad)' }}>{total5xx}</div></div>
-                <div className="card stat"><div className="label">Instance restarts</div><div className="value">{totalRestarts}</div></div>
+              <div className="grid kpi">
+                <MetricCard label="CPU" value={`${Math.round(latest?.cpuPercent ?? 0)}%`} />
+                <MetricCard label="Memory" value={`${Math.round(latest?.memoryPercent ?? 0)}%`} />
+                <MetricCard label="Error Rate" value={`${(latest?.errorRate ?? 0).toFixed(1)}%`} accent />
+                <MetricCard label="Request Count" value={(latest?.requestCount ?? 0).toLocaleString()} />
+                <MetricCard label="Latency p95" value={`${Math.round(latest?.latencyMsP95 ?? 0)} ms`} />
+                <MetricCard label="HTTP 5xx" value={total5xx} />
+                <MetricCard label="Instance Restarts" value={restarts} />
+                <MetricCard label="Samples" value={m.data.length} />
               </div>
 
               <div className="grid two">
-                <MetricChart title="CPU % / Memory %" data={chart} lines={[['cpu', '#4f8cff'], ['memory', '#3fb950']]} />
-                <MetricChart title="Latency p95 (ms)" data={chart} lines={[['latency', '#f0883e']]} />
-                <MetricChart title="Error rate %" data={chart} lines={[['errorRate', '#f85149']]} />
-                <MetricChart title="Requests / HTTP 5xx" data={chart} lines={[['requests', '#4f8cff'], ['http5xx', '#f85149']]} />
+                <ChartCard title="CPU % / Memory %" data={chart} series={[['cpu', CHART.primary], ['memory', CHART.info]]} />
+                <ChartCard title="Latency p95 (ms)" data={chart} series={[['latency', CHART.primary]]} />
+                <ChartCard title="Error rate (%)" data={chart} series={[['errorRate', CHART.danger]]} />
+                <ChartCard title="Requests / HTTP 5xx" data={chart} series={[['requests', CHART.info], ['http5xx', CHART.danger]]} />
               </div>
             </>
           );
@@ -77,30 +69,27 @@ export function Metrics() {
   );
 }
 
-function MetricChart({
-  title,
-  data,
-  lines,
+function ChartCard({
+  title, data, series,
 }: {
   title: string;
   data: Array<Record<string, string | number>>;
-  lines: Array<[string, string]>;
+  series: Array<[string, string]>;
 }) {
   return (
-    <div className="card">
-      <h3>{title}</h3>
-      <ResponsiveContainer width="100%" height={200}>
-        <LineChart data={data}>
-          <CartesianGrid stroke="#2a3346" strokeDasharray="3 3" />
-          <XAxis dataKey="t" stroke="#93a0b8" fontSize={11} />
-          <YAxis stroke="#93a0b8" fontSize={11} />
-          <Tooltip contentStyle={{ background: '#171d2b', border: '1px solid #2a3346' }} />
-          <Legend />
-          {lines.map(([key, color]) => (
-            <Line key={key} type="monotone" dataKey={key} stroke={color} dot={false} />
+    <Card title={title}>
+      <ResponsiveContainer width="100%" height={220}>
+        <LineChart data={data} margin={{ left: -10, right: 8, top: 8 }}>
+          <CartesianGrid stroke={CHART.grid} vertical={false} />
+          <XAxis dataKey="t" {...chartAxisProps} />
+          <YAxis {...chartAxisProps} />
+          <Tooltip contentStyle={chartTooltipStyle} />
+          <Legend iconType="plainline" wrapperStyle={{ fontSize: 12 }} />
+          {series.map(([key, color]) => (
+            <Line key={key} type="monotone" dataKey={key} stroke={color} strokeWidth={2} dot={false} />
           ))}
         </LineChart>
       </ResponsiveContainer>
-    </div>
+    </Card>
   );
 }

@@ -1,0 +1,76 @@
+# =============================================================================
+# Urbani Observability — production-shaped local/prod compose (Parts 4, 5, 34).
+#
+# Topology:
+#   Browser -> frontend (nginx reverse proxy, :8080)
+#                 ├── /            -> SPA static assets
+#                 └── /api/*       -> backend:4000 (internal network only)
+#   backend  -> SQLite on a named volume (persists across restarts/rebuilds)
+#
+# The SAME images run in local Docker, staging, and production — only the
+# injected environment differs (Part 5). Start everything with:
+#   docker compose up -d --build
+# =============================================================================
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: packages/backend/Dockerfile
+    image: urbani/backend:latest
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: "4000"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # SQLite lives on the mounted volume so data survives container replacement.
+      DATABASE_URL: /data/urbani.sqlite
+      DB_DRIVER: sqlite
+      INTEGRATION_MODE: ${INTEGRATION_MODE:-mock}
+      # Same-origin behind the proxy => no CORS allow-list needed.
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in your .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@urbani.local}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-ChangeMe123!}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCOUNT_ID: ${AWS_ACCOUNT_ID:-}
+      BEDROCK_PRIMARY_MODEL_ID: ${BEDROCK_PRIMARY_MODEL_ID:-anthropic.claude-3-5-sonnet-20241022-v2:0}
+      BEDROCK_GUARDRAIL_ID: ${BEDROCK_GUARDRAIL_ID:-urbani-dpi-guardrail-v1}
+    volumes:
+      - urbani_data:/data
+    networks:
+      - urbani_net
+    healthcheck:
+      # The container probes ITS OWN liveness endpoint over loopback. This is not
+      # a cross-service host assumption — inside a container, 127.0.0.1 is that
+      # same container. Other services never address the backend this way; they
+      # use the Docker service name "backend".
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:4000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  frontend:
+    build:
+      context: .
+      dockerfile: packages/frontend/Dockerfile
+    image: urbani/frontend:latest
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      # The ONLY browser-facing port. Map host:container.
+      - "${FRONTEND_PORT:-8080}:8080"
+    networks:
+      - urbani_net
+
+volumes:
+  urbani_data:
+    driver: local
+
+networks:
+  urbani_net:
+    driver: bridge

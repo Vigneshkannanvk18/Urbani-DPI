@@ -1,15 +1,12 @@
 import { useState } from 'react';
 import { useApi } from '../hooks/useApi';
 import { aiApi, servicesApi } from '../api/endpoints';
-import { AsyncView } from '../components/states';
-import { PageHeader, Confidence, fmtTime } from '../components/ui';
+import {
+  PageHeader, Card, Button, Select, AsyncView, Confidence, fmtTime, SourceBadge,
+} from '../components/ui';
 
-/**
- * AI Insights (Epic 8). Renders the future AI response structure. The UI cannot
- * tell whether a finding came from MockAIProvider or BedrockAIProvider — it only
- * knows the AIProvider contract (alertId, summary, evidence, recommendedActions,
- * confidence, modelId, …).
- */
+/** AI Insights (Part 22). Provider-agnostic — the UI cannot tell Mock from
+ *  Bedrock; it only reads the AIProvider contract. MOCK-labelled in Phase 1. */
 export function AIInsights() {
   const [page, setPage] = useState(1);
   const [service, setService] = useState('urbani-core-api');
@@ -30,79 +27,65 @@ export function AIInsights() {
   };
 
   return (
-    <div>
+    <div className="stack">
       <PageHeader
         title="AI Insights"
-        subtitle="Provider-agnostic AI analyses. Phase 1 uses MockAIProvider; Bedrock activates in Phase 3."
+        subtitle="Provider-agnostic analyses. Phase 1 uses MockAIProvider; Bedrock activates in a later phase with no UI change."
         source="MOCK"
       />
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <h3>Run advisory analysis (human-in-the-loop)</h3>
-        <div className="filters" style={{ marginBottom: 0 }}>
-          <select value={service} onChange={(e) => setService(e.target.value)}>
-            {services.data?.data.map((s) => (
-              <option key={s.id} value={s.name}>{s.name}</option>
-            ))}
-          </select>
-          <select value={environment} onChange={(e) => setEnvironment(e.target.value)}>
+      <Card title="Run advisory analysis" titleSub="Human-in-the-loop — produces a finding only">
+        <div className="filter-bar" style={{ marginBottom: 0 }}>
+          <Select value={service} onChange={(e) => setService(e.target.value)} aria-label="Service">
+            {services.data?.data.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+          </Select>
+          <Select value={environment} onChange={(e) => setEnvironment(e.target.value)} aria-label="Environment">
             <option>production-eb</option>
             <option>staging-eb</option>
-          </select>
-          <button className="btn" disabled={busy} onClick={runAnalysis}>
-            {busy ? 'Analyzing…' : 'Analyze telemetry'}
-          </button>
+          </Select>
+          <Button onClick={runAnalysis} disabled={busy}>{busy ? 'Analyzing…' : 'Analyze telemetry'}</Button>
         </div>
-        <p className="page-sub" style={{ fontSize: 12, marginTop: 10 }}>
-          Deterministic (temperature 0.0), evidence-based, guardrailed. Produces a finding only — never
-          an automated action.
+        <p className="text-secondary" style={{ fontSize: 12, marginBottom: 0 }}>
+          Deterministic (temperature 0.0), evidence-based, guardrailed. Never triggers an automated action.
         </p>
-      </div>
+      </Card>
 
-      <div className="card">
-        <h3>Recent AI analyses</h3>
+      <Card title="Recent AI analyses">
         <AsyncView state={analyses}>
-          {(an) =>
-            an.data.items.length === 0 ? (
-              <div className="state">No analyses yet.</div>
-            ) : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>Time</th><th>Provider</th><th>Service</th><th>Anomaly</th>
-                    <th>Confidence</th><th>Model</th><th>Tokens (in/out)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {an.data.items.map((a) => (
-                    <tr key={a.id} style={{ cursor: 'default' }}>
-                      <td>{fmtTime(a.timestamp)}</td>
-                      <td>{a.provider}</td>
-                      <td>{a.service}</td>
-                      <td>{a.anomalyType ?? <span style={{ color: 'var(--text-dim)' }}>NO_ANOMALY</span>}</td>
-                      <td><Confidence value={a.confidence} /></td>
-                      <td className="mono" style={{ fontSize: 11 }}>{a.modelId}</td>
-                      <td>{a.inputTokens}/{a.outputTokens}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )
-          }
+          {(an) => an.data.items.length === 0 ? (
+            <p className="text-secondary">No analyses yet.</p>
+          ) : (
+            <>
+              <div className="table-wrap">
+                <table className="data">
+                  <thead>
+                    <tr><th>Time</th><th>Provider</th><th>Service</th><th>Anomaly</th><th>Confidence</th><th>Model</th><th>Tokens (in/out)</th><th>Source</th></tr>
+                  </thead>
+                  <tbody>
+                    {an.data.items.map((a) => (
+                      <tr key={a.id}>
+                        <td>{fmtTime(a.timestamp)}</td>
+                        <td>{a.provider}</td>
+                        <td>{a.service}</td>
+                        <td>{a.anomalyType ?? <span className="text-muted">NO_ANOMALY</span>}</td>
+                        <td><Confidence value={a.confidence} /></td>
+                        <td className="cell-mono">{a.modelId}</td>
+                        <td>{a.inputTokens}/{a.outputTokens}</td>
+                        <td><SourceBadge source={(a.dataSource as 'MOCK' | 'LIVE' | 'WAITING_FOR_INTEGRATION') ?? 'MOCK'} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="pagination">
+                <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Prev</Button>
+                <span className="page-info">Page {page}</span>
+                <Button variant="secondary" size="sm" disabled={page * 25 >= an.data.total} onClick={() => setPage(page + 1)}>Next</Button>
+              </div>
+            </>
+          )}
         </AsyncView>
-        {analyses.data && (
-          <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-            <button className="btn secondary" disabled={page <= 1} onClick={() => setPage(page - 1)}>Prev</button>
-            <button
-              className="btn secondary"
-              disabled={page * 25 >= analyses.data.data.total}
-              onClick={() => setPage(page + 1)}
-            >
-              Next
-            </button>
-          </div>
-        )}
-      </div>
+      </Card>
     </div>
   );
 }

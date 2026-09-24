@@ -18,7 +18,10 @@
     "dev:frontend": "npm run dev --workspace @urbani/frontend",
     "test": "npm run test --workspace @urbani/backend",
     "migrate": "npm run migrate --workspace @urbani/backend",
-    "seed": "npm run seed --workspace @urbani/backend"
+    "seed": "npm run seed --workspace @urbani/backend",
+    "migrate:prod": "node packages/backend/dist/db/migrate.js",
+    "seed:prod": "node packages/backend/dist/db/seed.js",
+    "reset:prod": "node packages/backend/dist/db/reset.js"
   },
   "engines": {
     "node": ">=18.0.0"

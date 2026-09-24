@@ -20,8 +20,15 @@ const schema = z.object({
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   PORT: z.coerce.number().default(4000),
 
-  API_BASE_URL: z.string().default('http://localhost:4000'),
-  CORS_ORIGIN: z.string().default('http://localhost:5173'),
+  // Public-facing URLs are OPTIONAL and have NO hardcoded host. They are only
+  // needed if something server-side must build an absolute URL. When unset,
+  // API_BASE_URL falls back to a loopback derived from PORT (used only by the
+  // container's own healthcheck / local tooling — never a cross-service host).
+  API_BASE_URL: z.string().optional(),
+  FRONTEND_URL: z.string().optional(),
+  // Comma-separated allow-list of browser origins. Empty (default) => same-origin
+  // only, which is correct behind the reverse proxy. No host is hardcoded.
+  CORS_ORIGIN: z.string().default(''),
 
   JWT_SECRET: z.string().min(1, 'JWT_SECRET is required'),
   JWT_EXPIRES_IN: z.string().default('8h'),
@@ -29,14 +36,20 @@ const schema = z.object({
   SEED_ADMIN_PASSWORD: z.string().min(8).default('ChangeMe123!'),
 
   DB_DRIVER: z.enum(['sqlite', 'dynamodb']).default('sqlite'),
+  // DATABASE_URL is the canonical, deploy-injected DB location. For sqlite it is a
+  // filesystem path (optionally prefixed sqlite://). DB_SQLITE_PATH is kept as a
+  // backwards-compatible fallback. In Docker this points at a mounted volume.
+  DATABASE_URL: z.string().optional(),
   DB_SQLITE_PATH: z.string().default('./data/urbani.sqlite'),
 
   INTEGRATION_MODE: z.enum(['mock', 'aws']).default('mock'),
 
   AWS_REGION: z.string().default('us-east-1'),
+  AWS_ACCOUNT_ID: z.string().optional(),
   AWS_ACCESS_KEY_ID: z.string().optional(),
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
 
+  CLOUDWATCH_REGION: z.string().optional(),
   CLOUDWATCH_LOG_GROUP: z.string().default('/aws/elasticbeanstalk/urbani-app'),
   CLOUDWATCH_MAX_LOG_LINES: z.coerce.number().default(100),
   CLOUDWATCH_QUERY_WINDOW_MINUTES: z.coerce.number().default(5),
@@ -76,6 +89,20 @@ if (env.NODE_ENV === 'production' && env.JWT_SECRET === 'change-me-in-local-env-
   throw new Error('JWT_SECRET must be set to a strong value in production.');
 }
 
+// Resolve the SQLite path from DATABASE_URL (canonical) or DB_SQLITE_PATH (fallback).
+// Accepts either a bare path or a sqlite:// URL. Absolute paths (e.g. a mounted
+// Docker volume) are honoured as-is; relative paths resolve against cwd.
+function resolveSqlitePath(): string {
+  const raw = (env.DATABASE_URL ?? env.DB_SQLITE_PATH).replace(/^sqlite:\/\//, '');
+  return path.isAbsolute(raw) ? raw : path.resolve(process.cwd(), raw);
+}
+
+// Parse comma-separated CORS origins. An empty value disables cross-origin
+// allow-listing (correct when the browser and API share an origin via a reverse proxy).
+const corsOrigins = env.CORS_ORIGIN.split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 export const config = {
   env: env.NODE_ENV,
   appName: env.APP_NAME,
@@ -85,8 +112,12 @@ export const config = {
   isTest: env.NODE_ENV === 'test',
 
   api: {
-    baseUrl: env.API_BASE_URL,
-    corsOrigin: env.CORS_ORIGIN,
+    // Optional, host-free. Unset unless a real environment injects an absolute
+    // URL. No default host is baked into application code.
+    baseUrl: env.API_BASE_URL ?? null,
+    frontendUrl: env.FRONTEND_URL ?? null,
+    /** Allowed browser origins (empty array = same-origin only, behind reverse proxy). */
+    corsOrigins,
   },
 
   auth: {
@@ -98,7 +129,7 @@ export const config = {
 
   db: {
     driver: env.DB_DRIVER,
-    sqlitePath: path.resolve(process.cwd(), env.DB_SQLITE_PATH),
+    sqlitePath: resolveSqlitePath(),
   },
 
   /** Which adapter implementations to wire in. */
@@ -106,11 +137,13 @@ export const config = {
 
   aws: {
     region: env.AWS_REGION,
+    accountId: env.AWS_ACCOUNT_ID ?? null,
     // Presence is optional; adapters must never assume static keys exist.
     hasStaticCredentials: Boolean(env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY),
   },
 
   cloudwatch: {
+    region: env.CLOUDWATCH_REGION ?? env.AWS_REGION,
     logGroup: env.CLOUDWATCH_LOG_GROUP,
     maxLogLines: env.CLOUDWATCH_MAX_LOG_LINES,
     queryWindowMinutes: env.CLOUDWATCH_QUERY_WINDOW_MINUTES,

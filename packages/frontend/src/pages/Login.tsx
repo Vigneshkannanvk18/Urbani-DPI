@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { Button } from '../components/ui';
 
 export function Login() {
   const { login } = useAuth();
@@ -27,26 +28,46 @@ export function Login() {
   return (
     <div className="login-wrap">
       <form className="card login-card" onSubmit={submit}>
-        <div className="brand" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
-          Urbani Observability
-          <small style={{ display: 'block', color: 'var(--text-dim)', fontWeight: 400 }}>
-            Admin sign in
-          </small>
+        <div className="login-brand">
+          <div className="brand-mark" aria-hidden>U</div>
+          <div>
+            <div className="brand-name" style={{ fontSize: 17 }}>URBANI</div>
+            <div className="brand-sub">Proactive Observability &amp; AI Troubleshooting</div>
+          </div>
         </div>
-        <label htmlFor="email">Email</label>
-        <input id="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" />
-        <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete="current-password"
-        />
-        <button className="btn" disabled={busy} type="submit">
+
+        <h1 style={{ fontSize: 'var(--text-section)', marginBottom: 4 }}>Sign in</h1>
+        <p className="text-secondary" style={{ fontSize: 13, marginTop: 0, marginBottom: 'var(--space-4)' }}>
+          Use your administrator credentials to access the dashboard.
+        </p>
+
+        <div className="field" style={{ marginBottom: 'var(--space-3)' }}>
+          <label className="field-label" htmlFor="email">Email</label>
+          <input
+            id="email"
+            className="input"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
+          />
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="password">Password</label>
+          <input
+            id="password"
+            className="input"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+          />
+        </div>
+
+        <Button type="submit" disabled={busy} className="mt-4" style={{ width: '100%' }}>
           {busy ? 'Signing in…' : 'Sign in'}
-        </button>
-        {error && <div className="login-error">{error}</div>}
+        </Button>
+
+        {error && <div className="login-error" role="alert">{error}</div>}
       </form>
     </div>
   );

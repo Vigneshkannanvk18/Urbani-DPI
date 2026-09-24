@@ -1,0 +1,21 @@
+# Keep the Docker build context minimal and free of secrets/local artifacts.
+**/node_modules
+**/dist
+**/build
+**/.env
+**/.env.*
+!**/.env.example
+*.sqlite
+*.sqlite3
+*.db
+**/data/*.sqlite
+**/coverage
+**/.vscode
+**/*.log
+.git
+.gitignore
+OUTPUT
+SOURCE
+docs
+*.md
+!README.md

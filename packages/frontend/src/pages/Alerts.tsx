@@ -2,10 +2,15 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApi } from '../hooks/useApi';
 import { alertsApi, servicesApi } from '../api/endpoints';
-import { AsyncView, SkeletonRows } from '../components/states';
-import { PageHeader, SeverityBadge, Confidence, fmtTime } from '../components/ui';
+import {
+  PageHeader, Card, FilterBar, SearchInput, Select, SeverityBadge, StatusBadge,
+  Confidence, fmtTime, AsyncView, SkeletonTable, Pagination,
+} from '../components/ui';
 
-/** Alerts / Incidents list (Epic 5) with filtering, search and pagination. */
+const PAGE_SIZE = 15;
+
+/** Alerts / Incidents list (Part 18): search, severity/service/status filters,
+ *  pagination, row hover, accessible severity badges. */
 export function Alerts() {
   const navigate = useNavigate();
   const [severity, setSeverity] = useState('');
@@ -16,117 +21,80 @@ export function Alerts() {
 
   const services = useApi(() => servicesApi.list(), []);
   const alerts = useApi(
-    () => alertsApi.list({ severity, service, status, search, page, pageSize: 15 }),
+    () => alertsApi.list({ severity, service, status, search, page, pageSize: PAGE_SIZE }),
     [severity, service, status, search, page],
   );
 
-  const pageSize = 15;
+  const reset = () => setPage(1);
 
   return (
-    <div>
+    <div className="stack">
       <PageHeader
         title="Alerts / Incidents"
         subtitle="Advisory, human-in-the-loop. No automated remediation is ever performed."
         source="MOCK"
       />
 
-      <div className="filters">
-        <input
-          placeholder="Search summary / cause…"
-          value={search}
-          onChange={(e) => {
-            setPage(1);
-            setSearch(e.target.value);
-          }}
-        />
-        <select value={severity} onChange={(e) => { setPage(1); setSeverity(e.target.value); }}>
-          <option value="">All severities</option>
-          <option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>CRITICAL</option>
-        </select>
-        <select value={service} onChange={(e) => { setPage(1); setService(e.target.value); }}>
-          <option value="">All services</option>
-          {services.data?.data.map((s) => (
-            <option key={s.id} value={s.name}>{s.name}</option>
-          ))}
-        </select>
-        <select value={status} onChange={(e) => { setPage(1); setStatus(e.target.value); }}>
-          <option value="">All statuses</option>
-          <option>OPEN</option><option>ACKNOWLEDGED</option><option>RESOLVED</option><option>DISMISSED</option>
-        </select>
-      </div>
+      <Card>
+        <FilterBar>
+          <SearchInput
+            placeholder="Search summary or cause…"
+            value={search}
+            onChange={(e) => { reset(); setSearch(e.target.value); }}
+            aria-label="Search alerts"
+          />
+          <Select value={severity} onChange={(e) => { reset(); setSeverity(e.target.value); }} aria-label="Filter by severity">
+            <option value="">All severities</option>
+            <option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>CRITICAL</option>
+          </Select>
+          <Select value={service} onChange={(e) => { reset(); setService(e.target.value); }} aria-label="Filter by service">
+            <option value="">All services</option>
+            {services.data?.data.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+          </Select>
+          <Select value={status} onChange={(e) => { reset(); setStatus(e.target.value); }} aria-label="Filter by status">
+            <option value="">All statuses</option>
+            <option>OPEN</option><option>ACKNOWLEDGED</option><option>RESOLVED</option><option>DISMISSED</option>
+          </Select>
+        </FilterBar>
 
-      <div className="card">
         {alerts.loading && !alerts.data ? (
-          <SkeletonRows rows={8} cols={7} />
+          <SkeletonTable rows={8} cols={7} />
         ) : (
           <AsyncView state={alerts}>
-            {(a) =>
-              a.data.items.length === 0 ? (
-                <div className="state">No alerts match these filters.</div>
-              ) : (
-                <>
-                  <table>
+            {(a) => a.data.items.length === 0 ? (
+              <p className="text-secondary" style={{ padding: 'var(--space-4)' }}>No alerts match these filters.</p>
+            ) : (
+              <>
+                <div className="table-wrap">
+                  <table className="data">
                     <thead>
                       <tr>
-                        <th>Alert ID</th>
-                        <th>Time</th>
-                        <th>Service</th>
-                        <th>Env</th>
-                        <th>Severity</th>
-                        <th>Anomaly</th>
-                        <th>Confidence</th>
-                        <th>Status</th>
+                        <th>Alert ID</th><th>Time</th><th>Service</th><th>Env</th>
+                        <th>Severity</th><th>Anomaly</th><th>Confidence</th><th>Status</th>
                       </tr>
                     </thead>
                     <tbody>
                       {a.data.items.map((al) => (
-                        <tr key={al.alertId} onClick={() => navigate(`/alerts/${al.alertId}`)}>
-                          <td className="mono">{al.alertId}</td>
+                        <tr key={al.alertId} className="clickable" onClick={() => navigate(`/alerts/${al.alertId}`)}>
+                          <td className="cell-mono">{al.alertId}</td>
                           <td>{fmtTime(al.timestamp)}</td>
                           <td>{al.service}</td>
                           <td>{al.environment}</td>
                           <td><SeverityBadge severity={al.severity} /></td>
                           <td>{al.anomalyType}</td>
                           <td><Confidence value={al.confidence} /></td>
-                          <td>{al.status}</td>
+                          <td><StatusBadge status={al.status} /></td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  <Pagination page={page} total={a.data.total} pageSize={pageSize} onPage={setPage} />
-                </>
-              )
-            }
+                </div>
+                <Pagination page={page} total={a.data.total} pageSize={PAGE_SIZE} onPage={setPage} />
+              </>
+            )}
           </AsyncView>
         )}
-      </div>
-    </div>
-  );
-}
-
-export function Pagination({
-  page,
-  total,
-  pageSize,
-  onPage,
-}: {
-  page: number;
-  total: number;
-  pageSize: number;
-  onPage: (p: number) => void;
-}) {
-  const pages = Math.max(Math.ceil(total / pageSize), 1);
-  return (
-    <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 12 }}>
-      <button className="btn secondary" disabled={page <= 1} onClick={() => onPage(page - 1)}>
-        Prev
-      </button>
-      <span style={{ color: 'var(--text-dim)' }}>
-        Page {page} of {pages} · {total} total
-      </span>
-      <button className="btn secondary" disabled={page >= pages} onClick={() => onPage(page + 1)}>
-        Next
-      </button>
+      </Card>
     </div>
   );
 }

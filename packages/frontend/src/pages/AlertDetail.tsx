@@ -1,14 +1,13 @@
 import { useParams, Link } from 'react-router-dom';
 import { useApi } from '../hooks/useApi';
 import { alertsApi } from '../api/endpoints';
-import { AsyncView } from '../components/states';
-import { PageHeader, SeverityBadge, Confidence, fmtTime } from '../components/ui';
+import {
+  PageHeader, Card, Button, SeverityBadge, StatusBadge, Confidence, fmtTime, AsyncView,
+} from '../components/ui';
+import { IconChevronLeft, IconWarn } from '../components/icons';
 
-/**
- * Alert detail (Epic 5). Shows the full evidence-based finding so an engineer
- * can answer: what happened, what evidence supports it, what to investigate.
- * Acknowledgement is the only action — no automated remediation.
- */
+/** Alert detail (Part 19): a professional incident investigation view.
+ *  Human-in-the-loop — the only action is acknowledge; no automated remediation. */
 export function AlertDetail() {
   const { id = '' } = useParams();
   const alert = useApi(() => alertsApi.get(id), [id]);
@@ -19,96 +18,94 @@ export function AlertDetail() {
   };
 
   return (
-    <div>
-      <PageHeader title="Alert Detail" source="MOCK" />
-      <p style={{ marginTop: -12, marginBottom: 16 }}>
-        <Link to="/alerts">← Back to alerts</Link>
-      </p>
+    <div className="stack">
+      <div className="row" style={{ gap: 'var(--space-2)' }}>
+        <Link to="/alerts" className="row" style={{ gap: 4, fontSize: 13 }}>
+          <IconChevronLeft size={16} /> Back to alerts
+        </Link>
+      </div>
 
       <AsyncView state={alert}>
         {(res) => {
           const a = res.data;
           return (
-            <div className="grid two">
-              <div className="card">
-                <h3>1. Summary</h3>
-                <p>{a.summary}</p>
+            <>
+              <PageHeader
+                title={a.anomalyType}
+                subtitle={<span className="cell-mono">{a.alertId}</span>}
+                source="MOCK"
+                actions={
+                  a.status === 'OPEN' ? (
+                    <Button onClick={acknowledge}>Acknowledge (human review)</Button>
+                  ) : (
+                    <StatusBadge status={a.status} />
+                  )
+                }
+              />
 
-                <div className="detail-grid" style={{ marginTop: 16 }}>
-                  <div className="k">2. Severity</div>
-                  <div><SeverityBadge severity={a.severity} /></div>
-                  <div className="k">3. Detection time</div>
-                  <div>{fmtTime(a.timestamp)}</div>
-                  <div className="k">4. Service</div>
-                  <div>{a.service} · {a.environment}</div>
-                  <div className="k">Anomaly type</div>
-                  <div>{a.anomalyType}</div>
-                  <div className="k">Status</div>
-                  <div>
-                    {a.status}
-                    {a.acknowledgedBy ? ` · by ${a.acknowledgedBy} at ${fmtTime(a.acknowledgedAt)}` : ''}
+              {/* Severity / Status / Confidence summary strip */}
+              <div className="grid three">
+                <Card><div className="metric-label">Severity</div><div className="mt-2"><SeverityBadge severity={a.severity} /></div></Card>
+                <Card><div className="metric-label">Status</div><div className="mt-2"><StatusBadge status={a.status} /></div></Card>
+                <Card><div className="metric-label">AI Confidence</div><div className="metric-value mt-2"><Confidence value={a.confidence} /></div></Card>
+              </div>
+
+              <div className="grid two">
+                <Card title="Summary">
+                  <p style={{ marginTop: 0 }}>{a.summary}</p>
+                  <div className="detail-grid mt-4">
+                    <div className="k">Detection time</div><div>{fmtTime(a.timestamp)}</div>
+                    <div className="k">Service</div><div>{a.service}</div>
+                    <div className="k">Environment</div><div>{a.environment}</div>
+                    <div className="k">Model</div><div className="cell-mono">{a.modelId}</div>
+                    {a.acknowledgedBy && (<><div className="k">Acknowledged by</div><div>{a.acknowledgedBy} · {fmtTime(a.acknowledgedAt)}</div></>)}
                   </div>
-                  <div className="k">8. AI confidence</div>
-                  <div><Confidence value={a.confidence} /></div>
-                  <div className="k">9. Model</div>
-                  <div className="mono" style={{ fontSize: 12 }}>{a.modelId}</div>
-                </div>
+                </Card>
 
-                {a.status === 'OPEN' && (
-                  <button className="btn" style={{ marginTop: 16 }} onClick={acknowledge}>
-                    Acknowledge (human review)
-                  </button>
-                )}
+                <Card title="Probable Cause">
+                  <p style={{ marginTop: 0 }}>{a.probableCause}</p>
+                  <h3 className="section-title mt-4" style={{ fontSize: 'var(--text-card)' }}>Recommended Actions</h3>
+                  <ol style={{ margin: 0, paddingLeft: 18 }}>
+                    {a.recommendedActions.map((r, i) => (<li key={i} style={{ marginBottom: 6 }}>{r}</li>))}
+                  </ol>
+                  <div className="banner mt-4" style={{ marginBottom: 0 }}>
+                    <span className="banner-icon"><IconWarn size={16} /></span>
+                    <span>Advisory only. An engineer must review before any operational action.</span>
+                  </div>
+                </Card>
               </div>
 
-              <div className="card">
-                <h3>6. Probable cause</h3>
-                <p>{a.probableCause}</p>
+              <Card title="Evidence" titleSub="Cited log lines">
+                {a.evidence.map((line, i) => <div className="evidence-line" key={i}>{line}</div>)}
+              </Card>
 
-                <h3 style={{ marginTop: 20 }}>7. Recommended troubleshooting actions</h3>
-                <ol style={{ margin: 0, paddingLeft: 18 }}>
-                  {a.recommendedActions.map((r, i) => (
-                    <li key={i} style={{ marginBottom: 6 }}>{r}</li>
-                  ))}
-                </ol>
-                <p className="page-sub" style={{ fontSize: 12, marginTop: 10 }}>
-                  Advisory only. An engineer must review before any operational action.
-                </p>
+              <div className="grid two">
+                <Card title="Related Logs">
+                  {a.relatedLogs.length === 0 ? <p className="text-secondary">No related logs linked.</p> : (
+                    <div className="table-wrap">
+                      <table className="data">
+                        <thead><tr><th>Time</th><th>Level</th><th>Message</th></tr></thead>
+                        <tbody>
+                          {a.relatedLogs.map((l) => (
+                            <tr key={l.id}>
+                              <td>{fmtTime(l.timestamp)}</td>
+                              <td>{l.level}</td>
+                              <td className="cell-mono">{l.message}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </Card>
+                <Card title="Related Metrics">
+                  <p className="text-secondary" style={{ marginTop: 0 }}>
+                    {a.relatedMetricIds.length} metric snapshot(s) linked to this alert. Full metric
+                    correlation expands with live CloudWatch data in a later phase.
+                  </p>
+                </Card>
               </div>
-
-              <div className="card" style={{ gridColumn: '1 / -1' }}>
-                <h3>5. Evidence (cited log lines)</h3>
-                {a.evidence.map((line, i) => (
-                  <div className="evidence-line" key={i}>{line}</div>
-                ))}
-
-                <h3 style={{ marginTop: 20 }}>10. Related logs</h3>
-                {a.relatedLogs.length === 0 ? (
-                  <div className="state">No related logs linked.</div>
-                ) : (
-                  <table>
-                    <thead>
-                      <tr><th>Time</th><th>Level</th><th>Message</th></tr>
-                    </thead>
-                    <tbody>
-                      {a.relatedLogs.map((l) => (
-                        <tr key={l.id}>
-                          <td>{fmtTime(l.timestamp)}</td>
-                          <td>{l.level}</td>
-                          <td className="mono">{l.message}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-
-                <h3 style={{ marginTop: 20 }}>11. Related metrics</h3>
-                <p className="page-sub" style={{ fontSize: 13 }}>
-                  {a.relatedMetricIds.length} metric snapshot(s) linked. Metric correlation UI expands
-                  in Phase 2 with live CloudWatch data.
-                </p>
-              </div>
-            </div>
+            </>
           );
         }}
       </AsyncView>

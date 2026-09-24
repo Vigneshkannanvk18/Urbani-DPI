@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { asyncHandler } from '../lib/asyncHandler';
 import { authService } from '../services/authService';
 import { requireAuth } from '../middleware/auth';
+import { rateLimit } from '../middleware/rateLimit';
 
 /**
  * AUTH routes (Epic 2 / API contract).
@@ -17,8 +18,10 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+// Throttle login attempts: 10 per minute per IP (brute-force mitigation).
 authRoutes.post(
   '/login',
+  rateLimit({ windowMs: 60_000, max: 10 }),
   asyncHandler(async (req, res) => {
     const { email, password } = loginSchema.parse(req.body);
     const result = await authService.login(email, password);

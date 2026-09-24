@@ -1,23 +1,19 @@
 import { Link } from 'react-router-dom';
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from 'recharts';
 import { useApi } from '../hooks/useApi';
 import { dashboardApi, alertsApi, aiApi, usageApi } from '../api/endpoints';
-import { AsyncView, SourceBadge } from '../components/states';
-import { PageHeader, StatCard, SeverityBadge, fmtTime, Confidence } from '../components/ui';
+import {
+  PageHeader, Card, MetricCard, AsyncView, SeverityBadge, StatusBadge, Confidence, fmtTime,
+} from '../components/ui';
+import {
+  IconServices, IconAlert, IconWarn, IconActivity, IconAI, IconServer,
+} from '../components/icons';
+import { CHART, chartAxisProps, chartTooltipStyle } from '../components/chart';
 
-/**
- * Dashboard overview (Epic 4). Answers the key questions: is the system healthy,
- * are there active incidents, which services, what evidence, what does AI say,
- * and what does it cost. All values are clearly MOCK-labelled in Phase 1.
- */
+/** Dashboard overview (Parts 14–17). Light theme, KPI cards, system health,
+ *  observability chart, AI cost/budget — all clearly MOCK-labelled in Phase 1. */
 export function Dashboard() {
   const summary = useApi(() => dashboardApi.summary(), []);
   const health = useApi(() => dashboardApi.health(), []);
@@ -25,170 +21,176 @@ export function Dashboard() {
   const analyses = useApi(() => aiApi.list({ page: 1 }), []);
   const cost = useApi(() => usageApi.cost(), []);
 
+  const s = summary.data?.data;
+  const healthState = s?.systemHealth ?? 'UNKNOWN';
+
   return (
-    <div>
+    <div className="stack">
       <PageHeader
         title="Dashboard"
-        subtitle="Proactive observability overview — Phase 1 runs on controlled mock data."
+        subtitle="Proactive observability overview"
         source="MOCK"
         note="Seeded demo data — not real AWS telemetry."
       />
 
       <div className="banner">
-        <strong>Phase 1 (foundation).</strong> Values below are seeded demo data. Live AWS telemetry,
-        CloudWatch logs/metrics, and Bedrock AI are wired behind adapter interfaces and activate in
-        Phase 2/3. Data provenance is labelled everywhere as{' '}
-        <SourceBadge source="LIVE" /> <SourceBadge source="MOCK" />{' '}
-        <SourceBadge source="WAITING_FOR_INTEGRATION" />.
+        <span className="banner-icon"><IconWarn size={16} /></span>
+        <span>
+          <strong>Phase 1 foundation.</strong> All values below are controlled mock/seed data.
+          Live AWS telemetry, CloudWatch, and Bedrock activate in later phases behind the existing
+          adapter interfaces. Provenance is labelled everywhere as <span className="src src-LIVE">LIVE</span>{' '}
+          <span className="src src-MOCK">MOCK</span> <span className="src src-WAITING_FOR_INTEGRATION">WAITING</span>.
+        </span>
       </div>
 
-      {/* TOP SUMMARY CARDS */}
+      {/* KPI cards */}
       <AsyncView state={summary}>
-        {(s) => (
-          <div className="grid cards" style={{ marginBottom: 20 }}>
-            <StatCard label="Total Services" value={s.data.totalServices} />
-            <StatCard label="Active Alerts" value={s.data.activeAlerts} accent="var(--warn)" />
-            <StatCard label="Critical Alerts" value={s.data.criticalAlerts} accent="var(--bad)" />
-            <StatCard label="Recent Incidents" value={s.data.recentIncidents} />
-            <StatCard label="AI Analyses" value={s.data.aiAnalyses} />
-            <StatCard
+        {(res) => (
+          <div className="grid kpi">
+            <MetricCard label="Total Services" value={res.data.totalServices} icon={<IconServices size={18} />} />
+            <MetricCard label="Active Alerts" value={res.data.activeAlerts} accent icon={<IconAlert size={18} />} foot="Open + acknowledged" />
+            <MetricCard label="Critical Alerts" value={res.data.criticalAlerts} icon={<IconWarn size={18} />} foot="Require attention" />
+            <MetricCard label="Recent Incidents" value={res.data.recentIncidents} icon={<IconActivity size={18} />} />
+            <MetricCard label="AI Analyses" value={res.data.aiAnalyses} icon={<IconAI size={18} />} />
+            <MetricCard
               label="System Health"
-              value={<span className={`status-${s.data.systemHealth}`}>{s.data.systemHealth}</span>}
+              value={<StatusBadge status={healthState} />}
+              icon={<IconServer size={18} />}
             />
           </div>
         )}
       </AsyncView>
 
-      <div className="grid two" style={{ marginBottom: 20 }}>
-        {/* OBSERVABILITY AREA */}
-        <div className="card">
-          <h3>Observability — request latency (p95) & error rate</h3>
+      <div className="grid two">
+        {/* System Health */}
+        <Card title="System Health">
           <AsyncView state={health}>
             {(h) => {
-              const chart = [...h.data.recentMetrics]
-                .slice(0, 20)
-                .reverse()
-                .map((m) => ({
-                  t: new Date(m.timestamp).toLocaleTimeString(),
-                  latency: Math.round(m.latencyMsP95),
-                  errorRate: Number(m.errorRate.toFixed(2)),
-                }));
+              const monitored = h.data.services.length;
+              const degraded = h.data.services.filter((x) => x.status === 'DEGRADED').length;
+              const down = h.data.services.filter((x) => x.status === 'DOWN').length;
               return (
-                <ResponsiveContainer width="100%" height={220}>
-                  <LineChart data={chart}>
-                    <CartesianGrid stroke="#2a3346" strokeDasharray="3 3" />
-                    <XAxis dataKey="t" stroke="#93a0b8" fontSize={11} />
-                    <YAxis stroke="#93a0b8" fontSize={11} />
-                    <Tooltip contentStyle={{ background: '#171d2b', border: '1px solid #2a3346' }} />
-                    <Line type="monotone" dataKey="latency" stroke="#4f8cff" dot={false} />
-                    <Line type="monotone" dataKey="errorRate" stroke="#f0883e" dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
+                <div>
+                  <div className="row" style={{ marginBottom: 'var(--space-4)' }}>
+                    <StatusBadge status={healthState} />
+                    <span className="text-secondary" style={{ fontSize: 13 }}>
+                      {healthState === 'HEALTHY' ? 'All systems operating normally' :
+                        healthState === 'DEGRADED' ? 'Some services need attention' :
+                        healthState === 'DOWN' ? 'Service outage detected' : 'Status unknown'}
+                    </span>
+                  </div>
+                  <div className="detail-grid">
+                    <div className="k">Services monitored</div><div>{monitored}</div>
+                    <div className="k">Degraded</div><div>{degraded}</div>
+                    <div className="k">Down</div><div>{down}</div>
+                    <div className="k">Critical alerts</div><div>{s?.criticalAlerts ?? 0}</div>
+                    <div className="k">Active incidents</div><div>{s?.activeAlerts ?? 0}</div>
+                  </div>
+                </div>
               );
             }}
           </AsyncView>
-        </div>
+        </Card>
 
-        {/* COST AREA */}
-        <div className="card">
-          <h3>AI Cost & Budget</h3>
+        {/* AI Cost & Budget */}
+        <Card title="AI Cost & Budget" titleSub="MOCK — not live billing">
           <AsyncView state={cost}>
-            {(c) => (
-              <div className="detail-grid">
-                <div className="k">Daily cost</div>
-                <div>${c.data.currentDailyCostUsd.toFixed(2)} / ${c.data.dailyBudgetUsd.toFixed(2)}</div>
-                <div className="k">Monthly cost</div>
+            {(c) => {
+              const label = c.data.state === 'OK' ? 'Within budget'
+                : c.data.state === 'APPROACHING' ? 'Approaching limit' : 'Over budget';
+              return (
                 <div>
-                  ${c.data.currentMonthlyCostUsd.toFixed(2)} / ${c.data.monthlyBudgetUsd.toFixed(2)}
+                  <div className="row" style={{ marginBottom: 'var(--space-4)' }}>
+                    <StatusBadge status={c.data.state} />
+                    <span className="text-secondary" style={{ fontSize: 13 }}>{label}</span>
+                  </div>
+                  <div className="detail-grid">
+                    <div className="k">Daily cost</div><div>${c.data.currentDailyCostUsd.toFixed(2)} / ${c.data.dailyBudgetUsd.toFixed(2)}</div>
+                    <div className="k">Monthly cost</div><div>${c.data.currentMonthlyCostUsd.toFixed(2)} / ${c.data.monthlyBudgetUsd.toFixed(2)}</div>
+                    <div className="k">Soft alert</div><div>${c.data.softAlertUsd.toFixed(2)}</div>
+                    <div className="k">Hard alert</div><div>${c.data.hardAlertUsd.toFixed(2)}</div>
+                  </div>
                 </div>
-                <div className="k">Soft / hard alert</div>
-                <div>${c.data.softAlertUsd} / ${c.data.hardAlertUsd}</div>
-                <div className="k">Budget status</div>
-                <div className={`state-${c.data.state}`} style={{ fontWeight: 700 }}>
-                  {c.data.state}
-                </div>
-              </div>
-            )}
+              );
+            }}
           </AsyncView>
-          <p className="page-sub" style={{ marginTop: 12, fontSize: 12 }}>
-            Cost control is a hard requirement (historical $5–6k spikes). Live billing integrates in
-            Phase 2.
-          </p>
-        </div>
+        </Card>
       </div>
 
+      {/* Observability chart */}
+      <Card title="Observability" titleSub="Latency p95 (ms) & error rate (%)">
+        <AsyncView state={health}>
+          {(h) => {
+            const data = [...h.data.recentMetrics].slice(0, 20).reverse().map((m) => ({
+              t: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              latency: Math.round(m.latencyMsP95),
+              errorRate: Number(m.errorRate.toFixed(2)),
+            }));
+            return (
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={data} margin={{ left: -10, right: 8, top: 8 }}>
+                  <CartesianGrid stroke={CHART.grid} vertical={false} />
+                  <XAxis dataKey="t" {...chartAxisProps} />
+                  <YAxis {...chartAxisProps} />
+                  <Tooltip contentStyle={chartTooltipStyle} />
+                  <Legend iconType="plainline" wrapperStyle={{ fontSize: 12 }} />
+                  <Line type="monotone" name="Latency p95" dataKey="latency" stroke={CHART.primary} strokeWidth={2} dot={false} />
+                  <Line type="monotone" name="Error rate" dataKey="errorRate" stroke={CHART.info} strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            );
+          }}
+        </AsyncView>
+      </Card>
+
       <div className="grid two">
-        {/* ALERT AREA */}
-        <div className="card">
-          <h3>Recent Alerts</h3>
+        {/* Recent alerts */}
+        <Card title="Recent Alerts" actions={<Link to="/alerts">View all</Link>}>
           <AsyncView state={alerts}>
-            {(a) =>
-              a.data.items.length === 0 ? (
-                <div className="state">No alerts.</div>
-              ) : (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Severity</th>
-                      <th>Service</th>
-                      <th>Anomaly</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
+            {(a) => a.data.items.length === 0 ? <p className="text-secondary">No alerts.</p> : (
+              <div className="table-wrap">
+                <table className="data">
+                  <thead><tr><th>Severity</th><th>Service</th><th>Anomaly</th><th>Status</th></tr></thead>
                   <tbody>
                     {a.data.items.map((al) => (
-                      <tr key={al.alertId}>
+                      <tr key={al.alertId} className="clickable">
                         <td><SeverityBadge severity={al.severity} /></td>
-                        <td>
-                          <Link to={`/alerts/${al.alertId}`}>{al.service}</Link>
-                        </td>
+                        <td><Link to={`/alerts/${al.alertId}`}>{al.service}</Link></td>
                         <td>{al.anomalyType}</td>
-                        <td>{al.status}</td>
+                        <td><StatusBadge status={al.status} /></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              )
-            }
+              </div>
+            )}
           </AsyncView>
-        </div>
+        </Card>
 
-        {/* AI AREA */}
-        <div className="card">
-          <h3>Recent AI Analyses</h3>
+        {/* Recent AI analyses */}
+        <Card title="Recent AI Analyses" actions={<Link to="/ai">View all</Link>}>
           <AsyncView state={analyses}>
-            {(an) =>
-              an.data.items.length === 0 ? (
-                <div className="state">
-                  No AI analyses yet. Trigger one from the AI Insights page.
-                </div>
-              ) : (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Service</th>
-                      <th>Anomaly</th>
-                      <th>Confidence</th>
-                      <th>Model</th>
-                      <th>Time</th>
-                    </tr>
-                  </thead>
+            {(an) => an.data.items.length === 0 ? (
+              <p className="text-secondary">No analyses yet. Trigger one from AI Insights.</p>
+            ) : (
+              <div className="table-wrap">
+                <table className="data">
+                  <thead><tr><th>Service</th><th>Anomaly</th><th>Conf.</th><th>Time</th></tr></thead>
                   <tbody>
                     {an.data.items.slice(0, 5).map((a) => (
                       <tr key={a.id}>
                         <td>{a.service}</td>
-                        <td>{a.anomalyType ?? 'NO_ANOMALY'}</td>
+                        <td>{a.anomalyType ?? <span className="text-muted">NO_ANOMALY</span>}</td>
                         <td><Confidence value={a.confidence} /></td>
-                        <td className="mono" style={{ fontSize: 11 }}>{a.modelId}</td>
-                        <td>{fmtTime(a.timestamp)}</td>
+                        <td className="cell-mono">{fmtTime(a.timestamp)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              )
-            }
+              </div>
+            )}
           </AsyncView>
-        </div>
+        </Card>
       </div>
     </div>
   );

@@ -25,6 +25,13 @@ import {
  * All seeded telemetry is stored with data_source = 'MOCK'.
  */
 async function seed(): Promise<void> {
+  // Guard (Part 6): seeding writes MOCK demo data and would overwrite real records.
+  // Refuse in production unless explicitly forced, so production data is never reset.
+  if (config.isProd && process.env.FORCE_DB_SEED !== 'yes') {
+    logger.warn('Skipping seed in production (set FORCE_DB_SEED=yes to override).');
+    return;
+  }
+
   runMigrations();
   const db = getDb();
   const now = new Date().toISOString();

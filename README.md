@@ -53,28 +53,44 @@ business logic have **no knowledge** of whether data comes from a mock or a real
 - **DB (Phase 1):** SQLite with versioned SQL migrations. The repository layer keeps this swappable
   for the real DynamoDB adapter in Phase 2.
 
-## Getting started
+## Getting started (Docker — recommended)
+
+The whole stack runs behind a single nginx reverse proxy. The browser only ever
+talks to that one origin; the backend is internal to the Docker network.
 
 ```bash
-# 1. Install (from repo root)
-npm install
+# 1. Configure env (never commit real secrets)
+cp .env.example .env        # set a strong JWT_SECRET
 
-# 2. Configure env (never commit real secrets)
-cp .env.example .env
-cp .env.example packages/backend/.env    # backend reads .env from its own cwd
+# 2. Build and start everything with one command
+docker compose up -d --build
 
-# 3. Create the DB schema + seed labelled MOCK demo data
-npm run migrate
-npm run seed
-
-# 4. Run backend (port 4000) and frontend (port 5173) in separate terminals
-npm run dev:backend
-npm run dev:frontend
+# 3. One-time demo data (not run automatically)
+docker compose exec backend node packages/backend/dist/db/seed.js
 ```
 
-Open http://localhost:5173 and sign in with the seeded admin
+Open http://localhost:8080 and sign in with the seeded admin
 (`SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`, default `admin@urbani.local` / `ChangeMe123!`).
-The Vite dev server proxies `/api` to the backend.
+
+Health probes: `GET /api/health` (liveness), `GET /api/ready` (readiness + DB check).
+Stop with `docker compose down` (the data volume is preserved).
+
+## Getting started (bare-metal dev)
+
+```bash
+npm install
+cp .env.example .env
+cp .env.example packages/backend/.env    # backend reads .env from its own cwd
+npm run migrate && npm run seed
+npm run dev:backend      # :4000
+npm run dev:frontend     # :5173 (proxies /api to the backend)
+```
+
+## UI
+
+Professional light theme with a centralized design-token system (brand `#D1990A`).
+Tokens live in `packages/frontend/src/styles.css`; reusable components in
+`components.css` + `components/ui.tsx`. See `docs/PHASE2_DELIVERABLE.md`.
 
 ### Useful scripts
 

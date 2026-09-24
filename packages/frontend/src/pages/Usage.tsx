@@ -1,93 +1,80 @@
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts';
 import { useApi } from '../hooks/useApi';
 import { usageApi } from '../api/endpoints';
-import { AsyncView } from '../components/states';
-import { PageHeader, StatCard, fmtTime } from '../components/ui';
+import { PageHeader, Card, MetricCard, StatusBadge, AsyncView, fmtTime } from '../components/ui';
+import { CHART, chartAxisProps, chartTooltipStyle } from '../components/chart';
 
-/**
- * Usage & Cost (Epic 10). Cost control is a hard requirement (historical $5–6k
- * spikes). Values are clearly MOCK — never fabricate live billing.
- */
+/** Usage & Cost (Part 24). Cost control is a hard requirement (historical $5–6k
+ *  spikes). Clearly MOCK — never fabricate live billing. */
 export function Usage() {
   const usage = useApi(() => usageApi.usage(), []);
   const cost = useApi(() => usageApi.cost(), []);
 
   return (
-    <div>
+    <div className="stack">
       <PageHeader
         title="Usage & Cost"
-        subtitle="AI request/token/cost tracking with budget guardrails. Live AWS billing integrates in Phase 2."
+        subtitle="AI request / token / cost tracking with budget guardrails. Live AWS billing integrates in a later phase."
         source="MOCK"
       />
 
       <AsyncView state={cost}>
         {(c) => (
-          <div className="grid cards" style={{ marginBottom: 16 }}>
-            <StatCard label="Daily cost" value={`$${c.data.currentDailyCostUsd.toFixed(2)}`} />
-            <StatCard label="Daily budget" value={`$${c.data.dailyBudgetUsd.toFixed(2)}`} />
-            <StatCard label="Monthly cost" value={`$${c.data.currentMonthlyCostUsd.toFixed(2)}`} />
-            <StatCard label="Monthly budget" value={`$${c.data.monthlyBudgetUsd.toFixed(2)}`} />
-            <StatCard
-              label="Budget status"
-              value={<span className={`state-${c.data.state}`}>{c.data.state}</span>}
-            />
+          <div className="grid kpi">
+            <MetricCard label="Daily Cost" value={`$${c.data.currentDailyCostUsd.toFixed(2)}`} accent foot={`Budget $${c.data.dailyBudgetUsd.toFixed(2)}`} />
+            <MetricCard label="Monthly Cost" value={`$${c.data.currentMonthlyCostUsd.toFixed(2)}`} foot={`Budget $${c.data.monthlyBudgetUsd.toFixed(2)}`} />
+            <MetricCard label="Soft Alert" value={`$${c.data.softAlertUsd.toFixed(0)}`} />
+            <MetricCard label="Hard Alert" value={`$${c.data.hardAlertUsd.toFixed(0)}`} />
+            <MetricCard label="Budget Status" value={<StatusBadge status={c.data.state} />} />
           </div>
         )}
       </AsyncView>
 
       <AsyncView state={usage}>
         {(u) => {
-          const chart = [...u.data.records]
-            .reverse()
-            .map((r) => ({ date: r.date.slice(5), cost: r.estimatedCostUsd, requests: r.aiRequestCount }));
+          const chart = [...u.data.records].reverse().map((r) => ({
+            date: r.date.slice(5), cost: r.estimatedCostUsd, requests: r.aiRequestCount,
+          }));
           return (
             <div className="grid two">
-              <div className="card">
-                <h3>Estimated daily AI cost (USD)</h3>
+              <Card title="Estimated daily AI cost" titleSub="USD (mock)">
                 <ResponsiveContainer width="100%" height={240}>
-                  <BarChart data={chart}>
-                    <CartesianGrid stroke="#2a3346" strokeDasharray="3 3" />
-                    <XAxis dataKey="date" stroke="#93a0b8" fontSize={11} />
-                    <YAxis stroke="#93a0b8" fontSize={11} />
-                    <Tooltip contentStyle={{ background: '#171d2b', border: '1px solid #2a3346' }} />
-                    <Bar dataKey="cost" fill="#4f8cff" />
+                  <BarChart data={chart} margin={{ left: -10, right: 8, top: 8 }}>
+                    <CartesianGrid stroke={CHART.grid} vertical={false} />
+                    <XAxis dataKey="date" {...chartAxisProps} />
+                    <YAxis {...chartAxisProps} />
+                    <Tooltip contentStyle={chartTooltipStyle} />
+                    <Bar dataKey="cost" fill={CHART.primary} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
-              </div>
+              </Card>
 
-              <div className="card">
-                <h3>Usage totals & model breakdown</h3>
+              <Card title="Usage totals & model breakdown">
                 <div className="detail-grid">
                   <div className="k">AI requests</div><div>{u.data.totals.requests.toLocaleString()}</div>
                   <div className="k">Input tokens</div><div>{u.data.totals.inputTokens.toLocaleString()}</div>
                   <div className="k">Output tokens</div><div>{u.data.totals.outputTokens.toLocaleString()}</div>
                   <div className="k">Est. total cost</div><div>${u.data.totals.costUsd.toFixed(2)}</div>
                 </div>
-                <h3 style={{ marginTop: 20 }}>Daily records</h3>
-                <table>
-                  <thead>
-                    <tr><th>Date</th><th>Model</th><th>Requests</th><th>Cost</th></tr>
-                  </thead>
-                  <tbody>
-                    {u.data.records.map((r) => (
-                      <tr key={r.id} style={{ cursor: 'default' }}>
-                        <td>{fmtTime(r.date)}</td>
-                        <td className="mono" style={{ fontSize: 11 }}>{r.modelId}</td>
-                        <td>{r.aiRequestCount}</td>
-                        <td>${r.estimatedCostUsd.toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                <h3 className="section-title mt-4" style={{ fontSize: 'var(--text-card)' }}>Daily records</h3>
+                <div className="table-wrap">
+                  <table className="data">
+                    <thead><tr><th>Date</th><th>Model</th><th>Requests</th><th>Cost</th></tr></thead>
+                    <tbody>
+                      {u.data.records.map((r) => (
+                        <tr key={r.id}>
+                          <td>{fmtTime(r.date)}</td>
+                          <td className="cell-mono">{r.modelId}</td>
+                          <td>{r.aiRequestCount}</td>
+                          <td>${r.estimatedCostUsd.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
             </div>
           );
         }}

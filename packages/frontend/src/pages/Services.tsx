@@ -1,38 +1,37 @@
 import { useApi } from '../hooks/useApi';
 import { servicesApi } from '../api/endpoints';
-import { AsyncView } from '../components/states';
-import { PageHeader, fmtTime } from '../components/ui';
+import { PageHeader, Card, StatusBadge, AsyncView, fmtTime } from '../components/ui';
 
-/** Services / Applications (Epic 9). Seeded services; Phase 2 = EB discovery. */
+/** Services / Applications (Part 23). Seeded services; Phase 2 = EB discovery. */
 export function Services() {
   const services = useApi(() => servicesApi.list(), []);
 
   return (
-    <div>
+    <div className="stack">
       <PageHeader
         title="Services / Applications"
-        subtitle="Monitored services. Phase 2 populates these from the Urbani Elastic Beanstalk environment."
+        subtitle="Monitored services. Populated from the Urbani Elastic Beanstalk environment in a later phase."
         source="MOCK"
       />
-      <div className="card">
+      <Card>
         <AsyncView state={services}>
-          {(s) =>
-            s.data.length === 0 ? (
-              <div className="state">No services discovered.</div>
-            ) : (
-              <table>
+          {(s) => s.data.length === 0 ? (
+            <p className="text-secondary" style={{ padding: 'var(--space-4)' }}>No services discovered.</p>
+          ) : (
+            <div className="table-wrap">
+              <table className="data">
                 <thead>
                   <tr>
                     <th>Service</th><th>Environment</th><th>Status</th>
-                    <th>Error rate</th><th>Alerts</th><th>Last telemetry</th><th>Last incident</th>
+                    <th>Error rate</th><th>Alerts</th><th>Last activity</th><th>Last incident</th>
                   </tr>
                 </thead>
                 <tbody>
                   {s.data.map((svc) => (
-                    <tr key={svc.id} style={{ cursor: 'default' }}>
-                      <td>{svc.name}</td>
+                    <tr key={svc.id}>
+                      <td style={{ fontWeight: 600 }}>{svc.name}</td>
                       <td>{svc.environment}</td>
-                      <td className={`status-${svc.status}`} style={{ fontWeight: 600 }}>{svc.status}</td>
+                      <td><StatusBadge status={svc.status} /></td>
                       <td>{svc.errorRate.toFixed(1)}%</td>
                       <td>{svc.alertCount}</td>
                       <td>{fmtTime(svc.lastTelemetryAt)}</td>
@@ -41,10 +40,10 @@ export function Services() {
                   ))}
                 </tbody>
               </table>
-            )
-          }
+            </div>
+          )}
         </AsyncView>
-      </div>
+      </Card>
     </div>
   );
 }

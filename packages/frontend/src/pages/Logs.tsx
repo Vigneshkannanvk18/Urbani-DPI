@@ -1,94 +1,77 @@
 import { useState } from 'react';
 import { useApi } from '../hooks/useApi';
 import { logsApi, servicesApi } from '../api/endpoints';
-import { AsyncView, SkeletonRows } from '../components/states';
-import { PageHeader, fmtTime } from '../components/ui';
-import { Pagination } from './Alerts';
+import {
+  PageHeader, Card, FilterBar, SearchInput, Select, AsyncView, SkeletonTable, Pagination, fmtTime,
+} from '../components/ui';
 
-/** Logs module (Epic 6). Mock/seed log stream with search + filters. */
+const PAGE_SIZE = 50;
+
+const LEVEL_COLOR: Record<string, string> = {
+  ERROR: 'var(--color-danger)', FATAL: 'var(--color-danger)',
+  WARN: 'var(--color-warning)', INFO: 'var(--color-text-secondary)',
+  DEBUG: 'var(--color-text-muted)',
+};
+
+/** Logs module (Part 20): light table, subtle monospace messages, filters. */
 export function Logs() {
   const [service, setService] = useState('');
   const [level, setLevel] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const reset = () => setPage(1);
 
   const services = useApi(() => servicesApi.list(), []);
-  const logs = useApi(
-    () => logsApi.list({ service, level, search, page }),
-    [service, level, search, page],
-  );
+  const logs = useApi(() => logsApi.list({ service, level, search, page }), [service, level, search, page]);
 
   return (
-    <div>
+    <div className="stack">
       <PageHeader
         title="Logs"
-        subtitle="Log stream via the CloudWatch adapter boundary. Phase 1 = seeded data."
+        subtitle="Log stream via the CloudWatch adapter boundary. Phase 1 uses seeded data."
         source="MOCK"
       />
-      <div className="filters">
-        <input
-          placeholder="Search message…"
-          value={search}
-          onChange={(e) => { setPage(1); setSearch(e.target.value); }}
-        />
-        <select value={level} onChange={(e) => { setPage(1); setLevel(e.target.value); }}>
-          <option value="">All levels</option>
-          <option>DEBUG</option><option>INFO</option><option>WARN</option><option>ERROR</option><option>FATAL</option>
-        </select>
-        <select value={service} onChange={(e) => { setPage(1); setService(e.target.value); }}>
-          <option value="">All services</option>
-          {services.data?.data.map((s) => (
-            <option key={s.id} value={s.name}>{s.name}</option>
-          ))}
-        </select>
-      </div>
+      <Card>
+        <FilterBar>
+          <SearchInput placeholder="Search message…" value={search}
+            onChange={(e) => { reset(); setSearch(e.target.value); }} aria-label="Search logs" />
+          <Select value={level} onChange={(e) => { reset(); setLevel(e.target.value); }} aria-label="Filter by level">
+            <option value="">All levels</option>
+            <option>DEBUG</option><option>INFO</option><option>WARN</option><option>ERROR</option><option>FATAL</option>
+          </Select>
+          <Select value={service} onChange={(e) => { reset(); setService(e.target.value); }} aria-label="Filter by service">
+            <option value="">All services</option>
+            {services.data?.data.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+          </Select>
+        </FilterBar>
 
-      <div className="card">
-        {logs.loading && !logs.data ? (
-          <SkeletonRows rows={10} cols={4} />
-        ) : (
+        {logs.loading && !logs.data ? <SkeletonTable rows={10} cols={4} /> : (
           <AsyncView state={logs}>
-            {(l) =>
-              l.data.items.length === 0 ? (
-                <div className="state">No log entries match these filters.</div>
-              ) : (
-                <>
-                  <table>
-                    <thead>
-                      <tr><th>Time</th><th>Level</th><th>Service</th><th>Message</th></tr>
-                    </thead>
+            {(l) => l.data.items.length === 0 ? (
+              <p className="text-secondary" style={{ padding: 'var(--space-4)' }}>No log entries match these filters.</p>
+            ) : (
+              <>
+                <div className="table-wrap">
+                  <table className="data">
+                    <thead><tr><th style={{ width: 180 }}>Time</th><th style={{ width: 90 }}>Level</th><th style={{ width: 160 }}>Service</th><th>Message</th></tr></thead>
                     <tbody>
-                      {l.data.items.map((entry) => (
-                        <tr key={entry.id} style={{ cursor: 'default' }}>
-                          <td>{fmtTime(entry.timestamp)}</td>
-                          <td>
-                            <span
-                              style={{
-                                color:
-                                  entry.level === 'ERROR' || entry.level === 'FATAL'
-                                    ? 'var(--bad)'
-                                    : entry.level === 'WARN'
-                                      ? 'var(--warn)'
-                                      : 'var(--text-dim)',
-                                fontWeight: 600,
-                              }}
-                            >
-                              {entry.level}
-                            </span>
-                          </td>
-                          <td>{entry.service}</td>
-                          <td className="mono">{entry.message}</td>
+                      {l.data.items.map((e) => (
+                        <tr key={e.id}>
+                          <td>{fmtTime(e.timestamp)}</td>
+                          <td style={{ color: LEVEL_COLOR[e.level] ?? 'inherit', fontWeight: 600 }}>{e.level}</td>
+                          <td>{e.service}</td>
+                          <td className="cell-mono">{e.message}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  <Pagination page={page} total={l.data.total} pageSize={50} onPage={setPage} />
-                </>
-              )
-            }
+                </div>
+                <Pagination page={page} total={l.data.total} pageSize={PAGE_SIZE} onPage={setPage} />
+              </>
+            )}
           </AsyncView>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

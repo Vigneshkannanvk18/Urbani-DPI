@@ -128,7 +128,7 @@ export const auditApi = {
 
 export interface SettingsView {
   general: { appName: string; environment: string; integrationMode: string };
-  aws: { region: string; hasStaticCredentials: boolean };
+  aws: { region: string; accountId: string | null; hasStaticCredentials: boolean };
   cloudwatch: { logGroup: string; maxLogLines: number; queryWindowMinutes: number };
   dynamodb: { alertsTable: string; anomalyTypeGsi: string };
   ai: {

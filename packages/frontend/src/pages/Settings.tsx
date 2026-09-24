@@ -1,17 +1,15 @@
 import { useApi } from '../hooks/useApi';
 import { settingsApi } from '../api/endpoints';
-import { AsyncView, SourceBadge } from '../components/states';
-import { PageHeader } from '../components/ui';
+import { PageHeader, Card, AsyncView, SourceBadge } from '../components/ui';
+import type { ReactNode } from 'react';
 
-/**
- * Settings (Epic 12). Read-only, placeholder configuration in Phase 1. Secrets
- * are NEVER shown — only presence flags and public config values.
- */
+/** Settings (Part 26). Read-only, environment-driven configuration in Phase 1.
+ *  Secrets are NEVER shown — only presence flags and public config values. */
 export function Settings() {
   const settings = useApi(() => settingsApi.get(), []);
 
   return (
-    <div>
+    <div className="stack">
       <PageHeader
         title="Settings"
         subtitle="Environment-driven configuration (read-only in Phase 1). No secrets are exposed."
@@ -20,63 +18,82 @@ export function Settings() {
       <AsyncView state={settings}>
         {(s) => (
           <div className="grid two">
-            <Section title="General">
-              <Row k="Application" v={s.general.appName} />
-              <Row k="Environment" v={s.general.environment} />
-              <Row k="Integration mode" v={s.general.integrationMode} />
-            </Section>
+            <Card title="General">
+              <div className="detail-grid">
+                <Row k="Application" v={s.general.appName} />
+                <Row k="Environment" v={s.general.environment} />
+                <Row k="Integration mode" v={s.general.integrationMode} />
+              </div>
+            </Card>
 
-            <Section title="AWS Integration">
-              <Row k="Region" v={s.aws.region} />
-              <Row k="Static credentials" v={s.aws.hasStaticCredentials ? 'Present' : 'Not set (use IAM role)'} />
-            </Section>
+            <Card title="AWS Integration">
+              <div className="detail-grid">
+                <Row k="Region" v={s.aws.region} />
+                <Row k="Account ID" v={s.aws.accountId ?? 'Not set'} mono />
+                <Row k="Static credentials" v={s.aws.hasStaticCredentials ? 'Present' : 'Not set (use IAM role)'} />
+              </div>
+            </Card>
 
-            <Section title="CloudWatch">
-              <Row k="Log group" v={s.cloudwatch.logGroup} mono />
-              <Row k="Max log lines" v={String(s.cloudwatch.maxLogLines)} />
-              <Row k="Query window (min)" v={String(s.cloudwatch.queryWindowMinutes)} />
-            </Section>
+            <Card title="CloudWatch">
+              <div className="detail-grid">
+                <Row k="Log group" v={s.cloudwatch.logGroup} mono />
+                <Row k="Max log lines" v={String(s.cloudwatch.maxLogLines)} />
+                <Row k="Query window (min)" v={String(s.cloudwatch.queryWindowMinutes)} />
+              </div>
+            </Card>
 
-            <Section title="DynamoDB">
-              <Row k="Alerts table" v={s.dynamodb.alertsTable} mono />
-              <Row k="GSI" v={s.dynamodb.anomalyTypeGsi} mono />
-            </Section>
+            <Card title="DynamoDB">
+              <div className="detail-grid">
+                <Row k="Alerts table" v={s.dynamodb.alertsTable} mono />
+                <Row k="GSI" v={s.dynamodb.anomalyTypeGsi} mono />
+              </div>
+            </Card>
 
-            <Section title="AI Configuration">
-              <Row k="Primary model" v={s.ai.primaryModelId} mono />
-              <Row k="Fallback model" v={s.ai.fallbackModelId} mono />
-              <Row k="Guardrail" v={s.ai.guardrailId} mono />
-              <Row k="Temperature" v={String(s.ai.temperature)} />
-              <Row k="Max tokens" v={String(s.ai.maxTokens)} />
-              <Row k="Top P" v={String(s.ai.topP)} />
-            </Section>
+            <Card title="AI Configuration">
+              <div className="detail-grid">
+                <Row k="Primary model" v={s.ai.primaryModelId} mono />
+                <Row k="Fallback model" v={s.ai.fallbackModelId} mono />
+                <Row k="Guardrail" v={s.ai.guardrailId} mono />
+                <Row k="Temperature" v={String(s.ai.temperature)} />
+                <Row k="Max tokens" v={String(s.ai.maxTokens)} />
+                <Row k="Top P" v={String(s.ai.topP)} />
+              </div>
+            </Card>
 
-            <Section title="Cost / Budget">
-              <Row k="Daily budget" v={`$${s.cost.dailyBudgetUsd}`} />
-              <Row k="Monthly budget" v={`$${s.cost.monthlyBudgetUsd}`} />
-              <Row k="Soft / hard alert" v={`$${s.cost.softAlertUsd} / $${s.cost.hardAlertUsd}`} />
-              <Row k="Collector schedule" v={`every ${s.scheduler.collectorMinutes} min`} />
-            </Section>
+            <Card title="Alerts & Budget">
+              <div className="detail-grid">
+                <Row k="Daily budget" v={`$${s.cost.dailyBudgetUsd}`} />
+                <Row k="Monthly budget" v={`$${s.cost.monthlyBudgetUsd}`} />
+                <Row k="Soft / hard alert" v={`$${s.cost.softAlertUsd} / $${s.cost.hardAlertUsd}`} />
+                <Row k="Collector schedule" v={`every ${s.scheduler.collectorMinutes} min`} />
+              </div>
+            </Card>
+
+            <Card title="Security" className="">
+              <div className="detail-grid">
+                <Row k="Secret storage" v="Never exposed via API or UI" />
+                <Row k="Auth" v="JWT (bearer) · bcrypt password hashing" />
+                <Row k="Login protection" v="Rate limited per IP" />
+              </div>
+            </Card>
 
             <div className="card" style={{ gridColumn: '1 / -1' }}>
-              <h3>Integrations</h3>
-              <table>
-                <thead>
-                  <tr><th>Integration</th><th>Kind</th><th>Mode</th><th>Status</th></tr>
-                </thead>
-                <tbody>
-                  {s.integrations.map((i) => (
-                    <tr key={i.kind} style={{ cursor: 'default' }}>
-                      <td>{i.displayName}</td>
-                      <td className="mono">{i.kind}</td>
-                      <td>{i.mode}</td>
-                      <td>
-                        <SourceBadge source={i.status as 'LIVE' | 'MOCK' | 'WAITING_FOR_INTEGRATION'} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="card-title">Integrations</div>
+              <div className="table-wrap">
+                <table className="data">
+                  <thead><tr><th>Integration</th><th>Kind</th><th>Mode</th><th>Status</th></tr></thead>
+                  <tbody>
+                    {s.integrations.map((i) => (
+                      <tr key={i.kind}>
+                        <td>{i.displayName}</td>
+                        <td className="cell-mono">{i.kind}</td>
+                        <td>{i.mode}</td>
+                        <td><SourceBadge source={i.status as 'LIVE' | 'MOCK' | 'WAITING_FOR_INTEGRATION'} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -85,20 +102,11 @@ export function Settings() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="card">
-      <h3>{title}</h3>
-      <div className="detail-grid">{children}</div>
-    </div>
-  );
-}
-
-function Row({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
+function Row({ k, v, mono }: { k: string; v: ReactNode; mono?: boolean }) {
   return (
     <>
       <div className="k">{k}</div>
-      <div className={mono ? 'mono' : undefined} style={mono ? { fontSize: 12 } : undefined}>{v}</div>
+      <div className={mono ? 'cell-mono' : undefined}>{v}</div>
     </>
   );
 }

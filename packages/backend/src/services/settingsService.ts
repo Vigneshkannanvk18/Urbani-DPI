@@ -11,7 +11,7 @@ import { auditRepository } from '../repositories/auditRepository';
  */
 export interface SettingsView {
   general: { appName: string; environment: string; integrationMode: string };
-  aws: { region: string; hasStaticCredentials: boolean };
+  aws: { region: string; accountId: string | null; hasStaticCredentials: boolean };
   cloudwatch: { logGroup: string; maxLogLines: number; queryWindowMinutes: number };
   dynamodb: { alertsTable: string; anomalyTypeGsi: string };
   ai: {
@@ -40,7 +40,11 @@ export const settingsService = {
         environment: config.env,
         integrationMode: config.integrationMode,
       },
-      aws: { region: config.aws.region, hasStaticCredentials: config.aws.hasStaticCredentials },
+      aws: {
+        region: config.aws.region,
+        accountId: config.aws.accountId,
+        hasStaticCredentials: config.aws.hasStaticCredentials,
+      },
       cloudwatch: {
         logGroup: config.cloudwatch.logGroup,
         maxLogLines: config.cloudwatch.maxLogLines,

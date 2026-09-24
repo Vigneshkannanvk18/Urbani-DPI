@@ -10,6 +10,10 @@
     "start": "node dist/server.js",
     "migrate": "ts-node src/db/migrate.ts",
     "seed": "ts-node src/db/seed.ts",
+    "reset": "ts-node src/db/reset.ts",
+    "migrate:prod": "node dist/db/migrate.js",
+    "seed:prod": "node dist/db/seed.js",
+    "reset:prod": "node dist/db/reset.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },
