@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build output
+dist/
+build/
+**/dist/
+**/build/
+
+# Environment / secrets - NEVER commit real credentials
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Database (local SQLite dev data)
+*.sqlite
+*.sqlite3
+*.db
+data/*.sqlite
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Editor / OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+Thumbs.db
+
+# Office temp lock files
+~$*.docx
+~$*.pptx
+
+# Test / coverage
+coverage/
+.nyc_output/

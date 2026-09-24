@@ -1,0 +1,26 @@
+{
+  "name": "urbani-observability",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Urbani Proactive Observability & AI Troubleshooting Assistant - Phase 1 foundation",
+  "license": "UNLICENSED",
+  "workspaces": [
+    "packages/shared",
+    "packages/backend",
+    "packages/frontend"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @urbani/shared && npm run build --workspace @urbani/backend && npm run build --workspace @urbani/frontend",
+    "build:shared": "npm run build --workspace @urbani/shared",
+    "build:backend": "npm run build --workspace @urbani/backend",
+    "build:frontend": "npm run build --workspace @urbani/frontend",
+    "dev:backend": "npm run dev --workspace @urbani/backend",
+    "dev:frontend": "npm run dev --workspace @urbani/frontend",
+    "test": "npm run test --workspace @urbani/backend",
+    "migrate": "npm run migrate --workspace @urbani/backend",
+    "seed": "npm run seed --workspace @urbani/backend"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
