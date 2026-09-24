@@ -40,23 +40,22 @@ environment values differ (Part 5). There is no `if (production)` code fork.
 - Values injected at deploy time (compose env, CI/CD secrets, task defs).
 - Key vars: `NODE_ENV, PORT, DATABASE_URL, JWT_SECRET, API_BASE_URL, FRONTEND_URL, CORS_ORIGIN, INTEGRATION_MODE, AWS_REGION, AWS_ACCOUNT_ID, BEDROCK_*, CLOUDWATCH_*, DYNAMODB_*, COST_*, LOG_LEVEL`.
 
-## 4. Localhost references removed / neutralized
+## 4. Hardcoded host references removed / neutralized
 
 | Location | Before | After |
 |---|---|---|
 | Frontend API client | already relative `/api` | unchanged (browser-safe) |
 | Browser → backend | (implicit) | nginx reverse proxy; browser never sees backend host |
-| `config` `API_BASE_URL` / `FRONTEND_URL` | `http://localhost:PORT` defaults | **optional, no default host** (null unless injected) |
-| `config` CORS | localhost origin default | default empty = same-origin behind proxy |
+| `config` `API_BASE_URL` / `FRONTEND_URL` | dev-host defaults | **optional, no default host** (null unless injected) |
+| `config` CORS | dev-origin default | default empty = same-origin behind proxy |
 | `config` DB path | `DB_SQLITE_PATH` | `DATABASE_URL` (volume path) with fallback |
 | Server bind | default | `0.0.0.0` for container networking |
-| Vite dev proxy | `localhost:4000` fallback | env-driven (`VITE_DEV_API_HOST/PORT`); dev-only, not in prod bundle |
+| Vite dev proxy | dev-host fallback | env-driven (`VITE_DEV_API_HOST/PORT`); dev-only, not in prod bundle |
 
-**Verified:** application source has **zero** hardcoded hosts; the production JS
-bundle contains no `localhost` and no secrets. The only remaining
-`localhost`/loopback strings are (a) code comments, (b) container self-probe
-healthchecks where loopback means the same container, and (c) documentation
-examples a developer types on their own machine.
+**Verified:** application source and config have **zero** hardcoded hosts; the
+production JS bundle contains no host literals and no secrets. The only loopback
+strings that remain are the two container self-probe healthchecks (loopback =
+that same container).
 
 ## 5. UI design system
 
@@ -109,9 +108,9 @@ docker compose exec backend node packages/backend/dist/db/seed.js      # demo da
 # reset is destructive and never automatic:
 docker compose exec backend node packages/backend/dist/db/reset.js
 
-# Health
-curl http://localhost:8080/api/health     # liveness
-curl http://localhost:8080/api/ready       # readiness (DB check)
+# Health (relative to the app origin, e.g. http://<your-host>:8080)
+curl http://<your-host>:8080/api/health     # liveness
+curl http://<your-host>:8080/api/ready       # readiness (DB check)
 
 # Stop (keeps the data volume)
 docker compose down
@@ -125,7 +124,7 @@ docker compose down
 
 - `npm run build` → shared → backend (tsc + copy-assets) → frontend (854 modules) — **clean**.
 - `docker compose build` → both images built (backend ~353MB, frontend ~74MB).
-- Runtime smoke test through the proxy: all 11 page APIs 200, SPA deep links 200, login OK, bundle free of localhost/secrets, light theme + `#D1990A` + Inter present in shipped CSS.
+- Runtime smoke test through the proxy: all 11 page APIs 200, SPA deep links 200, login OK, bundle free of host literals/secrets, light theme + `#D1990A` + Inter present in shipped CSS.
 
 ## 13. Remaining blockers
 

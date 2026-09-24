@@ -69,10 +69,13 @@ docker compose up -d --build
 docker compose exec backend node packages/backend/dist/db/seed.js
 ```
 
-Open http://localhost:8080 and sign in with the seeded admin
+Then open the app in your browser at the published frontend port (default `8080`,
+configurable via `FRONTEND_PORT`) on whatever host you deployed to — for a local
+run that is `http://<your-host>:8080`. Sign in with the seeded admin
 (`SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`, default `admin@urbani.local` / `ChangeMe123!`).
 
-Health probes: `GET /api/health` (liveness), `GET /api/ready` (readiness + DB check).
+Health probes (relative to the app origin): `GET /api/health` (liveness),
+`GET /api/ready` (readiness + DB check).
 Stop with `docker compose down` (the data volume is preserved).
 
 ## Getting started (bare-metal dev)

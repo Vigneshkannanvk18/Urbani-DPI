@@ -5,7 +5,7 @@
 # Stage 1 builds the static Vite bundle. Stage 2 serves it with nginx, which
 # ALSO acts as the reverse proxy: it serves the SPA at / and proxies /api to the
 # backend container. The browser therefore only ever talks to this one origin —
-# no localhost, no direct backend exposure.
+# the backend host is never exposed directly.
 # =============================================================================
 
 # ---- Stage 1: build ----

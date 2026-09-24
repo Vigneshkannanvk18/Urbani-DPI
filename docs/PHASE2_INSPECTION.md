@@ -1,8 +1,8 @@
 # Phase 2 — Inspection Report (Part 1)
 
 Inspection of the Phase 1 codebase before production hardening. Goal: catalog
-localhost/hardcoded assumptions, confirm config strategy, and confirm the
-adapter architecture is intact so we harden rather than rebuild.
+hardcoded host assumptions, confirm config strategy, and confirm the adapter
+architecture is intact so we harden rather than rebuild.
 
 ## Current structure (confirmed)
 
@@ -11,26 +11,24 @@ adapter architecture is intact so we harden rather than rebuild.
 - **Frontend:** React 18 + Vite + React Router + Recharts. API client uses **relative `/api`** (browser-safe, already no hardcoded host). Dark theme in `styles.css`.
 - **Adapters (must preserve):** `CloudWatchAdapter`, `BedrockAdapter`, `DynamoDBAdapter`, `UrbaniApplicationAdapter`, `AIProvider` + Mock implementations, selected by `INTEGRATION_MODE` in `integrations/index.ts`.
 
-## localhost / hardcoded references — final state
+## Hardcoded host references — final state
 
-All host literals were removed from application source and config. What remains
-is only in three legitimate categories (comments, container self-probes, and an
-overridable dev-tooling default) — never a hardcoded service host in code.
+All host literals were removed from application source and config.
 
 | Location | Original | Final state |
 |---|---|---|
-| `packages/backend/src/config/index.ts` `API_BASE_URL` | default `http://localhost:4000` | **optional, no default host** (null unless injected) |
-| `packages/backend/src/config/index.ts` `FRONTEND_URL` | default `http://localhost:5173` | **optional, no default host** |
-| `packages/backend/src/config/index.ts` `CORS_ORIGIN` | default `http://localhost:5173` | **default empty** (same-origin behind proxy) |
-| `packages/frontend/vite.config.ts` | `?? 'http://localhost:4000'` | dev-only; env-driven (`VITE_DEV_API_HOST/PORT`), absent from prod bundle |
+| `packages/backend/src/config/index.ts` `API_BASE_URL` | had a dev-host default | **optional, no default host** (null unless injected) |
+| `packages/backend/src/config/index.ts` `FRONTEND_URL` | had a dev-host default | **optional, no default host** |
+| `packages/backend/src/config/index.ts` `CORS_ORIGIN` | had a dev-origin default | **default empty** (same-origin behind proxy) |
+| `packages/frontend/vite.config.ts` | had a dev-proxy host fallback | dev-only; env-driven (`VITE_DEV_API_HOST/PORT`), absent from prod bundle |
 | Frontend API client | relative `/api` | unchanged — no host, browser-safe |
-| `docker-compose.yml` / `frontend Dockerfile` healthchecks | `127.0.0.1:PORT` | container probing **itself** (loopback = same container); not a service host |
-| `README.md` / docs | `http://localhost:8080` | human-facing example only ("open this on your machine") |
+| `docker-compose.yml` / `frontend Dockerfile` healthchecks | loopback `127.0.0.1:PORT` | container probing **itself** (loopback = same container); not a service host |
+| README | example browser URL | host-neutral (`http://<your-host>:8080`) |
 
-**Conclusion:** application source contains **zero** hardcoded hosts. The
-production bundle contains no `localhost`. Remaining `localhost`/loopback strings
-are comments, self-referential container healthchecks, an overridable dev default,
-and documentation examples.
+**Conclusion:** application source and config contain **zero** hardcoded hosts,
+and the production bundle contains no host literals. The only loopback strings
+that remain are the two container self-probe healthchecks (where loopback
+correctly means "this same container").
 
 ## Config strategy (current vs target)
 
