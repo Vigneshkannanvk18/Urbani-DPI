@@ -13,6 +13,7 @@ import { MockBedrockAdapter } from './mock/MockBedrockAdapter';
 import { MockDynamoDBAdapter } from './mock/MockDynamoDBAdapter';
 import { MockUrbaniApplicationAdapter } from './mock/MockUrbaniApplicationAdapter';
 import { MockAIProvider } from './ai/MockAIProvider';
+import { HttpUrbaniLogsAdapter } from './live/HttpUrbaniLogsAdapter';
 
 /**
  * Integration factory (Phase 1 Mock/Adapter strategy).
@@ -51,19 +52,60 @@ function buildMock(): Integrations {
   };
 }
 
+/**
+ * `live` mode: use real integrations where they are configured and available,
+ * and mock for the rest. Today only the Urbani logs API is available, so the
+ * CloudWatch adapter becomes the live HTTP adapter and everything else stays
+ * mock. The dashboard shows LIVE for logs and MOCK elsewhere via adapter meta —
+ * no dashboard or service-layer changes required.
+ */
+function buildLive(): Integrations {
+  const base = buildMock();
+
+  if (config.urbani.logsConfigured) {
+    logger.info('Wiring LIVE Urbani logs integration', {
+      integrationMode: 'live',
+      service: config.urbani.service,
+      refreshMinutes: config.urbani.refreshMinutes,
+      // NOTE: the API key is intentionally never logged.
+    });
+    base.cloudwatch = new HttpUrbaniLogsAdapter(
+      config.urbani.apiBaseUrl!,
+      config.urbani.apiKey!,
+      config.urbani.service,
+      config.urbani.refreshMinutes,
+    );
+  } else {
+    logger.warn('INTEGRATION_MODE=live but Urbani logs API is not configured; using mock logs', {
+      hint: 'Set URBANI_API_BASE_URL and URBANI_API_KEY to enable live logs.',
+    });
+  }
+
+  return base;
+}
+
 function buildAws(): Integrations {
-  // Phase 2/3 boundary. Real adapters (AWSCloudWatchAdapter, AWSBedrockAdapter,
-  // AWSDynamoDBAdapter, UrbaniApplicationAdapter, BedrockAIProvider) implement the
-  // same interfaces and will be constructed here once AWS/AI access is confirmed.
+  // Reserved boundary. Full AWS SDK adapters (AWSBedrockAdapter, AWSDynamoDBAdapter,
+  // BedrockAIProvider, EB service discovery) implement the same interfaces and will
+  // be constructed here once AWS credentials + model access are confirmed.
   throw new Error(
-    'INTEGRATION_MODE=aws is not implemented in Phase 1. Real AWS/Bedrock adapters ' +
-      'are added in Phase 2/3 once client + AWS credentials + model access are confirmed.',
+    'INTEGRATION_MODE=aws is not implemented yet. Use "live" for the available ' +
+      'Urbani logs API, or "mock". Full AWS integration is a later phase.',
   );
 }
 
 export function getIntegrations(): Integrations {
   if (cached) return cached;
-  cached = config.integrationMode === 'aws' ? buildAws() : buildMock();
+  switch (config.integrationMode) {
+    case 'aws':
+      cached = buildAws();
+      break;
+    case 'live':
+      cached = buildLive();
+      break;
+    default:
+      cached = buildMock();
+  }
   return cached;
 }
 

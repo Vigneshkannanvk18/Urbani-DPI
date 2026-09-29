@@ -37,8 +37,42 @@ export interface AnalyzeTelemetryResult {
   meta: AdapterMeta;
 }
 
+/** A prior turn in the chat conversation (for multi-turn context). */
+export interface ChatTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface AskLogsInput {
+  question: string;
+  /** The log window the answer must be grounded in. */
+  logs: LogEntry[];
+  service: string;
+  environment: string;
+  /** Prior conversation turns (optional). */
+  history?: ChatTurn[];
+}
+
+/**
+ * Result of a log chatbot question. `answer` is grounded ONLY in the supplied
+ * logs; `citations` are the specific log lines the answer relied on. Advisory
+ * only — the assistant never triggers actions.
+ */
+export interface AskLogsResult {
+  answer: string;
+  citations: string[];
+  modelId: string;
+  provider: string;
+  inputTokens: number;
+  outputTokens: number;
+  guardrailIntervened: boolean;
+  meta: AdapterMeta;
+}
+
 export interface AIProvider {
   readonly name: string;
   readonly modelId: string;
   analyzeTelemetry(input: AnalyzeTelemetryInput): Promise<AnalyzeTelemetryResult>;
+  /** Answer a natural-language question about the provided log window. */
+  askLogs(input: AskLogsInput): Promise<AskLogsResult>;
 }

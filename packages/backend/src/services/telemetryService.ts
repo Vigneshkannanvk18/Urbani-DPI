@@ -2,7 +2,6 @@ import type { Sourced, Paginated, LogEntry, MetricSnapshot, ServiceSummary } fro
 import { getIntegrations } from '../integrations';
 import {
   serviceRepository,
-  logRepository,
   metricRepository,
   type LogFilter,
 } from '../repositories/telemetryRepository';
@@ -17,17 +16,33 @@ import { MOCK_NOTE } from '../integrations/mock/mockData';
  * the service decides mock-vs-live, the route never touches an SDK.
  */
 export const telemetryService = {
-  logs(filter: LogFilter): Sourced<Paginated<LogEntry>> {
-    const { items, total } = logRepository.query(filter);
+  /**
+   * Logs are served through the CloudWatch adapter boundary so the source can be
+   * LIVE (real Urbani API) or MOCK without changing this method, the route, or
+   * the dashboard. The API contract (paginated, filterable, provenance-labelled)
+   * is preserved. Filtering/pagination are applied in-service over the adapter's
+   * current window (the API returns the latest window, capped at 100 lines).
+   */
+  async logs(filter: LogFilter): Promise<Sourced<Paginated<LogEntry>>> {
+    const { cloudwatch } = getIntegrations();
+    const res = await cloudwatch.getLogs({
+      service: filter.service,
+      environment: filter.environment,
+      level: filter.level,
+      search: filter.search,
+      limit: 100,
+    });
+
+    const all = res.value;
+    const page = Math.max(filter.page ?? 1, 1);
+    const pageSize = Math.min(Math.max(filter.pageSize ?? 50, 1), 200);
+    const start = (page - 1) * pageSize;
+    const items = all.slice(start, start + pageSize);
+
     return {
-      source: 'MOCK',
-      sourceNote: MOCK_NOTE,
-      data: {
-        items,
-        page: Math.max(filter.page ?? 1, 1),
-        pageSize: Math.min(Math.max(filter.pageSize ?? 50, 1), 200),
-        total,
-      },
+      source: res.meta.source,
+      sourceNote: res.meta.note,
+      data: { items, page, pageSize, total: all.length },
     };
   },
 

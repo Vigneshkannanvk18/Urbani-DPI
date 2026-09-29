@@ -27,6 +27,12 @@ services:
       DATABASE_URL: /data/urbani.sqlite
       DB_DRIVER: sqlite
       INTEGRATION_MODE: ${INTEGRATION_MODE:-mock}
+      # Real Urbani logs API (Phase 3). Secrets come from .env / secret manager,
+      # never committed. When set with INTEGRATION_MODE=live, logs become LIVE.
+      URBANI_API_BASE_URL: ${URBANI_API_BASE_URL:-}
+      URBANI_API_KEY: ${URBANI_API_KEY:-}
+      URBANI_SERVICE: ${URBANI_SERVICE:-urbani-app}
+      URBANI_REFRESH_MINUTES: ${URBANI_REFRESH_MINUTES:-5}
       # Same-origin behind the proxy => no CORS allow-list needed.
       CORS_ORIGIN: ${CORS_ORIGIN:-}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in your .env}

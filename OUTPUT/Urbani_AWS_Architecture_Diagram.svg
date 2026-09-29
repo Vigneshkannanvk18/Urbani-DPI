@@ -1,260 +1,295 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1480" height="880" viewBox="0 0 1480 880" font-family="Segoe UI, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
   <defs>
     <style>
-      .zone-title { font-size: 15px; font-weight: 700; }
-      .node-title { font-size: 12.5px; font-weight: 700; fill: #1a1a2e; }
-      .node-sub   { font-size: 10.5px; fill: #5a6472; }
-      .node-mono  { font-size: 9px; fill: #5a6472; font-family: 'Consolas','Courier New',monospace; }
-      .bullet { font-size: 10px; fill: #4a5568; }
-      .grp   { font-size: 12.5px; font-weight: 700; fill: #2d3748; }
-      .small { font-size: 10px; fill: #4a5568; }
-      .flowlbl { font-size: 10px; fill: #6b7280; font-style: italic; }
+      .zone-title { font-weight: 700; }
+      .node-name { font-size: 13px; font-weight: 700; fill: #16191f; }
+      .node-sub  { font-size: 10.5px; fill: #545b64; }
+      .mono { font-family: 'Consolas','Courier New',monospace; }
+      .bullet { font-size: 10px; fill: #48515c; }
+      .panel-title { font-size: 13px; font-weight: 700; fill: #232f3e; }
+      .panel-sub { font-size: 10px; fill: #6b7480; }
+      .flow { font-size: 10px; fill: #5f6b7a; }
     </style>
-    <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
-      <path d="M0,0 L7,3 L0,6 Z" fill="#4a5568"/>
-    </marker>
-    <marker id="arrowDash" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
-      <path d="M0,0 L7,3 L0,6 Z" fill="#8a94a6"/>
-    </marker>
+
+    <!-- gradients for AWS category tiles -->
+    <linearGradient id="gCompute" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F58536"/><stop offset="1" stop-color="#D9541E"/></linearGradient>
+    <linearGradient id="gMgmt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F65C93"/><stop offset="1" stop-color="#C7115E"/></linearGradient>
+    <linearGradient id="gML" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3BC7AE"/><stop offset="1" stop-color="#018B7E"/></linearGradient>
+    <linearGradient id="gSec" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F45C6A"/><stop offset="1" stop-color="#C31C34"/></linearGradient>
+    <linearGradient id="gDb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C34FE0"/><stop offset="1" stop-color="#8B1FB5"/></linearGradient>
+    <marker id="ah" markerWidth="10" markerHeight="10" refX="7.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#38414c"/></marker>
+    <marker id="ahg" markerWidth="10" markerHeight="10" refX="7.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#98a2b3"/></marker>
+
+    <!-- ===================== AWS service icons (detailed) ===================== -->
+    <!-- CloudWatch: mgmt tile, cloud + wave/heartbeat -->
+    <symbol id="i-cw" viewBox="0 0 60 60">
+      <rect width="60" height="60" rx="10" fill="url(#gMgmt)"/>
+      <path d="M22 34a7 7 0 0 1 .5-13.9A9 9 0 0 1 40 22a6 6 0 0 1-.5 12z" fill="#fff" opacity="0.95"/>
+      <path d="M18 40h5l3-7 4 12 4-9 2 4h6" fill="none" stroke="#C7115E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <!-- EventBridge: mgmt tile, connected nodes -->
+    <symbol id="i-eb" viewBox="0 0 60 60">
+      <rect width="60" height="60" rx="10" fill="url(#gMgmt)"/>
+      <g fill="#fff"><circle cx="20" cy="20" r="5"/><circle cx="40" cy="20" r="5"/><circle cx="30" cy="41" r="5"/></g>
+      <g stroke="#fff" stroke-width="2.4"><path d="M24 22.5 27.5 37M36 22.5 32.5 37M24.5 20h11"/></g>
+    </symbol>
+    <!-- Lambda: compute tile, lambda glyph -->
+    <symbol id="i-lambda" viewBox="0 0 60 60">
+      <rect width="60" height="60" rx="10" fill="url(#gCompute)"/>
+      <path d="M17 44 30 16h6L23 44z" fill="#fff"/>
+      <path d="M32 27 42 44h-6l-6.5-11z" fill="#fff"/>
+    </symbol>
+    <!-- Bedrock: ML tile, generative/brain nodes -->
+    <symbol id="i-bedrock" viewBox="0 0 60 60">
+      <rect width="60" height="60" rx="10" fill="url(#gML)"/>
+      <g fill="none" stroke="#fff" stroke-width="2.4"><circle cx="21" cy="21" r="4.5"/><circle cx="39" cy="21" r="4.5"/><circle cx="30" cy="40" r="4.5"/><path d="M21 25.5v5c0 4 4 4 9 4s9 0 9-4v-5M25.5 21h9"/></g>
+    </symbol>
+    <!-- Guardrails: security shield + check -->
+    <symbol id="i-guard" viewBox="0 0 60 60">
+      <rect width="60" height="60" rx="10" fill="url(#gSec)"/>
+      <path d="M30 14l13 5v9c0 9-6.5 14-13 16.5C23.5 42 17 37 17 28v-9z" fill="#fff"/>
+      <path d="M24 29l4.5 4.5L37 24" fill="none" stroke="#C31C34" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <!-- DynamoDB: database tile, stacked disks -->
+    <symbol id="i-ddb" viewBox="0 0 60 60">
+      <rect width="60" height="60" rx="10" fill="url(#gDb)"/>
+      <g fill="none" stroke="#fff" stroke-width="2.4"><ellipse cx="30" cy="19" rx="13" ry="4.5"/><path d="M17 19v22c0 2.5 6 4.5 13 4.5s13-2 13-4.5V19M17 30c0 2.5 6 4.5 13 4.5s13-2 13-4.5"/></g>
+    </symbol>
+    <!-- API Gateway: mgmt tile, angle brackets + dots -->
+    <symbol id="i-apigw" viewBox="0 0 60 60">
+      <rect width="60" height="60" rx="10" fill="url(#gMgmt)"/>
+      <g fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M23 20l-8 10 8 10M37 20l8 10-8 10"/></g>
+    </symbol>
+    <!-- Custom Web Dashboard: compute tile, browser window w/ chart -->
+    <symbol id="i-dash" viewBox="0 0 60 60">
+      <rect width="60" height="60" rx="10" fill="url(#gCompute)"/>
+      <rect x="15" y="16" width="30" height="28" rx="2.5" fill="#fff"/>
+      <path d="M15 22h30" stroke="#D9541E" stroke-width="2"/>
+      <circle cx="19" cy="19" r="1.2" fill="#D9541E"/><circle cx="23" cy="19" r="1.2" fill="#D9541E"/>
+      <path d="M20 39l5-7 4 4 6-9" fill="none" stroke="#F58536" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <!-- Chatbot: ML tile, chat bubble + spark -->
+    <symbol id="i-chat" viewBox="0 0 60 60">
+      <rect width="60" height="60" rx="10" fill="url(#gML)"/>
+      <path d="M16 20a3 3 0 0 1 3-3h22a3 3 0 0 1 3 3v13a3 3 0 0 1-3 3H26l-7 6v-6h0a3 3 0 0 1-3-3z" fill="#fff"/>
+      <path d="M30 22l1.6 3.4L35 27l-3.4 1.6L30 32l-1.6-3.4L25 27l3.4-1.6z" fill="#018B7E"/>
+    </symbol>
+    <!-- App tiles for the existing-services panel -->
+    <symbol id="i-eb-app" viewBox="0 0 60 60"><rect width="60" height="60" rx="10" fill="url(#gCompute)"/><g fill="none" stroke="#fff" stroke-width="2.4"><circle cx="30" cy="27" r="11"/><path d="M30 16v22M20 22l20 10M40 22 20 32"/></g><circle cx="30" cy="44" r="3" fill="#fff"/></symbol>
+    <symbol id="i-ec2" viewBox="0 0 60 60"><rect width="60" height="60" rx="10" fill="url(#gCompute)"/><rect x="19" y="19" width="22" height="22" rx="2" fill="none" stroke="#fff" stroke-width="2.4"/><path d="M24 15v4M30 15v4M36 15v4M24 41v4M30 41v4M36 41v4M15 24h4M15 30h4M15 36h4M41 24h4M41 30h4M41 36h4" stroke="#fff" stroke-width="2"/></symbol>
+    <symbol id="i-ecs" viewBox="0 0 60 60"><rect width="60" height="60" rx="10" fill="url(#gCompute)"/><g fill="none" stroke="#fff" stroke-width="2.2"><rect x="17" y="17" width="11" height="11" rx="1.5"/><rect x="32" y="17" width="11" height="11" rx="1.5"/><rect x="17" y="32" width="11" height="11" rx="1.5"/><rect x="32" y="32" width="11" height="11" rx="1.5"/></g></symbol>
+    <symbol id="i-rds" viewBox="0 0 60 60"><rect width="60" height="60" rx="10" fill="url(#gDb)"/><g fill="none" stroke="#fff" stroke-width="2.4"><ellipse cx="30" cy="20" rx="12" ry="4.5"/><path d="M18 20v20c0 2.5 5.4 4.5 12 4.5s12-2 12-4.5V20"/></g></symbol>
+    <symbol id="i-cloud" viewBox="0 0 60 60"><rect width="60" height="60" rx="10" fill="#8a94a6"/><path d="M22 38a7 7 0 0 1 .5-13.9A9 9 0 0 1 40 26a6 6 0 0 1-.5 12z" fill="#fff"/></symbol>
+    <!-- Users -->
+    <symbol id="i-user" viewBox="0 0 48 48"><circle cx="24" cy="24" r="23" fill="#eef1f6" stroke="#c7d0e0"/><circle cx="24" cy="19" r="7" fill="none" stroke="#5f6b7a" stroke-width="2.4"/><path d="M12 38c0-7 5.5-11 12-11s12 4 12 11" fill="none" stroke="#5f6b7a" stroke-width="2.4"/></symbol>
+    <!-- Governance mini icons -->
+    <symbol id="i-iam" viewBox="0 0 40 40"><rect width="40" height="40" rx="8" fill="url(#gSec)"/><circle cx="20" cy="16" r="5" fill="none" stroke="#fff" stroke-width="2.2"/><path d="M11 30c0-5 4-8 9-8s9 3 9 8" fill="none" stroke="#fff" stroke-width="2.2"/></symbol>
+    <symbol id="i-kms" viewBox="0 0 40 40"><rect width="40" height="40" rx="8" fill="url(#gSec)"/><circle cx="17" cy="17" r="5" fill="none" stroke="#fff" stroke-width="2.2"/><path d="M20.5 20.5 30 30M26 30l3-3" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"/></symbol>
+    <symbol id="i-trail" viewBox="0 0 40 40"><rect width="40" height="40" rx="8" fill="url(#gMgmt)"/><path d="M12 28c0-5 3.5-8 8-8s8-3 8-8" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="28" r="2.4" fill="#fff"/><circle cx="28" cy="12" r="2.4" fill="#fff"/></symbol>
+    <symbol id="i-budget" viewBox="0 0 40 40"><rect width="40" height="40" rx="8" fill="url(#gMgmt)"/><circle cx="20" cy="20" r="9" fill="none" stroke="#fff" stroke-width="2.2"/><path d="M20 14v12M17.5 17c0-1.4 1.1-2 2.5-2s2.5.7 2.5 2-1.1 1.7-2.5 2.1-2.5.8-2.5 2.1 1.1 2 2.5 2 2.5-.7 2.5-2" fill="none" stroke="#fff" stroke-width="1.8"/></symbol>
+    <symbol id="i-cdk" viewBox="0 0 40 40"><rect width="40" height="40" rx="8" fill="url(#gMgmt)"/><path d="M16 14l-6 6 6 6M24 14l6 6-6 6M22 12l-4 16" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+
+    <!-- step badge -->
+    <symbol id="step" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#232f3e"/></symbol>
   </defs>
 
-  <rect width="1480" height="880" fill="#ffffff"/>
+  <rect width="1600" height="900" fill="#ffffff"/>
 
   <!-- Title -->
-  <text x="28" y="34" font-size="21" font-weight="800" fill="#16213e">URBANI — Proactive Observability &amp; AI Troubleshooting Assistant</text>
-  <text x="28" y="54" font-size="12.5" fill="#6b7280">Target AWS Architecture · Read-only · Evidence-based · Human-in-the-loop · 5-minute telemetry loop</text>
+  <text x="34" y="40" font-size="23" font-weight="800" fill="#16191f">URBANI — Proactive Observability &amp; AI Troubleshooting Assistant</text>
+  <text x="34" y="62" font-size="13" fill="#6b7480">Target AWS Architecture · Custom Web Dashboard + AI Log Chatbot · Read-only · Evidence-based · Human-in-the-loop</text>
 
-  <!-- ============ Application / Services (Existing) ============ -->
-  <rect x="20" y="80" width="210" height="366" rx="10" fill="#f4f6fb" stroke="#c7d0e0" stroke-width="1.5"/>
-  <text x="36" y="106" class="grp">Application / Services</text>
-  <text x="36" y="123" class="small">(Existing — Urbani)</text>
+  <!-- ============================ Existing Application panel ============================ -->
+  <rect x="24" y="86" width="236" height="330" rx="12" fill="#f7f9fc" stroke="#c7d0e0" stroke-width="1.5"/>
+  <text x="44" y="116" class="panel-title" font-size="14">Application / Services</text>
+  <text x="44" y="134" class="panel-sub">(Existing — Urbani)</text>
+  <g transform="translate(44,150)"><use href="#i-eb-app" width="44" height="44"/><text x="54" y="20" class="node-name">Elastic Beanstalk</text><text x="54" y="36" class="node-sub">urbani-app (primary)</text></g>
+  <g transform="translate(44,204)"><use href="#i-ec2" width="44" height="44"/><text x="54" y="20" class="node-name">EC2 / ECS / EKS</text><text x="54" y="36" class="node-sub">apps &amp; containers</text></g>
+  <g transform="translate(44,258)"><use href="#i-lambda" width="44" height="44"/><text x="54" y="20" class="node-name">Lambda apps</text><text x="54" y="36" class="node-sub">serverless services</text></g>
+  <g transform="translate(44,312)"><use href="#i-rds" width="44" height="44"/><text x="54" y="20" class="node-name">RDS / data stores</text><text x="54" y="36" class="node-sub">databases</text></g>
+  <g transform="translate(44,366)"><use href="#i-cloud" width="44" height="44"/><text x="54" y="20" class="node-name">Other AWS services</text><text x="54" y="36" class="node-sub">future scope</text></g>
 
-  <g transform="translate(36,138)">
-    <rect x="0" y="0" width="178" height="48" rx="7" fill="#fff" stroke="#e07b39" stroke-width="1.5"/>
-    <rect x="12" y="12" width="24" height="24" rx="5" fill="#e07b39"/>
-    <text x="46" y="21" class="node-title">Elastic Beanstalk</text>
-    <text x="46" y="37" class="node-sub">urbani-app (primary)</text>
+  <!-- connector into cloud -->
+  <path d="M260 240 H304" stroke="#38414c" stroke-width="2.4" marker-end="url(#ah)"/>
+  <text x="264" y="230" class="flow">App logs</text>
+  <text x="264" y="256" class="flow">/ metrics</text>
+
+  <!-- ============================ AWS Cloud boundary ============================ -->
+  <rect x="304" y="86" width="1272" height="640" rx="14" fill="#fcfdfe" stroke="#232f3e" stroke-width="1.6" stroke-dasharray="7 5"/>
+  <g transform="translate(320,100)"><rect width="40" height="30" rx="5" fill="#232f3e"/><text x="20" y="20" font-size="13" font-weight="800" fill="#ff9900" text-anchor="middle">aws</text></g>
+  <text x="372" y="121" font-size="16" font-weight="800" fill="#232f3e">AWS Cloud (Urbani Account · ap-south-1)</text>
+
+  <!-- ===================== Zone A: Monitoring & Log Collection ===================== -->
+  <rect x="324" y="150" width="560" height="250" rx="12" fill="#fdf0f3" stroke="#f4c2ce" stroke-width="1.5"/>
+  <text x="344" y="178" class="zone-title" fill="#c7115e" font-size="14">Monitoring &amp; Log Collection</text>
+  <text x="344" y="196" class="panel-sub" fill="#c7115e">(every 5 minutes)</text>
+
+  <!-- Card 1: CloudWatch -->
+  <g transform="translate(344,206)">
+    <use href="#i-cw" width="52" height="52"/>
+    <use href="#step" x="-6" y="-6" width="22" height="22"/><text x="5" y="10" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">1</text>
+    <text x="0" y="70" class="node-name">Amazon CloudWatch</text>
+    <text x="0" y="86" class="node-sub">Logs &amp; Metrics</text>
   </g>
-  <g transform="translate(36,196)">
-    <rect x="0" y="0" width="178" height="44" rx="7" fill="#fff" stroke="#cfd6e4" stroke-width="1.5"/>
-    <rect x="12" y="10" width="24" height="24" rx="5" fill="#7aa1d2"/>
-    <text x="46" y="19" class="node-title">EC2 / ECS / EKS</text>
-    <text x="46" y="34" class="node-sub">apps &amp; containers</text>
+  <text x="344" y="316" class="bullet">• Application / system logs</text>
+  <text x="344" y="332" class="bullet">• Metrics · 30-day retention</text>
+  <text x="344" y="348" class="bullet mono" font-size="9">/aws/elasticbeanstalk/urbani-app</text>
+
+  <!-- Card 2: EventBridge -->
+  <g transform="translate(524,206)">
+    <use href="#i-eb" width="52" height="52"/>
+    <use href="#step" x="-6" y="-6" width="22" height="22"/><text x="5" y="10" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">2</text>
+    <text x="0" y="70" class="node-name">EventBridge</text>
+    <text x="0" y="86" class="node-sub">Scheduler · rate(5 min)</text>
   </g>
-  <g transform="translate(36,250)">
-    <rect x="0" y="0" width="178" height="44" rx="7" fill="#fff" stroke="#cfd6e4" stroke-width="1.5"/>
-    <rect x="12" y="10" width="24" height="24" rx="5" fill="#d98a3d"/>
-    <text x="46" y="19" class="node-title">Lambda apps</text>
-    <text x="46" y="34" class="node-sub">serverless services</text>
+  <text x="524" y="316" class="bullet">• Fires every 5 minutes</text>
+  <text x="524" y="332" class="bullet">• 288 runs / day</text>
+  <text x="524" y="348" class="bullet">• Bounds token cost</text>
+
+  <!-- Card 3: Lambda Collector -->
+  <g transform="translate(704,206)">
+    <use href="#i-lambda" width="52" height="52"/>
+    <use href="#step" x="-6" y="-6" width="22" height="22"/><text x="5" y="10" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">3</text>
+    <text x="0" y="70" class="node-name">Lambda Collector</text>
+    <text x="0" y="86" class="node-sub mono" font-size="9">UrbaniTelemetryCollectorFn</text>
   </g>
-  <g transform="translate(36,304)">
-    <rect x="0" y="0" width="178" height="44" rx="7" fill="#fff" stroke="#cfd6e4" stroke-width="1.5"/>
-    <rect x="12" y="10" width="24" height="24" rx="5" fill="#5c8bd6"/>
-    <text x="46" y="19" class="node-title">RDS</text>
-    <text x="46" y="34" class="node-sub">databases</text>
+  <text x="704" y="316" class="bullet">• CloudWatch Insights query</text>
+  <text x="704" y="332" class="bullet">• Filters errors / exceptions</text>
+  <text x="704" y="348" class="bullet">• Max 100 log lines</text>
+
+  <path d="M400 232 H520" stroke="#38414c" stroke-width="2.4" marker-end="url(#ah)"/>
+  <path d="M580 232 H700" stroke="#38414c" stroke-width="2.4" marker-end="url(#ah)"/>
+
+  <!-- ===================== Zone B: AI Analysis & Alert Processing ===================== -->
+  <rect x="904" y="150" width="656" height="250" rx="12" fill="#e8f7f2" stroke="#a7ddc9" stroke-width="1.5"/>
+  <text x="924" y="178" class="zone-title" fill="#018b7e" font-size="14">AI Analysis &amp; Alert Processing</text>
+
+  <!-- Card 4: Bedrock -->
+  <g transform="translate(924,196)">
+    <use href="#i-bedrock" width="52" height="52"/>
+    <use href="#step" x="-6" y="-6" width="22" height="22"/><text x="5" y="10" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">4</text>
+    <text x="0" y="70" class="node-name">Amazon Bedrock</text>
+    <text x="0" y="86" class="node-sub">Claude 3.5 Sonnet v2 (LLM analysis)</text>
   </g>
-  <g transform="translate(36,358)">
-    <rect x="0" y="0" width="178" height="44" rx="7" fill="#fff" stroke="#cfd6e4" stroke-width="1.5"/>
-    <rect x="12" y="10" width="24" height="24" rx="5" fill="#aab4c5"/>
-    <text x="46" y="19" class="node-title">Other AWS services</text>
-    <text x="46" y="34" class="node-sub">future scope</text>
+  <text x="924" y="322" class="bullet">• Analyzes log patterns · cites evidence</text>
+  <text x="924" y="338" class="bullet">• Suggests root cause + recommendations</text>
+  <text x="924" y="354" class="bullet mono" font-size="9">temp 0.0 · max_tokens 1024 · Nova fallback</text>
+
+  <!-- Card 5: Guardrails -->
+  <g transform="translate(1224,196)">
+    <use href="#i-guard" width="52" height="52"/>
+    <use href="#step" x="-6" y="-6" width="22" height="22"/><text x="5" y="10" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">5</text>
+    <text x="0" y="70" class="node-name">Bedrock Guardrails</text>
+    <text x="0" y="86" class="node-sub">Safety &amp; compliance</text>
   </g>
+  <text x="1224" y="322" class="bullet">• PII redaction · injection defense</text>
+  <text x="1224" y="338" class="bullet mono" font-size="9">urbani-dpi-guardrail-v1</text>
+  <text x="1224" y="354" class="bullet mono" font-size="9">NO_ANOMALY_DETECTED if no evidence</text>
 
-  <!-- flow label into cloud -->
-  <line x1="230" y1="162" x2="272" y2="162" stroke="#4a5568" stroke-width="2" marker-end="url(#arrow)"/>
-  <text x="232" y="153" class="flowlbl">App logs</text>
-  <text x="232" y="178" class="flowlbl">/ metrics</text>
+  <path d="M400 232 H520" stroke="#38414c" stroke-width="2.4" marker-end="url(#ah)"/>
+  <path d="M884 232 H920" stroke="#38414c" stroke-width="2.4" marker-end="url(#ah)"/>
+  <path d="M1204 222 H1220" stroke="#38414c" stroke-width="2.4" marker-end="url(#ah)"/>
 
-  <!-- ============ AWS Cloud boundary ============ -->
-  <rect x="274" y="80" width="1186" height="590" rx="12" fill="#fbfcfe" stroke="#232f3e" stroke-width="1.5" stroke-dasharray="6 4"/>
-  <rect x="288" y="92" width="32" height="24" rx="4" fill="#232f3e"/>
-  <text x="304" y="109" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">aws</text>
-  <text x="330" y="110" font-size="13.5" font-weight="800" fill="#232f3e">AWS Cloud (Urbani Sandbox / Account)</text>
+  <!-- ===================== Zone C: Alert Storage & Visualization ===================== -->
+  <rect x="324" y="424" width="740" height="280" rx="12" fill="#eef7ea" stroke="#c0e0ad" stroke-width="1.5"/>
+  <text x="344" y="452" class="zone-title" fill="#4a8a2c" font-size="14">Alert Storage &amp; Custom Visualization</text>
 
-  <!-- ===== Zone: Monitoring & Log Collection ===== -->
-  <rect x="290" y="128" width="530" height="268" rx="10" fill="#fdeef0" stroke="#f3b9c2" stroke-width="1.5"/>
-  <text x="306" y="152" class="zone-title" fill="#c0304a">Monitoring &amp; Log Collection (every 5 minutes)</text>
-
-  <!-- 1 CloudWatch -->
-  <g transform="translate(306,172)">
-    <rect x="0" y="0" width="148" height="70" rx="8" fill="#fff" stroke="#e6446a" stroke-width="1.5"/>
-    <rect x="14" y="14" width="30" height="30" rx="6" fill="#e6446a"/>
-    <text x="52" y="26" class="node-title">Amazon</text>
-    <text x="52" y="41" class="node-title">CloudWatch</text>
-    <text x="14" y="62" class="node-sub">Logs &amp; Metrics</text>
-    <circle cx="6" cy="6" r="11" fill="#16213e"/><text x="6" y="10" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">1</text>
+  <!-- Card 6: Lambda Alert Writer -->
+  <g transform="translate(704,470)">
+    <use href="#i-lambda" width="52" height="52"/>
+    <use href="#step" x="-6" y="-6" width="22" height="22"/><text x="5" y="10" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">6</text>
+    <text x="0" y="70" class="node-name">Lambda Alert Writer</text>
+    <text x="0" y="86" class="node-sub mono" font-size="9">UrbaniAlertWriterFn</text>
   </g>
-  <text x="308" y="264" class="bullet">• App / system logs</text>
-  <text x="308" y="280" class="bullet">• Metrics · 30-day retention</text>
-  <text x="308" y="296" class="node-mono">/aws/elasticbeanstalk/urbani-app</text>
+  <text x="704" y="580" class="bullet">• Validates strict JSON</text>
+  <text x="704" y="596" class="bullet">• Formats UrbaniIncidentAlert</text>
+  <text x="704" y="612" class="bullet">• Writes to DynamoDB</text>
 
-  <!-- 2 EventBridge -->
-  <g transform="translate(478,172)">
-    <rect x="0" y="0" width="150" height="70" rx="8" fill="#fff" stroke="#e6446a" stroke-width="1.5"/>
-    <rect x="14" y="14" width="30" height="30" rx="6" fill="#c0304a"/>
-    <text x="52" y="26" class="node-title">EventBridge</text>
-    <text x="52" y="41" class="node-title">Scheduler</text>
-    <text x="14" y="62" class="node-sub">rate(5 minutes)</text>
-    <circle cx="6" cy="6" r="11" fill="#16213e"/><text x="6" y="10" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">2</text>
+  <!-- Card 7: DynamoDB -->
+  <g transform="translate(344,470)">
+    <use href="#i-ddb" width="52" height="52"/>
+    <use href="#step" x="-6" y="-6" width="22" height="22"/><text x="5" y="10" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">7</text>
+    <text x="0" y="70" class="node-name">Amazon DynamoDB</text>
+    <text x="0" y="86" class="node-sub">UrbaniAlerts · KMS encrypted</text>
   </g>
-  <text x="480" y="264" class="bullet">• Runs every 5 min</text>
-  <text x="480" y="280" class="bullet">• 288 runs / day</text>
-  <text x="480" y="296" class="bullet">• Bounds token cost</text>
+  <text x="344" y="580" class="bullet mono" font-size="9">PK service_id · SK timestamp</text>
+  <text x="344" y="596" class="bullet mono" font-size="9">GSI anomaly_type-index</text>
+  <text x="344" y="612" class="bullet">• Alert history &amp; pattern memory</text>
 
-  <!-- 3 Lambda Collector -->
-  <g transform="translate(652,172)">
-    <rect x="0" y="0" width="152" height="70" rx="8" fill="#fff" stroke="#e6446a" stroke-width="1.5"/>
-    <rect x="14" y="14" width="30" height="30" rx="6" fill="#d9832f"/>
-    <text x="52" y="26" class="node-title">Lambda</text>
-    <text x="52" y="41" class="node-title">Collector</text>
-    <text x="14" y="62" class="node-mono">UrbaniTelemetryCollectorFn</text>
-    <circle cx="6" cy="6" r="11" fill="#16213e"/><text x="6" y="10" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">3</text>
+  <!-- Card 8: Custom Web Dashboard -->
+  <g transform="translate(884,470)">
+    <use href="#i-dash" width="52" height="52"/>
+    <use href="#step" x="-6" y="-6" width="22" height="22"/><text x="5" y="10" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">8</text>
+    <text x="0" y="70" class="node-name">Custom Web Dashboard</text>
+    <text x="0" y="86" class="node-sub">React SPA + Node API (nginx)</text>
   </g>
-  <text x="654" y="264" class="bullet">• Queries CloudWatch Insights</text>
-  <text x="654" y="280" class="bullet">• Filters errors / exceptions</text>
-  <text x="654" y="296" class="bullet">• Max 100 log lines / cycle</text>
+  <text x="884" y="580" class="bullet">• KPIs · alerts · logs · metrics</text>
+  <text x="884" y="596" class="bullet">• Reads DynamoDB + LIVE logs</text>
+  <text x="884" y="612" class="bullet">• NOT Grafana / CloudWatch dash</text>
 
-  <!-- arrows within zone -->
-  <line x1="456" y1="207" x2="476" y2="207" stroke="#4a5568" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="630" y1="207" x2="650" y2="207" stroke="#4a5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <!-- writer -> dynamo -->
+  <path d="M700 496 H424" stroke="#38414c" stroke-width="2.4" marker-end="url(#ah)"/>
+  <!-- step 6 vertical from guardrails down to writer -->
+  <path d="M1250 248 V440 H730 V466" fill="none" stroke="#38414c" stroke-width="2.4" marker-end="url(#ah)"/>
+  <text x="900" y="434" class="flow">Structured JSON finding (step 6)</text>
+  <!-- dynamo -> dashboard (dashed query) -->
+  <path d="M424 522 V636 H910 V522" fill="none" stroke="#98a2b3" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ahg)"/>
+  <text x="560" y="632" class="flow">Dashboard queries DynamoDB alerts + LIVE logs API</text>
 
-  <!-- 3 -> 4 connector across zones -->
-  <line x1="820" y1="207" x2="854" y2="207" stroke="#4a5568" stroke-width="2" marker-end="url(#arrow)"/>
+  <!-- ===================== Zone D: AI Log Chatbot + API Gateway ===================== -->
+  <rect x="1084" y="424" width="476" height="280" rx="12" fill="#fff6e6" stroke="#e6cf95" stroke-width="1.5"/>
+  <text x="1104" y="452" class="zone-title" fill="#9c6f08" font-size="14">AI Log Chatbot &amp; Live Feed</text>
 
-  <!-- ===== Zone: AI Analysis & Alert Processing ===== -->
-  <rect x="858" y="128" width="586" height="268" rx="10" fill="#e9f7f2" stroke="#a7ddc9" stroke-width="1.5"/>
-  <text x="874" y="152" class="zone-title" fill="#1c7d5a">AI Analysis &amp; Alert Processing</text>
-
-  <!-- 4 Bedrock -->
-  <g transform="translate(874,172)">
-    <rect x="0" y="0" width="278" height="70" rx="8" fill="#fff" stroke="#1c9e78" stroke-width="1.5"/>
-    <rect x="14" y="14" width="30" height="30" rx="6" fill="#1c9e78"/>
-    <text x="52" y="24" class="node-title">Amazon Bedrock (LLM Analysis)</text>
-    <text x="52" y="40" class="node-sub">Claude 3.5 Sonnet v2 (primary)</text>
-    <text x="52" y="56" class="node-mono">anthropic.claude-3-5-sonnet-20241022-v2:0</text>
-    <circle cx="6" cy="6" r="11" fill="#16213e"/><text x="6" y="10" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">4</text>
+  <!-- Card 9: Chatbot -->
+  <g transform="translate(1104,470)">
+    <use href="#i-chat" width="52" height="52"/>
+    <use href="#step" x="-6" y="-6" width="22" height="22"/><text x="5" y="10" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">9</text>
+    <text x="0" y="70" class="node-name">AI Log Chatbot</text>
+    <text x="0" y="86" class="node-sub">"Ask about the logs"</text>
   </g>
-  <text x="876" y="264" class="bullet">• Analyzes log patterns · cites evidence</text>
-  <text x="876" y="280" class="bullet">• Suggests root cause + recommendations</text>
-  <text x="876" y="296" class="bullet">• temp 0.0 · max_tokens 1024 · top_p 1.0</text>
-  <text x="876" y="312" class="bullet">• Fallback: Nova Pro / Nova Lite</text>
+  <text x="1104" y="580" class="bullet">• Natural-language Q&amp;A over logs</text>
+  <text x="1104" y="596" class="bullet">• Evidence-grounded · cites lines</text>
+  <text x="1104" y="612" class="bullet">• Advisory only</text>
 
-  <!-- 5 Bedrock -> Guardrails -->
-  <line x1="1152" y1="207" x2="1176" y2="207" stroke="#4a5568" stroke-width="2" marker-end="url(#arrow)"/>
-  <circle cx="1164" cy="207" r="11" fill="#16213e"/><text x="1164" y="211" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">5</text>
-
-  <!-- Guardrails -->
-  <g transform="translate(1178,172)">
-    <rect x="0" y="0" width="252" height="70" rx="8" fill="#fff" stroke="#1c9e78" stroke-width="1.5"/>
-    <rect x="14" y="14" width="30" height="30" rx="6" fill="#0f7d5c"/>
-    <text x="52" y="24" class="node-title">Bedrock Guardrails</text>
-    <text x="52" y="40" class="node-mono">urbani-dpi-guardrail-v1</text>
-    <text x="52" y="56" class="node-sub">Safety &amp; compliance</text>
+  <!-- API Gateway (live logs) -->
+  <g transform="translate(1384,470)">
+    <use href="#i-apigw" width="52" height="52"/>
+    <text x="0" y="70" class="node-name">API Gateway</text>
+    <text x="0" y="86" class="node-sub">LIVE logs · x-api-key</text>
   </g>
-  <text x="1180" y="264" class="bullet">• PII redaction (IPs, keys, tokens)</text>
-  <text x="1180" y="280" class="bullet">• Prompt-injection defense</text>
-  <text x="1180" y="296" class="bullet">• No unsupported / auto commands</text>
-  <text x="1180" y="312" class="node-mono" font-size="9.5">• NO_ANOMALY_DETECTED if no evidence</text>
+  <text x="1384" y="580" class="bullet">• Real Urbani logs (5-min)</text>
+  <text x="1384" y="596" class="bullet">• Read-only, secured</text>
+  <text x="1384" y="612" class="bullet mono" font-size="9">/logs/latest</text>
 
-  <!-- ===== Zone: Alert Storage & Visualization ===== -->
-  <rect x="290" y="430" width="700" height="222" rx="10" fill="#eef7ea" stroke="#bfe0ad" stroke-width="1.5"/>
-  <text x="306" y="454" class="zone-title" fill="#3a7d1c">Alert Storage &amp; Visualization</text>
+  <!-- dashboard <-> chatbot link -->
+  <path d="M1060 496 H1100" stroke="#38414c" stroke-width="2.4" marker-end="url(#ah)"/>
+  <!-- apigw -> chatbot (feeds logs) -->
+  <path d="M1410 522 V548 H1156 V522" fill="none" stroke="#98a2b3" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ahg)"/>
 
-  <!-- 7 Lambda Alert Writer -->
-  <g transform="translate(650,470)">
-    <rect x="0" y="0" width="160" height="70" rx="8" fill="#fff" stroke="#d9832f" stroke-width="1.5"/>
-    <rect x="14" y="14" width="30" height="30" rx="6" fill="#d9832f"/>
-    <text x="52" y="26" class="node-title">Lambda</text>
-    <text x="52" y="41" class="node-title">Alert Writer</text>
-    <text x="14" y="62" class="node-mono">UrbaniAlertWriterFn</text>
-    <circle cx="6" cy="6" r="11" fill="#16213e"/><text x="6" y="10" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">7</text>
+  <!-- ============================ Users panel ============================ -->
+  <rect x="24" y="470" width="236" height="180" rx="12" fill="#f7f9fc" stroke="#c7d0e0" stroke-width="1.5"/>
+  <text x="44" y="500" class="panel-title" font-size="14">Users / Team</text>
+  <g transform="translate(40,516)">
+    <use href="#i-user" x="0" width="40" height="40"/><text x="20" y="54" class="node-sub" text-anchor="middle">Operations</text>
+    <use href="#i-user" x="70" width="40" height="40"/><text x="90" y="54" class="node-sub" text-anchor="middle">Development</text>
+    <use href="#i-user" x="150" width="40" height="40"/><text x="170" y="54" class="node-sub" text-anchor="middle">Support</text>
   </g>
-  <text x="652" y="562" class="bullet">• Validates strict JSON schema</text>
-  <text x="652" y="578" class="bullet">• Formats UrbaniIncidentAlert</text>
-  <text x="652" y="594" class="bullet">• Writes finding to DynamoDB</text>
+  <text x="44" y="612" class="node-sub">Step 10 · Engineers review evidence,</text>
+  <text x="44" y="628" class="node-sub">chat with the assistant, apply fix (manual)</text>
 
-  <!-- DynamoDB -->
-  <g transform="translate(320,470)">
-    <rect x="0" y="0" width="180" height="70" rx="8" fill="#fff" stroke="#7a4dd6" stroke-width="1.5"/>
-    <rect x="14" y="14" width="30" height="30" rx="6" fill="#7a4dd6"/>
-    <text x="52" y="26" class="node-title">Amazon DynamoDB</text>
-    <text x="52" y="41" class="node-sub">UrbaniAlerts</text>
-    <text x="14" y="62" class="node-sub">Encrypted at rest (KMS)</text>
-    <circle cx="6" cy="6" r="11" fill="#16213e"/><text x="6" y="10" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">6</text>
-  </g>
-  <text x="322" y="562" class="node-mono">PK service_id · SK timestamp</text>
-  <text x="322" y="578" class="node-mono">GSI anomaly_type-index</text>
-  <text x="322" y="594" class="bullet">• Alert history &amp; pattern memory</text>
+  <!-- dashboard -> users (view): from dashboard card bottom, down into the clear band below the zones, left, up into Users panel -->
+  <path d="M936 546 V722 H142 V652" fill="none" stroke="#98a2b3" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ahg)"/>
+  <text x="360" y="716" class="flow">Engineers view alerts &amp; insights · ask the AI chatbot (human-in-the-loop)</text>
 
-  <!-- 7 -> 6 (writer to dynamo) -->
-  <line x1="648" y1="505" x2="504" y2="505" stroke="#4a5568" stroke-width="2" marker-end="url(#arrow)"/>
-
-  <!-- step 6 label: guardrails down to alert writer -->
-  <path d="M1304,242 L1304,340 L730,340 L730,468" fill="none" stroke="#4a5568" stroke-width="2" marker-end="url(#arrow)"/>
-  <text x="900" y="333" class="flowlbl">Structured JSON finding → Alert Writer</text>
-
-  <!-- ===== Dashboard node (step 8) ===== -->
-  <g transform="translate(1030,470)">
-    <rect x="0" y="0" width="200" height="70" rx="8" fill="#fff" stroke="#e6446a" stroke-width="1.5"/>
-    <rect x="14" y="14" width="30" height="30" rx="6" fill="#e6446a"/>
-    <text x="52" y="24" class="node-title">Observability Dashboard</text>
-    <text x="52" y="40" class="node-sub">CloudWatch / Managed Grafana</text>
-    <text x="52" y="56" class="node-sub">+ Urbani Admin Dashboard</text>
-    <circle cx="6" cy="6" r="11" fill="#16213e"/><text x="6" y="10" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">8</text>
-  </g>
-  <text x="1030" y="562" class="bullet">• Active alerts + evidence snippet</text>
-  <text x="1030" y="578" class="bullet">• Recommended runbook steps</text>
-  <text x="1030" y="594" class="bullet">• Error trends · service health</text>
-
-  <!-- dynamo -> dashboard (dashed query), routed below the storage-zone nodes -->
-  <path d="M430,540 L430,614 L1130,614 L1130,544" fill="none" stroke="#8a94a6" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#arrowDash)"/>
-  <text x="700" y="608" class="flowlbl">Dashboard queries DynamoDB for active alerts</text>
-
-  <!-- caption for the human-in-the-loop view arrow, placed in the gap band above its corridor -->
-  <text x="470" y="681" class="flowlbl" fill="#8a94a6">Engineers view alerts &amp; AI insights (human-in-the-loop) — no automated action</text>
-
-  <!-- ===== Notifications (optional / out of scope) ===== -->
-  <g transform="translate(1246,470)">
-    <rect x="0" y="0" width="196" height="140" rx="8" fill="#faf3fb" stroke="#d9a6e0" stroke-width="1.5" stroke-dasharray="5 3"/>
-    <rect x="14" y="14" width="28" height="28" rx="6" fill="#b25bc0"/>
-    <text x="50" y="26" class="node-title">Amazon SNS</text>
-    <text x="50" y="40" class="node-sub">Notifications</text>
-    <text x="16" y="66" class="bullet" font-weight="700" fill="#8a3a97">Optional — OUT of MVP scope</text>
-    <text x="16" y="86" class="bullet">• Email / Teams / Slack alerts</text>
-    <text x="16" y="104" class="bullet">• Critical error escalation</text>
-    <text x="16" y="122" class="bullet">• Deferred to roadmap phase 4</text>
-  </g>
-
-  <!-- ============ Users / Team ============ -->
-  <rect x="20" y="478" width="210" height="162" rx="10" fill="#f4f6fb" stroke="#c7d0e0" stroke-width="1.5"/>
-  <text x="36" y="504" class="grp">Users / Team</text>
-  <g transform="translate(36,516)">
-    <circle cx="26" cy="30" r="13" fill="#5c8bd6"/><text x="26" y="60" class="small" text-anchor="middle">Operations</text>
-    <circle cx="92" cy="30" r="13" fill="#1c9e78"/><text x="92" y="60" class="small" text-anchor="middle">Development</text>
-    <circle cx="158" cy="30" r="13" fill="#d9832f"/><text x="158" y="60" class="small" text-anchor="middle">Support</text>
-  </g>
-  <text x="36" y="606" class="small">Step 9 · Engineer reviews evidence,</text>
-  <text x="36" y="622" class="small">validates &amp; applies fix (manual)</text>
-
-  <!-- dashboard -> users (view): from dashboard left edge, down into the gap below the storage zone, left, then up into Users panel -->
-  <path d="M1080,540 L1080,687 L150,687 L150,642" fill="none" stroke="#8a94a6" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#arrowDash)"/>
-
-  <!-- ============ Key configuration / governance ============ -->
-  <rect x="20" y="692" width="1440" height="164" rx="10" fill="#f7f9fc" stroke="#c7d0e0" stroke-width="1.5"/>
-  <text x="36" y="718" class="grp">Key Configuration &amp; Governance</text>
-
-  <text x="36"  y="744" class="bullet">• EventBridge cadence: every 5 minutes (288 runs/day)</text>
-  <text x="36"  y="766" class="bullet">• Telemetry window capped at 100 log lines (~1,500 tokens)</text>
-  <text x="36"  y="788" class="bullet">• Bedrock: temperature 0.0, max_tokens 1024, top_p 1.0</text>
-  <text x="36"  y="810" class="bullet">• Read-only IAM (UrbaniCollectorExecutionRole) — least privilege</text>
-
-  <text x="540" y="744" class="bullet">• KMS encryption at rest (DynamoDB, logs, Bedrock logs)</text>
-  <text x="540" y="766" class="bullet">• CloudTrail auditing of Bedrock / Lambda / DynamoDB calls</text>
-  <text x="540" y="788" class="bullet">• AWS Budgets soft alerts at $50 / $100; &lt; $2.50 / day target</text>
-  <text x="540" y="810" class="bullet">• Guardrails: PII redaction + prompt-injection defense</text>
-
-  <text x="1010" y="744" class="bullet">• MVP is READ-ONLY — zero write to production runtimes</text>
-  <text x="1010" y="766" class="bullet">• Evidence-based AI — cite log lines or return NO_ANOMALY</text>
-  <text x="1010" y="788" class="bullet">• Human-in-the-loop — NO automated remediation</text>
-  <text x="1010" y="810" class="bullet">• OUT of scope: SNS/Slack/email, VPC PrivateLink, billing</text>
+  <!-- ============================ Governance strip ============================ -->
+  <rect x="24" y="742" width="1552" height="132" rx="12" fill="#f7f9fc" stroke="#c7d0e0" stroke-width="1.5"/>
+  <text x="44" y="768" class="panel-title" font-size="14">Cross-cutting Governance &amp; Key Configuration</text>
+  <g transform="translate(44,782)"><use href="#i-iam" width="34" height="34"/><text x="42" y="15" class="bullet" font-weight="700">IAM — least privilege</text><text x="42" y="30" class="bullet">read-only exec role</text></g>
+  <g transform="translate(300,782)"><use href="#i-kms" width="34" height="34"/><text x="42" y="15" class="bullet" font-weight="700">KMS — encryption</text><text x="42" y="30" class="bullet">at rest everywhere</text></g>
+  <g transform="translate(556,782)"><use href="#i-trail" width="34" height="34"/><text x="42" y="15" class="bullet" font-weight="700">CloudTrail — audit</text><text x="42" y="30" class="bullet">all API calls</text></g>
+  <g transform="translate(812,782)"><use href="#i-budget" width="34" height="34"/><text x="42" y="15" class="bullet" font-weight="700">AWS Budgets</text><text x="42" y="30" class="bullet">$50 / $100 alerts</text></g>
+  <g transform="translate(1068,782)"><use href="#i-guard" width="34" height="34"/><text x="42" y="15" class="bullet" font-weight="700">Guardrails</text><text x="42" y="30" class="bullet">PII + injection defense</text></g>
+  <g transform="translate(1324,782)"><use href="#i-cdk" width="34" height="34"/><text x="42" y="15" class="bullet" font-weight="700">AWS CDK IaC</text><text x="42" y="30" class="bullet">all resources</text></g>
+  <text x="44" y="846" class="bullet">• Visualization is a CUSTOM WEB DASHBOARD + AI Log Chatbot (React SPA + Node API behind nginx) — NOT Amazon Managed Grafana or CloudWatch dashboards.</text>
+  <text x="44" y="864" class="bullet">• Live logs integrated via API Gateway (/logs/latest, x-api-key). Metrics / services / alerts remain MOCK until endpoints are provisioned. MVP is READ-ONLY, human-in-the-loop.</text>
 </svg>

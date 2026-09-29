@@ -110,6 +110,28 @@ export const aiApi = {
     api.post<Sourced<AIAnalysis>>('/ai/analyze', { service, environment }),
 };
 
+export interface ChatTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatAnswer {
+  answer: string;
+  citations: string[];
+  provider: string;
+  modelId: string;
+  service: string;
+  environment: string;
+  logsSource: string;
+  inputTokens: number;
+  outputTokens: number;
+}
+
+export const chatApi = {
+  ask: (question: string, opts: { service?: string; environment?: string; history?: ChatTurn[] } = {}) =>
+    api.post<Sourced<ChatAnswer>>('/chat', { question, ...opts }),
+};
+
 export const usageApi = {
   usage: () =>
     api.get<

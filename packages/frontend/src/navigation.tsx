@@ -30,6 +30,7 @@ export const NAV_SECTIONS: NavSection[] = [
   { key: 'logs', label: 'Logs', title: 'Logs', path: '/logs', icon: IconLogs, enabled: true },
   { key: 'metrics', label: 'Metrics', title: 'Metrics', path: '/metrics', icon: IconMetrics, enabled: true },
   { key: 'ai', label: 'AI Insights', title: 'AI Insights', path: '/ai', icon: IconAI, enabled: true },
+  { key: 'assistant', label: 'AI Assistant', title: 'AI Log Assistant', path: '/assistant', icon: IconAI, enabled: true },
   { key: 'services', label: 'Services', title: 'Services / Applications', path: '/services', icon: IconServices, enabled: true },
   { key: 'usage', label: 'Usage & Cost', title: 'Usage & Cost', path: '/usage', icon: IconCost, enabled: true },
   { key: 'audit', label: 'Audit / Activity', title: 'Audit / Activity', path: '/audit', icon: IconAudit, enabled: true },

@@ -42,7 +42,20 @@ const schema = z.object({
   DATABASE_URL: z.string().optional(),
   DB_SQLITE_PATH: z.string().default('./data/urbani.sqlite'),
 
-  INTEGRATION_MODE: z.enum(['mock', 'aws']).default('mock'),
+  // mock  = all adapters mocked (Phase 1/2 default)
+  // live  = use real integrations where configured (e.g. the Urbani logs API),
+  //         falling back to mock for any integration that is not yet available
+  // aws   = full AWS SDK integration (reserved for later; not implemented)
+  INTEGRATION_MODE: z.enum(['mock', 'live', 'aws']).default('mock'),
+
+  // ---- Real Urbani telemetry API (Phase 3 integration) ----
+  // Live CloudWatch logs are exposed via an API Gateway endpoint secured by an
+  // x-api-key. The key is a SECRET: read from env only, never hardcoded, logged,
+  // or shipped to the browser (the backend calls this server-side).
+  URBANI_API_BASE_URL: z.string().optional(),
+  URBANI_API_KEY: z.string().optional(),
+  URBANI_SERVICE: z.string().default('urbani-app'),
+  URBANI_REFRESH_MINUTES: z.coerce.number().default(5),
 
   AWS_REGION: z.string().default('us-east-1'),
   AWS_ACCOUNT_ID: z.string().optional(),
@@ -140,6 +153,15 @@ export const config = {
     accountId: env.AWS_ACCOUNT_ID ?? null,
     // Presence is optional; adapters must never assume static keys exist.
     hasStaticCredentials: Boolean(env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY),
+  },
+
+  urbani: {
+    apiBaseUrl: env.URBANI_API_BASE_URL ?? null,
+    apiKey: env.URBANI_API_KEY ?? null,
+    service: env.URBANI_SERVICE,
+    refreshMinutes: env.URBANI_REFRESH_MINUTES,
+    /** True when the real logs API is configured (base URL + key present). */
+    logsConfigured: Boolean(env.URBANI_API_BASE_URL && env.URBANI_API_KEY),
   },
 
   cloudwatch: {

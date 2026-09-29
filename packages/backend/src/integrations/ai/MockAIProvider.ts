@@ -1,5 +1,11 @@
 import type { UrbaniIncidentAlert, Severity } from '@urbani/shared';
-import type { AIProvider, AnalyzeTelemetryInput, AnalyzeTelemetryResult } from './AIProvider';
+import type {
+  AIProvider,
+  AnalyzeTelemetryInput,
+  AnalyzeTelemetryResult,
+  AskLogsInput,
+  AskLogsResult,
+} from './AIProvider';
 import { MOCK_NOTE } from '../mock/mockData';
 
 /**
@@ -130,5 +136,105 @@ export class MockAIProvider implements AIProvider {
       default:
         return ['Review the cited log lines and correlate with recent changes.'];
     }
+  }
+
+  /**
+   * Answer a natural-language question about the supplied log window.
+   * Deterministic, evidence-grounded (cites only provided log lines), advisory
+   * only. Mirrors how the future BedrockAIProvider will behave so the chat UI
+   * needs no changes when the real model is wired in.
+   */
+  async askLogs(input: AskLogsInput): Promise<AskLogsResult> {
+    const q = input.question.toLowerCase();
+    const logs = input.logs;
+    const errors = logs.filter((l) => l.level === 'ERROR' || l.level === 'FATAL');
+    const warns = logs.filter((l) => l.level === 'WARN');
+    const fmt = (l: (typeof logs)[number]) => `${l.timestamp} ${l.level} ${l.message}`;
+
+    // Grounding rule: with no logs in the window, refuse to speculate.
+    if (logs.length === 0) {
+      return this.buildAnswer(
+        input,
+        `There are no logs in the current window for ${input.service} (${input.environment}), ` +
+          `so I can't answer from evidence. When the application emits logs, ask again and I'll ` +
+          `ground my answer in those lines.`,
+        [],
+      );
+    }
+
+    let answer: string;
+    let citations: string[];
+
+    if (q.includes('error') || q.includes('fail') || q.includes('exception') || q.includes('wrong')) {
+      citations = errors.slice(0, 5).map(fmt);
+      answer = errors.length
+        ? `I found ${errors.length} error-level log line(s) in this window. The most relevant ` +
+          `appear to relate to "${this.topKeyword(errors)}". Review the cited lines below and ` +
+          `correlate them with recent deployments. This is advisory — please verify before acting.`
+        : `No error- or fatal-level lines are present in this window; the ${logs.length} entries are ` +
+          `informational/warnings. Nothing indicates a failure right now.`;
+    } else if (q.includes('summar') || q.includes('overview') || q.includes("what's happening") || q.includes('status')) {
+      citations = [...errors, ...warns].slice(0, 5).map(fmt);
+      answer =
+        `In this window for ${input.service}: ${logs.length} total lines — ` +
+        `${errors.length} error, ${warns.length} warning, ${logs.length - errors.length - warns.length} info/debug. ` +
+        (errors.length ? `Errors dominate around "${this.topKeyword(errors)}". ` : `No errors detected. `) +
+        `See cited lines for evidence.`;
+    } else if (q.includes('how many') || q.includes('count') || q.includes('number of')) {
+      citations = errors.slice(0, 3).map(fmt);
+      answer =
+        `Counts for this window — total: ${logs.length}, errors: ${errors.length}, ` +
+        `warnings: ${warns.length}. (Counts are exact for the fetched window only.)`;
+    } else if (q.includes('recommend') || q.includes('fix') || q.includes('what should') || q.includes('next')) {
+      const kw = this.topKeyword(errors.length ? errors : logs);
+      citations = errors.slice(0, 3).map(fmt);
+      answer =
+        `Based on the evidence, I'd suggest: (1) inspect the cited "${kw}" lines, ` +
+        `(2) correlate with the most recent deploy, (3) check the related subsystem's health metrics. ` +
+        `These are advisory steps for a human to review — I don't perform any automated remediation.`;
+    } else {
+      // Generic: keyword-match the question against the log messages.
+      const terms = q.split(/\W+/).filter((w) => w.length > 3);
+      const matched = logs.filter((l) => terms.some((t) => l.message.toLowerCase().includes(t)));
+      citations = (matched.length ? matched : logs).slice(0, 5).map(fmt);
+      answer = matched.length
+        ? `I found ${matched.length} log line(s) matching your question. See the cited lines below; ` +
+          `my answer is grounded only in these entries.`
+        : `I couldn't find log lines directly matching that in the current window. Here are the most ` +
+          `recent ${Math.min(logs.length, 5)} lines for context. Try asking about errors, a summary, or counts.`;
+    }
+
+    return this.buildAnswer(input, answer, citations);
+  }
+
+  private buildAnswer(input: AskLogsInput, answer: string, citations: string[]): AskLogsResult {
+    const inputTokens = Math.min(
+      Math.ceil((input.question.length + input.logs.reduce((n, l) => n + l.message.length, 0)) / 4),
+      1500,
+    );
+    return {
+      answer,
+      citations,
+      modelId: this.modelId,
+      provider: this.name,
+      inputTokens,
+      outputTokens: Math.ceil(answer.length / 4),
+      guardrailIntervened: false,
+      meta: { source: 'MOCK', note: MOCK_NOTE },
+    };
+  }
+
+  /** Cheap "topic" extraction: the most frequent salient word across messages. */
+  private topKeyword(logs: { message: string }[]): string {
+    const counts = new Map<string, number>();
+    for (const l of logs) {
+      for (const w of l.message.toLowerCase().split(/\W+/)) {
+        if (w.length > 4) counts.set(w, (counts.get(w) ?? 0) + 1);
+      }
+    }
+    let best = 'the logged errors';
+    let max = 0;
+    for (const [w, c] of counts) if (c > max) ((max = c), (best = w));
+    return best;
   }
 }

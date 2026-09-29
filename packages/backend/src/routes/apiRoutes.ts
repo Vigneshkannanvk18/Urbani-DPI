@@ -6,9 +6,11 @@ import { dashboardService } from '../services/dashboardService';
 import { alertService } from '../services/alertService';
 import { telemetryService } from '../services/telemetryService';
 import { aiService } from '../services/aiService';
+import { chatService } from '../services/chatService';
 import { usageService } from '../services/usageService';
 import { settingsService } from '../services/settingsService';
 import { auditRepository } from '../repositories/auditRepository';
+import { rateLimit } from '../middleware/rateLimit';
 
 /**
  * Protected API routes (Epic 10). Every route here requires authentication
@@ -76,7 +78,7 @@ const logQuerySchema = pageSchema.extend({
 apiRoutes.get(
   '/logs',
   asyncHandler(async (req, res) => {
-    res.json(telemetryService.logs(logQuerySchema.parse(req.query)));
+    res.json(await telemetryService.logs(logQuerySchema.parse(req.query)));
   }),
 );
 
@@ -120,6 +122,34 @@ apiRoutes.post(
   asyncHandler(async (req, res) => {
     const { service, environment } = analyzeSchema.parse(req.body);
     res.json(await aiService.analyze(service, environment));
+  }),
+);
+
+// -------------------- CHAT (AI Log Chatbot) --------------------
+// Natural-language Q&A grounded in the current log window. Advisory only.
+// Rate limited to protect the model from runaway cost/abuse.
+const chatSchema = z.object({
+  question: z.string().min(1).max(1000),
+  service: z.string().optional(),
+  environment: z.string().optional(),
+  history: z
+    .array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().max(4000) }))
+    .max(20)
+    .optional(),
+});
+apiRoutes.post(
+  '/chat',
+  rateLimit({ windowMs: 60_000, max: 30 }),
+  asyncHandler(async (req, res) => {
+    const body = chatSchema.parse(req.body);
+    res.json(
+      await chatService.ask(body.question, {
+        service: body.service,
+        environment: body.environment,
+        history: body.history,
+        actor: req.auth!.email,
+      }),
+    );
   }),
 );
 

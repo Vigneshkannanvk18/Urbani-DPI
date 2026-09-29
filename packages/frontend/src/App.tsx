@@ -9,6 +9,7 @@ import { AlertDetail } from './pages/AlertDetail';
 import { Logs } from './pages/Logs';
 import { Metrics } from './pages/Metrics';
 import { AIInsights } from './pages/AIInsights';
+import { Assistant } from './pages/Assistant';
 import { Services } from './pages/Services';
 import { Usage } from './pages/Usage';
 import { Audit } from './pages/Audit';
@@ -34,6 +35,7 @@ export function App() {
             <Route path="/logs" element={<Logs />} />
             <Route path="/metrics" element={<Metrics />} />
             <Route path="/ai" element={<AIInsights />} />
+            <Route path="/assistant" element={<Assistant />} />
             <Route path="/services" element={<Services />} />
             <Route path="/usage" element={<Usage />} />
             <Route path="/audit" element={<Audit />} />
