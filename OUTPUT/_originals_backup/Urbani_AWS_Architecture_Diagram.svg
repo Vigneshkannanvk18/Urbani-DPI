@@ -1,0 +1,283 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1720" height="1000" viewBox="0 0 1720 1000" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif">
+  <defs>
+    <style>
+      .nname { font-size: 15px; font-weight: 700; fill: #16191f; }
+      .nsub  { font-size: 12px; fill: #56606b; }
+      .mono  { font-family: 'Consolas','Courier New',monospace; }
+      .blt   { font-size: 12px; fill: #46505b; }
+      .ztitle{ font-size: 17px; font-weight: 700; }
+      .zsub  { font-size: 12px; }
+      .ptitle{ font-size: 16px; font-weight: 700; fill: #232f3e; }
+      .psub  { font-size: 12px; fill: #6b7480; }
+      .flow  { font-size: 12px; fill: #5f6b7a; }
+    </style>
+
+    <linearGradient id="gCompute" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FBA43A"/><stop offset="1" stop-color="#E1701A"/></linearGradient>
+    <linearGradient id="gMgmt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F34E96"/><stop offset="1" stop-color="#BE0F5E"/></linearGradient>
+    <linearGradient id="gML"  x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#40C4AA"/><stop offset="1" stop-color="#00857A"/></linearGradient>
+    <linearGradient id="gSec" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F65B69"/><stop offset="1" stop-color="#BE1A31"/></linearGradient>
+    <linearGradient id="gDb"  x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C24FE0"/><stop offset="1" stop-color="#8110B4"/></linearGradient>
+
+    <marker id="ah" markerWidth="12" markerHeight="12" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#2f3742"/></marker>
+    <marker id="ahg" markerWidth="12" markerHeight="12" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#8a94a6"/></marker>
+
+    <!-- ===== AWS smile logo ===== -->
+    <symbol id="aws-logo" viewBox="0 0 100 60">
+      <text x="50" y="30" font-size="30" font-weight="800" fill="#232f3e" text-anchor="middle" font-family="Arial">aws</text>
+      <path d="M20 44c18 10 42 10 60 0" fill="none" stroke="#FF9900" stroke-width="5" stroke-linecap="round"/>
+      <path d="M76 40l6 4-7 3z" fill="#FF9900"/>
+    </symbol>
+
+    <!-- ===== Service icons (64 tile) ===== -->
+    <!-- CloudWatch: cloud + magnifier + heartbeat -->
+    <symbol id="i-cw" viewBox="0 0 64 64">
+      <rect width="64" height="64" rx="12" fill="url(#gMgmt)"/>
+      <path d="M23 40a8 8 0 0 1 .8-15.9A10 10 0 0 1 43 26a7 7 0 0 1-.6 14z" fill="#fff"/>
+      <path d="M18 46h6l3.5-9 4.5 15 4.5-11 2.5 5h7" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <!-- EventBridge: three linked nodes -->
+    <symbol id="i-eb" viewBox="0 0 64 64">
+      <rect width="64" height="64" rx="12" fill="url(#gMgmt)"/>
+      <g stroke="#fff" stroke-width="2.6" fill="none"><path d="M26 23.5 30 41M40 23.5 36 41M26 21h14"/></g>
+      <g fill="#fff"><circle cx="22" cy="21" r="6"/><circle cx="44" cy="21" r="6"/><circle cx="33" cy="44" r="6"/></g>
+    </symbol>
+    <!-- Lambda: bold lambda -->
+    <symbol id="i-lambda" viewBox="0 0 64 64">
+      <rect width="64" height="64" rx="12" fill="url(#gCompute)"/>
+      <path d="M18 47 33 17h7L25 47z" fill="#fff"/>
+      <path d="M35 28 46 47h-7l-7-13z" fill="#fff"/>
+    </symbol>
+    <!-- Bedrock: generative graph -->
+    <symbol id="i-bedrock" viewBox="0 0 64 64">
+      <rect width="64" height="64" rx="12" fill="url(#gML)"/>
+      <g fill="none" stroke="#fff" stroke-width="2.8"><path d="M22 27v6c0 5 5 5 10 5s10 0 10-5v-6M27 22h10"/></g>
+      <g fill="#fff"><circle cx="22" cy="22" r="5.5"/><circle cx="42" cy="22" r="5.5"/><circle cx="32" cy="43" r="5.5"/></g>
+    </symbol>
+    <!-- Guardrails: shield + check -->
+    <symbol id="i-guard" viewBox="0 0 64 64">
+      <rect width="64" height="64" rx="12" fill="url(#gSec)"/>
+      <path d="M32 15l14 5.5v9.5c0 9.5-7 15-14 17.5-7-2.5-14-8-14-17.5V20.5z" fill="#fff"/>
+      <path d="M25 31l5 5 9-11" fill="none" stroke="#BE1A31" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <!-- DynamoDB: DB cylinder with bolt -->
+    <symbol id="i-ddb" viewBox="0 0 64 64">
+      <rect width="64" height="64" rx="12" fill="url(#gDb)"/>
+      <g fill="none" stroke="#fff" stroke-width="2.8"><ellipse cx="32" cy="20" rx="14" ry="5"/><path d="M18 20v24c0 2.8 6.3 5 14 5s14-2.2 14-5V20"/></g>
+      <path d="M34 30l-6 9h5l-1 7 7-10h-5z" fill="#fff"/>
+    </symbol>
+    <!-- API Gateway: brackets -->
+    <symbol id="i-apigw" viewBox="0 0 64 64">
+      <rect width="64" height="64" rx="12" fill="url(#gMgmt)"/>
+      <g fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M25 21 15 32l10 11M39 21l10 11-10 11M36 18 28 46"/></g>
+    </symbol>
+    <!-- Custom dashboard: browser + chart -->
+    <symbol id="i-dash" viewBox="0 0 64 64">
+      <rect width="64" height="64" rx="12" fill="url(#gCompute)"/>
+      <rect x="16" y="17" width="32" height="30" rx="3" fill="#fff"/>
+      <path d="M16 24h32" stroke="#E1701A" stroke-width="2.4"/>
+      <circle cx="21" cy="20.5" r="1.4" fill="#E1701A"/><circle cx="26" cy="20.5" r="1.4" fill="#E1701A"/>
+      <path d="M22 42l6-8 4.5 4.5L40 28" fill="none" stroke="#E1701A" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <!-- Chatbot: bubble + spark -->
+    <symbol id="i-chat" viewBox="0 0 64 64">
+      <rect width="64" height="64" rx="12" fill="url(#gML)"/>
+      <path d="M17 22a4 4 0 0 1 4-4h22a4 4 0 0 1 4 4v13a4 4 0 0 1-4 4H28l-8 7v-7a4 4 0 0 1-3-4z" fill="#fff"/>
+      <path d="M32 22.5l2 4.4 4.4 2-4.4 2-2 4.4-2-4.4-4.4-2 4.4-2z" fill="#00857A"/>
+    </symbol>
+
+    <!-- Existing-services panel icons -->
+    <symbol id="i-ebapp" viewBox="0 0 56 56"><rect width="56" height="56" rx="11" fill="url(#gCompute)"/><g fill="none" stroke="#fff" stroke-width="2.6"><circle cx="28" cy="25" r="11"/><path d="M28 14v22M18 20l20 10M38 20 18 30"/></g><circle cx="28" cy="42" r="3.2" fill="#fff"/></symbol>
+    <symbol id="i-ec2" viewBox="0 0 56 56"><rect width="56" height="56" rx="11" fill="url(#gCompute)"/><rect x="18" y="18" width="20" height="20" rx="2.5" fill="none" stroke="#fff" stroke-width="2.6"/><rect x="24" y="24" width="8" height="8" fill="#fff"/><path d="M23 13v5M28 13v5M33 13v5M23 38v5M28 38v5M33 38v5M13 23h5M13 28h5M13 33h5M38 23h5M38 28h5M38 33h5" stroke="#fff" stroke-width="2"/></symbol>
+    <symbol id="i-lam2" viewBox="0 0 56 56"><rect width="56" height="56" rx="11" fill="url(#gCompute)"/><path d="M16 42 29 15h6L22 42z" fill="#fff"/><path d="M31 25 42 42h-6l-6.5-12z" fill="#fff"/></symbol>
+    <symbol id="i-rds" viewBox="0 0 56 56"><rect width="56" height="56" rx="11" fill="url(#gDb)"/><g fill="none" stroke="#fff" stroke-width="2.6"><ellipse cx="28" cy="19" rx="12" ry="4.5"/><path d="M16 19v18c0 2.5 5.4 4.5 12 4.5s12-2 12-4.5V19"/></g></symbol>
+    <symbol id="i-cloud" viewBox="0 0 56 56"><rect width="56" height="56" rx="11" fill="#8a94a6"/><path d="M20 36a7 7 0 0 1 .6-13.9A9 9 0 0 1 38 24a6 6 0 0 1-.5 12z" fill="#fff"/></symbol>
+    <symbol id="i-user" viewBox="0 0 52 52"><circle cx="26" cy="26" r="24.5" fill="#eef1f6" stroke="#c3cddd" stroke-width="1.5"/><circle cx="26" cy="21" r="7.5" fill="none" stroke="#5f6b7a" stroke-width="2.6"/><path d="M13 40c0-7.5 6-11.5 13-11.5s13 4 13 11.5" fill="none" stroke="#5f6b7a" stroke-width="2.6"/></symbol>
+
+    <!-- Governance mini tiles -->
+    <symbol id="g-iam" viewBox="0 0 44 44"><rect width="44" height="44" rx="9" fill="url(#gSec)"/><circle cx="22" cy="18" r="5.5" fill="none" stroke="#fff" stroke-width="2.4"/><path d="M12 33c0-5.5 4.5-9 10-9s10 3.5 10 9" fill="none" stroke="#fff" stroke-width="2.4"/></symbol>
+    <symbol id="g-kms" viewBox="0 0 44 44"><rect width="44" height="44" rx="9" fill="url(#gSec)"/><circle cx="19" cy="19" r="5.5" fill="none" stroke="#fff" stroke-width="2.4"/><path d="M22.5 22.5 33 33M28 33l3-3" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/></symbol>
+    <symbol id="g-trail" viewBox="0 0 44 44"><rect width="44" height="44" rx="9" fill="url(#gMgmt)"/><path d="M13 31c0-5.5 4-9 9-9s9-3.5 9-9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cx="13" cy="31" r="2.6" fill="#fff"/><circle cx="31" cy="13" r="2.6" fill="#fff"/></symbol>
+    <symbol id="g-budget" viewBox="0 0 44 44"><rect width="44" height="44" rx="9" fill="url(#gMgmt)"/><circle cx="22" cy="22" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><path d="M22 15v14M19 18.5c0-1.6 1.2-2.3 3-2.3s3 .8 3 2.2-1.2 1.9-3 2.4-3 .9-3 2.3 1.2 2.2 3 2.2 3-.7 3-2.2" fill="none" stroke="#fff" stroke-width="1.9"/></symbol>
+    <symbol id="g-guard" viewBox="0 0 44 44"><rect width="44" height="44" rx="9" fill="url(#gSec)"/><path d="M22 11l9 3.5v6.5c0 6.5-4.5 10-9 12-4.5-2-9-5.5-9-12v-6.5z" fill="#fff"/><path d="M17.5 21.5l3.2 3.2L27 17" fill="none" stroke="#BE1A31" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="g-cdk" viewBox="0 0 44 44"><rect width="44" height="44" rx="9" fill="url(#gMgmt)"/><path d="M17 15l-7 7 7 7M27 15l7 7-7 7M25 13l-6 18" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </defs>
+
+  <rect width="1720" height="1000" fill="#ffffff"/>
+
+  <!-- ===== Title ===== -->
+  <text x="40" y="46" font-size="26" font-weight="800" fill="#16191f">URBANI — Proactive Observability &amp; AI Troubleshooting Assistant</text>
+  <text x="40" y="72" font-size="14" fill="#6b7480">Target AWS Architecture · Custom Web Dashboard + AI Log Chatbot · Read-only · Evidence-based · Human-in-the-loop · 5-minute loop</text>
+
+  <!-- ===== Existing services panel ===== -->
+  <rect x="30" y="100" width="270" height="372" rx="14" fill="#f7f9fc" stroke="#c7d0e0" stroke-width="1.5"/>
+  <text x="54" y="134" class="ptitle">Application / Services</text>
+  <text x="54" y="154" class="psub">(Existing — Urbani)</text>
+  <g transform="translate(54,172)"><use href="#i-ebapp" width="50" height="50"/><text x="64" y="22" class="nname">Elastic Beanstalk</text><text x="64" y="40" class="nsub">urbani-app (primary)</text></g>
+  <g transform="translate(54,232)"><use href="#i-ec2" width="50" height="50"/><text x="64" y="22" class="nname">EC2 / ECS / EKS</text><text x="64" y="40" class="nsub">apps &amp; containers</text></g>
+  <g transform="translate(54,292)"><use href="#i-lam2" width="50" height="50"/><text x="64" y="22" class="nname">Lambda apps</text><text x="64" y="40" class="nsub">serverless services</text></g>
+  <g transform="translate(54,352)"><use href="#i-rds" width="50" height="50"/><text x="64" y="22" class="nname">RDS / data stores</text><text x="64" y="40" class="nsub">databases</text></g>
+  <g transform="translate(54,412)"><use href="#i-cloud" width="50" height="50"/><text x="64" y="22" class="nname">Other AWS services</text><text x="64" y="40" class="nsub">future scope</text></g>
+
+  <!-- entry connector -->
+  <path d="M300 250 H352" stroke="#2f3742" stroke-width="2.6" marker-end="url(#ah)"/>
+  <text x="306" y="240" class="flow">App logs</text>
+  <text x="306" y="266" class="flow">/ metrics</text>
+
+  <!-- ===== AWS Cloud boundary ===== -->
+  <rect x="356" y="100" width="1330" height="700" rx="16" fill="#fcfdff" stroke="#232f3e" stroke-width="1.8" stroke-dasharray="8 6"/>
+  <use href="#aws-logo" x="376" y="116" width="66" height="40"/>
+  <text x="452" y="142" font-size="18" font-weight="800" fill="#232f3e">AWS Cloud (Urbani Account · ap-south-1)</text>
+
+  <!-- ===== Zone A: Monitoring ===== -->
+  <rect x="378" y="172" width="588" height="270" rx="14" fill="#fdeff3" stroke="#f3bdcc" stroke-width="1.6"/>
+  <text x="402" y="204" class="ztitle" fill="#be0f5e">Monitoring &amp; Log Collection</text>
+  <text x="402" y="224" class="zsub" fill="#be0f5e">(every 5 minutes)</text>
+
+  <g transform="translate(402,238)">
+    <use href="#i-cw" width="64" height="64"/>
+    <circle cx="6" cy="6" r="13" fill="#232f3e"/><text x="6" y="11" font-size="13" font-weight="800" fill="#fff" text-anchor="middle">1</text>
+    <text x="0" y="86" class="nname">Amazon CloudWatch</text><text x="0" y="104" class="nsub">Logs &amp; Metrics</text>
+  </g>
+  <text x="402" y="368" class="blt">• Application / system logs</text>
+  <text x="402" y="388" class="blt">• Metrics · 30-day retention</text>
+  <text x="402" y="408" class="blt mono" font-size="8.5">/aws/elasticbeanstalk/urbani-app</text>
+
+  <g transform="translate(602,238)">
+    <use href="#i-eb" width="64" height="64"/>
+    <circle cx="6" cy="6" r="13" fill="#232f3e"/><text x="6" y="11" font-size="13" font-weight="800" fill="#fff" text-anchor="middle">2</text>
+    <text x="0" y="86" class="nname">EventBridge</text><text x="0" y="104" class="nsub">Scheduler · rate(5m)</text>
+  </g>
+  <text x="602" y="368" class="blt">• Fires every 5 minutes</text>
+  <text x="602" y="388" class="blt">• 288 runs / day</text>
+  <text x="602" y="408" class="blt">• Bounds token cost</text>
+
+  <g transform="translate(800,238)">
+    <use href="#i-lambda" width="64" height="64"/>
+    <circle cx="6" cy="6" r="13" fill="#232f3e"/><text x="6" y="11" font-size="13" font-weight="800" fill="#fff" text-anchor="middle">3</text>
+    <text x="0" y="86" class="nname">Lambda Collector</text><text x="0" y="104" class="nsub mono" font-size="10">UrbaniTelemetryCollectorFn</text>
+  </g>
+  <text x="800" y="368" class="blt">• CloudWatch Insights query</text>
+  <text x="800" y="388" class="blt">• Filters errors / exceptions</text>
+  <text x="800" y="408" class="blt">• Max 100 log lines</text>
+
+  <path d="M480 270 H598" stroke="#2f3742" stroke-width="2.6" marker-end="url(#ah)"/>
+  <path d="M678 270 H796" stroke="#2f3742" stroke-width="2.6" marker-end="url(#ah)"/>
+
+  <!-- ===== Zone B: AI Analysis ===== -->
+  <rect x="990" y="172" width="676" height="270" rx="14" fill="#e7f6f1" stroke="#a3dcc7" stroke-width="1.6"/>
+  <text x="1014" y="204" class="ztitle" fill="#00857a">AI Analysis &amp; Alert Processing</text>
+
+  <g transform="translate(1014,238)">
+    <use href="#i-bedrock" width="64" height="64"/>
+    <circle cx="6" cy="6" r="13" fill="#232f3e"/><text x="6" y="11" font-size="13" font-weight="800" fill="#fff" text-anchor="middle">4</text>
+    <text x="0" y="86" class="nname">Amazon Bedrock</text><text x="0" y="104" class="nsub">Claude 3.5 Sonnet v2 · LLM analysis</text>
+  </g>
+  <text x="1014" y="368" class="blt">• Analyzes log patterns · cites evidence</text>
+  <text x="1014" y="388" class="blt">• Suggests root cause + recommendations</text>
+  <text x="1014" y="408" class="blt mono" font-size="9.5">temp 0.0 · max_tokens 1024 · Nova fallback</text>
+
+  <g transform="translate(1350,238)">
+    <use href="#i-guard" width="64" height="64"/>
+    <circle cx="6" cy="6" r="13" fill="#232f3e"/><text x="6" y="11" font-size="13" font-weight="800" fill="#fff" text-anchor="middle">5</text>
+    <text x="0" y="86" class="nname">Bedrock Guardrails</text><text x="0" y="104" class="nsub">Safety &amp; compliance</text>
+  </g>
+  <text x="1350" y="368" class="blt">• PII redaction · injection defense</text>
+  <text x="1350" y="388" class="blt mono" font-size="10.5">urbani-dpi-guardrail-v1</text>
+  <text x="1350" y="408" class="blt mono" font-size="10.5">NO_ANOMALY_DETECTED if none</text>
+
+  <path d="M876 270 H986" stroke="#2f3742" stroke-width="2.6" marker-end="url(#ah)"/>
+  <path d="M1300 270 H1346" stroke="#2f3742" stroke-width="2.6" marker-end="url(#ah)"/>
+
+  <!-- ===== Zone C: Storage & Visualization ===== -->
+  <rect x="378" y="474" width="784" height="300" rx="14" fill="#eef7ea" stroke="#bee0ab" stroke-width="1.6"/>
+  <text x="402" y="506" class="ztitle" fill="#4a8a2c">Alert Storage &amp; Custom Visualization</text>
+
+  <g transform="translate(402,528)">
+    <use href="#i-ddb" width="64" height="64"/>
+    <circle cx="6" cy="6" r="13" fill="#232f3e"/><text x="6" y="11" font-size="13" font-weight="800" fill="#fff" text-anchor="middle">7</text>
+    <text x="0" y="86" class="nname">Amazon DynamoDB</text><text x="0" y="104" class="nsub">UrbaniAlerts · KMS encrypted</text>
+  </g>
+  <text x="402" y="660" class="blt mono" font-size="10.5">PK service_id · SK timestamp</text>
+  <text x="402" y="680" class="blt mono" font-size="10.5">GSI anomaly_type-index</text>
+  <text x="402" y="700" class="blt">• Alert history &amp; pattern memory</text>
+
+  <g transform="translate(660,528)">
+    <use href="#i-lambda" width="64" height="64"/>
+    <circle cx="6" cy="6" r="13" fill="#232f3e"/><text x="6" y="11" font-size="13" font-weight="800" fill="#fff" text-anchor="middle">6</text>
+    <text x="0" y="86" class="nname">Lambda Alert Writer</text><text x="0" y="104" class="nsub mono" font-size="10.5">UrbaniAlertWriterFn</text>
+  </g>
+  <text x="660" y="660" class="blt">• Validates strict JSON</text>
+  <text x="660" y="680" class="blt">• Formats UrbaniIncidentAlert</text>
+  <text x="660" y="700" class="blt">• Writes to DynamoDB</text>
+
+  <g transform="translate(918,528)">
+    <use href="#i-dash" width="64" height="64"/>
+    <circle cx="6" cy="6" r="13" fill="#232f3e"/><text x="6" y="11" font-size="13" font-weight="800" fill="#fff" text-anchor="middle">8</text>
+    <text x="0" y="86" class="nname">Custom Web Dashboard</text><text x="0" y="104" class="nsub">React SPA + Node API · nginx</text>
+  </g>
+  <text x="918" y="660" class="blt">• KPIs · alerts · logs · metrics</text>
+  <text x="918" y="680" class="blt">• Reads DynamoDB + LIVE logs</text>
+  <text x="918" y="700" class="blt">• NOT Grafana / CloudWatch dash</text>
+
+  <!-- writer -> dynamo -->
+  <path d="M656 560 H480" stroke="#2f3742" stroke-width="2.6" marker-end="url(#ah)"/>
+  <!-- step 6: guardrails down into writer -->
+  <path d="M1382 306 V460 H690 V524" fill="none" stroke="#2f3742" stroke-width="2.6" marker-end="url(#ah)"/>
+  <text x="1000" y="454" class="flow" fill="#2f3742">Structured JSON finding → Alert Writer (step 6)</text>
+
+  <!-- ===== Zone D: Chatbot & Live Feed ===== -->
+  <rect x="1186" y="474" width="480" height="300" rx="14" fill="#fff6e5" stroke="#e7cf92" stroke-width="1.6"/>
+  <text x="1210" y="506" class="ztitle" fill="#9c6f08">AI Log Chatbot &amp; Live Feed</text>
+
+  <g transform="translate(1210,528)">
+    <use href="#i-chat" width="64" height="64"/>
+    <circle cx="6" cy="6" r="13" fill="#232f3e"/><text x="6" y="11" font-size="13" font-weight="800" fill="#fff" text-anchor="middle">9</text>
+    <text x="0" y="86" class="nname">AI Log Chatbot</text><text x="0" y="104" class="nsub">"Ask about the logs"</text>
+  </g>
+  <text x="1210" y="660" class="blt">• Natural-language Q&amp;A over logs</text>
+  <text x="1210" y="680" class="blt">• Evidence-grounded · cites lines</text>
+  <text x="1210" y="700" class="blt">• Advisory only</text>
+
+  <g transform="translate(1468,528)">
+    <use href="#i-apigw" width="64" height="64"/>
+    <text x="0" y="86" class="nname">API Gateway</text><text x="0" y="104" class="nsub">LIVE logs · x-api-key</text>
+  </g>
+  <text x="1468" y="660" class="blt">• Real Urbani logs (5-min)</text>
+  <text x="1468" y="680" class="blt">• Read-only, secured</text>
+  <text x="1468" y="700" class="blt mono" font-size="10.5">/logs/latest</text>
+
+  <!-- dashboard -> chatbot -->
+  <path d="M1162 560 H1206" stroke="#2f3742" stroke-width="2.6" marker-end="url(#ah)"/>
+  <!-- apigw feeds chatbot (dashed) -->
+  <path d="M1500 594 V620 H1242 V594" fill="none" stroke="#8a94a6" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#ahg)"/>
+  <!-- dynamo/dashboard query (dashed) inside zone C bottom band -->
+  <path d="M440 594 V726 H950 V594" fill="none" stroke="#8a94a6" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#ahg)"/>
+  <text x="590" y="722" class="flow">Dashboard queries DynamoDB alerts + LIVE logs API</text>
+
+  <!-- ===== Users panel ===== -->
+  <rect x="30" y="512" width="270" height="196" rx="14" fill="#f7f9fc" stroke="#c7d0e0" stroke-width="1.5"/>
+  <text x="54" y="546" class="ptitle">Users / Team</text>
+  <g transform="translate(50,562)">
+    <use href="#i-user" x="0" width="48" height="48"/><text x="24" y="64" class="nsub" text-anchor="middle">Operations</text>
+    <use href="#i-user" x="82" width="48" height="48"/><text x="106" y="64" class="nsub" text-anchor="middle">Development</text>
+    <use href="#i-user" x="170" width="48" height="48"/><text x="194" y="64" class="nsub" text-anchor="middle">Support</text>
+  </g>
+  <text x="54" y="674" class="nsub">Step 10 · Engineers review evidence,</text>
+  <text x="54" y="692" class="nsub">chat with the assistant, apply fix (manual)</text>
+
+  <!-- dashboard -> users (view), routed in the clear band below zones -->
+  <path d="M960 594 V748 H165 V710" fill="none" stroke="#8a94a6" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#ahg)"/>
+  <text x="360" y="744" class="flow">Engineers view alerts &amp; insights · ask the AI chatbot (human-in-the-loop)</text>
+
+  <!-- ===== Governance strip ===== -->
+  <rect x="30" y="822" width="1656" height="150" rx="14" fill="#f7f9fc" stroke="#c7d0e0" stroke-width="1.5"/>
+  <text x="54" y="852" class="ptitle">Cross-cutting Governance &amp; Key Configuration</text>
+  <g transform="translate(54,866)"><use href="#g-iam" width="42" height="42"/><text x="52" y="18" class="blt" font-weight="700">IAM — least privilege</text><text x="52" y="36" class="blt">read-only exec role</text></g>
+  <g transform="translate(324,866)"><use href="#g-kms" width="42" height="42"/><text x="52" y="18" class="blt" font-weight="700">KMS — encryption</text><text x="52" y="36" class="blt">at rest everywhere</text></g>
+  <g transform="translate(594,866)"><use href="#g-trail" width="42" height="42"/><text x="52" y="18" class="blt" font-weight="700">CloudTrail — audit</text><text x="52" y="36" class="blt">all API calls</text></g>
+  <g transform="translate(864,866)"><use href="#g-budget" width="42" height="42"/><text x="52" y="18" class="blt" font-weight="700">AWS Budgets</text><text x="52" y="36" class="blt">$50 / $100 alerts</text></g>
+  <g transform="translate(1134,866)"><use href="#g-guard" width="42" height="42"/><text x="52" y="18" class="blt" font-weight="700">Guardrails</text><text x="52" y="36" class="blt">PII + injection defense</text></g>
+  <g transform="translate(1404,866)"><use href="#g-cdk" width="42" height="42"/><text x="52" y="18" class="blt" font-weight="700">AWS CDK IaC</text><text x="52" y="36" class="blt">all resources</text></g>
+  <text x="54" y="936" class="blt">• Visualization is a CUSTOM WEB DASHBOARD + AI Log Chatbot (React SPA + Node API behind nginx) — NOT Amazon Managed Grafana or CloudWatch dashboards.</text>
+  <text x="54" y="956" class="blt">• Live logs integrated via API Gateway (/logs/latest, x-api-key). Metrics / services / alerts remain MOCK until endpoints are provisioned. MVP is READ-ONLY, human-in-the-loop.</text>
+</svg>

@@ -17,6 +17,7 @@
     "dev:backend": "npm run dev --workspace @urbani/backend",
     "dev:frontend": "npm run dev --workspace @urbani/frontend",
     "test": "npm run test --workspace @urbani/backend",
+    "gen:diagram": "node scripts/gen-diagram.js",
     "migrate": "npm run migrate --workspace @urbani/backend",
     "seed": "npm run seed --workspace @urbani/backend",
     "migrate:prod": "node packages/backend/dist/db/migrate.js",
@@ -25,5 +26,10 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "docx": "^9.8.1",
+    "pptxgenjs": "^4.0.1",
+    "sharp": "^0.35.5"
   }
 }
