@@ -6,6 +6,8 @@ import { useApi } from '../hooks/useApi';
 import { dashboardApi } from '../api/endpoints';
 import { Button } from './ui';
 import { IconLogout, IconMenu, IconChevronLeft, IconChevronRight } from './icons';
+import { AssistantChatProvider } from './assistant/useAssistantChat';
+import { AssistantWidget } from './assistant/AssistantWidget';
 
 /**
  * App shell (Parts 12, 13): light sidebar with #D1990A active state, alert
@@ -42,6 +44,7 @@ export function Layout() {
       .toUpperCase();
 
   return (
+    <AssistantChatProvider>
     <div className="app-shell">
       {mobileOpen && <div className="scrim show" onClick={() => setMobileOpen(false)} />}
 
@@ -114,6 +117,11 @@ export function Layout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Floating AI Log Assistant — mounted once; every authenticated page gets
+          it, Login (outside Layout) never does. */}
+      <AssistantWidget />
     </div>
+    </AssistantChatProvider>
   );
 }

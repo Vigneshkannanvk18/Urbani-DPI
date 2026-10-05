@@ -350,3 +350,67 @@ td.mono, .cell-mono { font-family: var(--font-mono); font-size: var(--text-capti
 .typing-dot { display:inline-block; width:6px; height:6px; border-radius:50%; background: var(--color-text-muted); margin-right:3px; animation: blink 1.2s infinite both; }
 .typing-dot:nth-child(2){animation-delay:.2s}.typing-dot:nth-child(3){animation-delay:.4s}
 @keyframes blink { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+.chat-bubble.is-error { background: var(--color-danger-soft, #fdecec); color: var(--color-danger, #b42318); border: 1px solid var(--color-danger-border, #f3c0bd); }
+
+/* ---------- Floating AI Log Assistant widget ---------- */
+/* Launcher: fixed bottom-right, above sidebar (40) / scrim (30) / topbar (10). */
+.assistant-launcher {
+  position: fixed; bottom: 24px; right: 24px; z-index: 60;
+  width: 56px; height: 56px; border-radius: var(--radius-lg);
+  background: var(--color-primary); color: var(--color-on-primary);
+  border: none; cursor: pointer; box-shadow: var(--shadow-md);
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s ease, transform .15s ease;
+}
+.assistant-launcher:hover { background: var(--color-primary-hover); }
+.assistant-launcher:active { transform: scale(0.96); }
+
+/* Floating panel: desktop 400x640 (within 380-440 / 560-680). */
+.assistant-panel {
+  position: fixed; bottom: 24px; right: 24px; z-index: 60;
+  width: 400px; height: 640px;
+  max-height: calc(100vh - 48px);
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-md);
+  display: flex; flex-direction: column; overflow: hidden;
+  animation: assistant-pop .16s ease-out;
+}
+@keyframes assistant-pop { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Reused chat body fills the floating panel instead of the page-height calc. */
+.assistant-panel .chat-panel { height: 100%; min-height: 0; padding: var(--space-4); }
+
+.assistant-panel-header {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin: calc(-1 * var(--space-4)) calc(-1 * var(--space-4)) var(--space-3);
+  background: var(--color-primary-soft); border-bottom: 1px solid var(--color-border);
+}
+.assistant-panel-icon {
+  width: 30px; height: 30px; border-radius: var(--radius-pill); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--color-primary); color: var(--color-on-primary);
+}
+.assistant-panel-heading { flex: 1; min-width: 0; }
+.assistant-panel-title { font-weight: 700; font-size: 14px; color: var(--color-text-primary); }
+.assistant-panel-status { font-size: var(--text-micro); color: var(--color-text-muted); margin-top: 2px; }
+.assistant-panel-close {
+  background: transparent; border: none; cursor: pointer; flex-shrink: 0;
+  width: 30px; height: 30px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--color-text-secondary);
+}
+.assistant-panel-close:hover { background: var(--color-surface-2); color: var(--color-text-primary); }
+
+.assistant-page-controls { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
+.assistant-textarea { resize: none; min-height: 40px; max-height: 120px; line-height: 1.4; font-family: inherit; }
+
+/* Mobile bottom-sheet sizing: inside viewport, no horizontal overflow. */
+@media (max-width: 900px) {
+  .assistant-launcher { bottom: 12px; right: 12px; }
+  .assistant-panel {
+    bottom: 12px; right: 12px; left: 12px;
+    width: calc(100vw - 24px); max-width: 440px;
+    height: min(680px, calc(100vh - 90px));
+  }
+}
