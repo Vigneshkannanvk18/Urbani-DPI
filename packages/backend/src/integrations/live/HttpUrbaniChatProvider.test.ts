@@ -123,6 +123,26 @@ describe('HttpUrbaniChatProvider', () => {
     expect(res.citations).toEqual(['ERROR: DatabaseConnectionTimeout connection pool exhausted']);
   });
 
+  it('cleans a JSON FRAGMENT evidence string (no leading brace) into a citation', async () => {
+    // Observed live: some evidence arrives as a bare fragment, not a full object.
+    const fragment =
+      '"message":"DatabaseConnectionTimeout connection pool exhausted","component":"database","error_code":"DB_CONNECTION_TIMEOUT"';
+    vi.stubGlobal('fetch', mockFetch({
+      service_id: 'urbani-app',
+      log_count: 1,
+      answer: 'Here is how to fix it.',
+      evidence: [fragment],
+      confidence: 1.0,
+      advisory: true,
+      modelId: 'apac.amazon.nova-lite-v1:0',
+    }));
+
+    const res = await new HttpUrbaniChatProvider(BASE, KEY, 'urbani-app', MODEL, 20_000, 1440).askLogs(input);
+    // Clean message extracted, no raw JSON fragment leaked.
+    expect(res.citations).toEqual(['DatabaseConnectionTimeout connection pool exhausted']);
+    expect(res.citations[0]).not.toContain('"error_code"');
+  });
+
   it('falls back to the Mock provider on a non-200 (no throw, no key leak)', async () => {
     vi.stubGlobal('fetch', mockFetch({}, false, 403));
 

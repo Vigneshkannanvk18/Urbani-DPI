@@ -170,21 +170,49 @@ export class HttpUrbaniChatProvider implements AIProvider {
   }
 
   /**
-   * An evidence string may be a nested JSON log event, e.g.
-   * {"level":"ERROR","message":"DatabaseConnectionTimeout ...","error_code":"..."}.
-   * Extract a clean, human-readable citation. If it is not JSON, return as-is.
+   * An evidence string may be a nested JSON log event, either a full object
+   * ({"level":"ERROR","message":"...","error_code":"..."}) OR a bare fragment
+   * ("message":"...","component":"database","error_code":"..."). Extract a clean
+   * "LEVEL: message" citation from whichever form arrives; if neither matches,
+   * return the string unchanged (never fabricate, never show a raw JSON blob).
    */
   private cleanEvidence(s: string): string {
     const t = s.trim();
-    if (!t.startsWith('{') || !t.endsWith('}')) return s;
+
+    // 1. Full JSON object — parse strictly.
+    if (t.startsWith('{') && t.endsWith('}')) {
+      try {
+        const o = JSON.parse(t) as Record<string, unknown>;
+        const level = typeof o.level === 'string' ? o.level : undefined;
+        const msg = typeof o.message === 'string' ? o.message : undefined;
+        if (msg) return level ? `${level}: ${msg}` : msg;
+      } catch {
+        // fall through to fragment handling
+      }
+    }
+
+    // 2. JSON fragment (or any string containing "message":"..."). Pull the
+    //    level and message fields out with a tolerant regex.
+    if (t.includes('"message"')) {
+      const msg = this.extractJsonField(t, 'message');
+      if (msg) {
+        const level = this.extractJsonField(t, 'level');
+        return level ? `${level}: ${msg}` : msg;
+      }
+    }
+
+    return s;
+  }
+
+  /** Extract a double-quoted string value for `"<key>":"<value>"` from text. */
+  private extractJsonField(text: string, key: string): string | undefined {
+    const m = new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`).exec(text);
+    if (!m) return undefined;
     try {
-      const o = JSON.parse(t) as Record<string, unknown>;
-      const level = typeof o.level === 'string' ? o.level : undefined;
-      const msg = typeof o.message === 'string' ? o.message : undefined;
-      if (msg) return level ? `${level}: ${msg}` : msg;
-      return s;
+      // Decode any JSON escapes in the captured value.
+      return JSON.parse(`"${m[1]}"`) as string;
     } catch {
-      return s;
+      return m[1];
     }
   }
 }
