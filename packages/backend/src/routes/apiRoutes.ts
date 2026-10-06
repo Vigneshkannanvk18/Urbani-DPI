@@ -52,19 +52,19 @@ apiRoutes.get(
   '/alerts',
   asyncHandler(async (req, res) => {
     const filter = alertQuerySchema.parse(req.query);
-    res.json(alertService.list(filter));
+    res.json(await alertService.list(filter));
   }),
 );
 apiRoutes.get(
   '/alerts/:id',
   asyncHandler(async (req, res) => {
-    res.json(alertService.get(req.params.id, req.auth!.email));
+    res.json(await alertService.get(req.params.id, req.auth!.email));
   }),
 );
 apiRoutes.post(
   '/alerts/:id/acknowledge',
   asyncHandler(async (req, res) => {
-    res.json(alertService.acknowledge(req.params.id, req.auth!.email));
+    res.json(await alertService.acknowledge(req.params.id, req.auth!.email));
   }),
 );
 

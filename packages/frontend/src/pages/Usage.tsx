@@ -17,7 +17,7 @@ export function Usage() {
       <PageHeader
         title="Usage & Cost"
         subtitle="AI request / token / cost tracking with budget guardrails. Live AWS billing integrates in a later phase."
-        source="MOCK"
+        source={(usage.data?.source ?? 'MOCK') as 'LIVE' | 'MOCK' | 'WAITING_FOR_INTEGRATION'}
       />
 
       <AsyncView state={cost}>

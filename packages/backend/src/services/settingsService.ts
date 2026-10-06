@@ -32,6 +32,40 @@ export interface SettingsView {
   integrations: Array<{ kind: string; displayName: string; mode: string; status: string }>;
 }
 
+/**
+ * Derive the live mode/status of an integration from RUNTIME config rather than
+ * the seed rows. The seed stores every integration as MOCK/WAITING_FOR_INTEGRATION,
+ * which is wrong once an integration is actually configured (e.g. the Urbani logs
+ * API in INTEGRATION_MODE=live). This reconciler reflects what is truly wired now.
+ *
+ * Known runtime truths today:
+ *  - CloudWatch logs are served LIVE when INTEGRATION_MODE=live AND the Urbani
+ *    logs API is configured (base URL + key present). Otherwise MOCK.
+ *  - URBANI_APP log source follows the same condition (it is the same upstream).
+ *  - Bedrock (AI chat) and DynamoDB (AI-generated alerts) are now genuinely live
+ *    under the same condition: chat answers come from the real Bedrock Nova Lite
+ *    /chat endpoint and alerts come from the real /alerts endpoints. They report
+ *    LIVE/CONNECTED in live mode, else the honest seeded "waiting" state.
+ */
+function runtimeIntegrationState(
+  kind: string,
+  seededMode: string,
+  seededStatus: string,
+): { mode: string; status: string } {
+  const logsLive = config.integrationMode === 'live' && config.urbani.logsConfigured;
+  switch (kind) {
+    case 'CLOUDWATCH':
+    case 'URBANI_APP':
+    case 'BEDROCK':
+    case 'DYNAMODB':
+      return logsLive
+        ? { mode: 'LIVE', status: 'CONNECTED' }
+        : { mode: 'MOCK', status: 'WAITING_FOR_INTEGRATION' };
+    default:
+      return { mode: seededMode, status: seededStatus };
+  }
+}
+
 export const settingsService = {
   get(): SettingsView {
     return {
@@ -69,12 +103,15 @@ export const settingsService = {
         hardAlertUsd: config.cost.hardAlertUsd,
       },
       scheduler: { collectorMinutes: config.scheduler.collectorMinutes },
-      integrations: integrationRepository.all().map((i) => ({
-        kind: i.kind,
-        displayName: i.display_name,
-        mode: i.mode,
-        status: i.status,
-      })),
+      integrations: integrationRepository.all().map((i) => {
+        const live = runtimeIntegrationState(i.kind, i.mode, i.status);
+        return {
+          kind: i.kind,
+          displayName: i.display_name,
+          mode: live.mode,
+          status: live.status,
+        };
+      }),
     };
   },
 

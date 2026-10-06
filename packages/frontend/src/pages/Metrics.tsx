@@ -17,8 +17,8 @@ export function Metrics() {
     <div className="stack">
       <PageHeader
         title="Metrics"
-        subtitle="Performance metrics via the CloudWatch Metrics adapter boundary. Phase 1 uses seeded data."
-        source="MOCK"
+        subtitle="Performance metrics via the CloudWatch Metrics adapter boundary."
+        source={(metrics.data?.source ?? 'MOCK') as 'LIVE' | 'MOCK' | 'WAITING_FOR_INTEGRATION'}
       />
       <FilterBar>
         <Select value={service} onChange={(e) => setService(e.target.value)} aria-label="Filter by service">

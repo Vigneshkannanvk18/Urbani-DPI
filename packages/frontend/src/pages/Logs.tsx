@@ -28,8 +28,8 @@ export function Logs() {
     <div className="stack">
       <PageHeader
         title="Logs"
-        subtitle="Log stream via the CloudWatch adapter boundary. Phase 1 uses seeded data."
-        source="MOCK"
+        subtitle="Log stream via the CloudWatch adapter boundary (live Urbani logs API)."
+        source={(logs.data?.source ?? 'MOCK') as 'LIVE' | 'MOCK' | 'WAITING_FOR_INTEGRATION'}
       />
       <Card>
         <FilterBar>

@@ -32,7 +32,7 @@ export function Alerts() {
       <PageHeader
         title="Alerts / Incidents"
         subtitle="Advisory, human-in-the-loop. No automated remediation is ever performed."
-        source="MOCK"
+        source={(alerts.data?.source ?? 'MOCK') as 'LIVE' | 'MOCK' | 'WAITING_FOR_INTEGRATION'}
       />
 
       <Card>

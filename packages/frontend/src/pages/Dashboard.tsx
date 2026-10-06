@@ -29,16 +29,16 @@ export function Dashboard() {
       <PageHeader
         title="Dashboard"
         subtitle="Proactive observability overview"
-        source="MOCK"
-        note="Seeded demo data — not real AWS telemetry."
+        source={(summary.data?.source ?? 'MOCK') as 'LIVE' | 'MOCK' | 'WAITING_FOR_INTEGRATION'}
       />
 
       <div className="banner">
         <span className="banner-icon"><IconWarn size={16} /></span>
         <span>
-          <strong>Phase 1 foundation.</strong> All values below are controlled mock/seed data.
-          Live AWS telemetry, CloudWatch, and Bedrock activate in later phases behind the existing
-          adapter interfaces. Provenance is labelled everywhere as <span className="src src-LIVE">LIVE</span>{' '}
+          <strong>Mixed data sources.</strong> Logs, alerts, and the AI assistant are
+          live from the Urbani AWS backend (Bedrock Nova Lite). Metrics, services, usage,
+          and audit remain seeded until their AWS endpoints are provided. Every panel is
+          labelled with its true source: <span className="src src-LIVE">LIVE</span>{' '}
           <span className="src src-MOCK">MOCK</span> <span className="src src-WAITING_FOR_INTEGRATION">WAITING</span>.
         </span>
       </div>

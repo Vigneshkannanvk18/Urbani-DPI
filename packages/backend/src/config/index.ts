@@ -56,6 +56,12 @@ const schema = z.object({
   URBANI_API_KEY: z.string().optional(),
   URBANI_SERVICE: z.string().default('urbani-app'),
   URBANI_REFRESH_MINUTES: z.coerce.number().default(5),
+  // Live chat (Bedrock Nova Lite via API Gateway POST /chat). Model id is the
+  // label surfaced in provenance when AWS returns modelId: null (empty window).
+  URBANI_CHAT_MODEL_ID: z.string().default('apac.amazon.nova-lite-v1:0'),
+  URBANI_CHAT_TIMEOUT_MS: z.coerce.number().default(20_000),
+  // How many history alerts to pull from GET /alerts/history?limit=N.
+  URBANI_ALERTS_HISTORY_LIMIT: z.coerce.number().default(5),
 
   AWS_REGION: z.string().default('us-east-1'),
   AWS_ACCOUNT_ID: z.string().optional(),
@@ -160,6 +166,12 @@ export const config = {
     apiKey: env.URBANI_API_KEY ?? null,
     service: env.URBANI_SERVICE,
     refreshMinutes: env.URBANI_REFRESH_MINUTES,
+    /** Model label surfaced for live chat (and when AWS returns modelId: null). */
+    chatModelId: env.URBANI_CHAT_MODEL_ID,
+    /** Abort timeout for the live POST /chat call. */
+    chatTimeoutMs: env.URBANI_CHAT_TIMEOUT_MS,
+    /** Default limit for GET /alerts/history. */
+    alertsHistoryLimit: env.URBANI_ALERTS_HISTORY_LIMIT,
     /** True when the real logs API is configured (base URL + key present). */
     logsConfigured: Boolean(env.URBANI_API_BASE_URL && env.URBANI_API_KEY),
   },

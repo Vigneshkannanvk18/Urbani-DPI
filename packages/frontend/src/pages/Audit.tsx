@@ -18,7 +18,7 @@ export function Audit() {
       <PageHeader
         title="Audit / Activity"
         subtitle="Application-level audit trail. AWS CloudTrail integration is planned for a later phase."
-        source="MOCK"
+        source={(audit.data?.source ?? 'MOCK') as 'LIVE' | 'MOCK' | 'WAITING_FOR_INTEGRATION'}
       />
       <Card>
         <FilterBar>

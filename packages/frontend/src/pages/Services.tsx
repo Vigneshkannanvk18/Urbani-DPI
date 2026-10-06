@@ -11,7 +11,7 @@ export function Services() {
       <PageHeader
         title="Services / Applications"
         subtitle="Monitored services. Populated from the Urbani Elastic Beanstalk environment in a later phase."
-        source="MOCK"
+        source={(services.data?.source ?? 'MOCK') as 'LIVE' | 'MOCK' | 'WAITING_FOR_INTEGRATION'}
       />
       <Card>
         <AsyncView state={services}>

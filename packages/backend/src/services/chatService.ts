@@ -3,6 +3,7 @@ import { getIntegrations } from '../integrations';
 import type { ChatTurn } from '../integrations/ai/AIProvider';
 import { aiRepository } from '../repositories/aiRepository';
 import { auditRepository } from '../repositories/auditRepository';
+import { logger } from '../lib/logger';
 
 /**
  * Chat service (AI Log Chatbot).
@@ -35,8 +36,21 @@ export const chatService = {
     const service = opts.service ?? 'urbani-app';
     const environment = opts.environment ?? 'production-eb';
 
-    // Ground the answer in the current log window (LIVE if configured).
-    const logsRes = await cloudwatch.getLogs({ service, limit: 100 });
+    // Ground the answer in the current log window (LIVE if configured). A logs
+    // fetch failure (e.g. an expired key -> HTTP 403) must NOT 500 the chat: the
+    // live /chat endpoint grounds server-side on its own window anyway, so we
+    // degrade to an empty local window and let the provider answer honestly.
+    let logsRes: Awaited<ReturnType<typeof cloudwatch.getLogs>>;
+    try {
+      logsRes = await cloudwatch.getLogs({ service, limit: 100 });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'unknown error';
+      logger.warn('Chat log-window fetch failed; continuing with an empty window', {
+        service,
+        message,
+      });
+      logsRes = { meta: { source: 'WAITING_FOR_INTEGRATION', note: 'Log window unavailable.' }, value: [] };
+    }
 
     const result = await aiProvider.askLogs({
       question,

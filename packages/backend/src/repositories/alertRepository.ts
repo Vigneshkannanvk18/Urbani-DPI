@@ -131,6 +131,70 @@ export const alertRepository = {
     tx();
   },
 
+  /**
+   * Upsert a LIVE alert WITHOUT clobbering its lifecycle. If the row already
+   * exists, its current status / acknowledged_by / acknowledged_at are preserved
+   * so a periodic re-sync of the same alert does NOT un-acknowledge it. New rows
+   * default to 'OPEN'. The alert body (summary/evidence/actions/etc.) is always
+   * refreshed to the latest upstream version.
+   */
+  upsertLivePreservingStatus(alert: UrbaniIncidentAlert): void {
+    const existing = db()
+      .prepare(
+        'SELECT status, acknowledged_by, acknowledged_at FROM alerts WHERE alert_id = ?',
+      )
+      .get(alert.alertId) as
+      | { status: string; acknowledged_by: string | null; acknowledged_at: string | null }
+      | undefined;
+
+    const status = (existing?.status as AlertStatus) ?? 'OPEN';
+    const acknowledgedBy = existing?.acknowledged_by ?? null;
+    const acknowledgedAt = existing?.acknowledged_at ?? null;
+
+    const tx = db().transaction(() => {
+      db()
+        .prepare(
+          `INSERT OR REPLACE INTO alerts
+           (alert_id, timestamp, service, environment, severity, anomaly_type, summary,
+            probable_cause, confidence, model_id, status, acknowledged_by, acknowledged_at,
+            data_source, created_at)
+           VALUES (@alert_id, @timestamp, @service, @environment, @severity, @anomaly_type,
+                   @summary, @probable_cause, @confidence, @model_id, @status, @acknowledged_by,
+                   @acknowledged_at, @data_source, @created_at)`,
+        )
+        .run({
+          alert_id: alert.alertId,
+          timestamp: alert.timestamp,
+          service: alert.service,
+          environment: alert.environment,
+          severity: alert.severity,
+          anomaly_type: alert.anomalyType,
+          summary: alert.summary,
+          probable_cause: alert.probableCause,
+          confidence: alert.confidence,
+          model_id: alert.modelId,
+          status,
+          acknowledged_by: acknowledgedBy,
+          acknowledged_at: acknowledgedAt,
+          data_source: 'LIVE',
+          created_at: new Date().toISOString(),
+        });
+
+      db().prepare('DELETE FROM alert_evidence WHERE alert_id = ?').run(alert.alertId);
+      const evStmt = db().prepare(
+        'INSERT INTO alert_evidence (id, alert_id, ordinal, line) VALUES (?, ?, ?, ?)',
+      );
+      alert.evidence.forEach((line, i) => evStmt.run(randomUUID(), alert.alertId, i, line));
+
+      db().prepare('DELETE FROM alert_recommended_actions WHERE alert_id = ?').run(alert.alertId);
+      const acStmt = db().prepare(
+        'INSERT INTO alert_recommended_actions (id, alert_id, ordinal, action) VALUES (?, ?, ?, ?)',
+      );
+      alert.recommendedActions.forEach((a, i) => acStmt.run(randomUUID(), alert.alertId, i, a));
+    });
+    tx();
+  },
+
   findById(alertId: string): PersistedAlert | null {
     const row = db().prepare('SELECT * FROM alerts WHERE alert_id = ?').get(alertId) as
       | AlertRow

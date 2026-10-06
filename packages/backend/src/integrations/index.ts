@@ -14,6 +14,8 @@ import { MockDynamoDBAdapter } from './mock/MockDynamoDBAdapter';
 import { MockUrbaniApplicationAdapter } from './mock/MockUrbaniApplicationAdapter';
 import { MockAIProvider } from './ai/MockAIProvider';
 import { HttpUrbaniLogsAdapter } from './live/HttpUrbaniLogsAdapter';
+import { HttpUrbaniChatProvider } from './live/HttpUrbaniChatProvider';
+import { HttpUrbaniAlertsAdapter } from './live/HttpUrbaniAlertsAdapter';
 
 /**
  * Integration factory (Phase 1 Mock/Adapter strategy).
@@ -33,6 +35,12 @@ export interface Integrations {
   dynamodb: DynamoDBAdapter;
   urbaniApp: UrbaniApplicationAdapter;
   aiProvider: AIProvider;
+  /**
+   * Live source of AI-generated incident alerts (GET /alerts/latest + /history).
+   * Present ONLY in live mode when the Urbani API is configured; undefined in
+   * mock mode (alertService then serves seeded MOCK alerts, unchanged).
+   */
+  urbaniAlerts?: HttpUrbaniAlertsAdapter;
 }
 
 let cached: Integrations | null = null;
@@ -63,13 +71,31 @@ function buildLive(): Integrations {
   const base = buildMock();
 
   if (config.urbani.logsConfigured) {
-    logger.info('Wiring LIVE Urbani logs integration', {
+    logger.info('Wiring LIVE Urbani chat + alerts integration', {
       integrationMode: 'live',
       service: config.urbani.service,
       refreshMinutes: config.urbani.refreshMinutes,
+      chatModelId: config.urbani.chatModelId,
+      alertsHistoryLimit: config.urbani.alertsHistoryLimit,
       // NOTE: the API key is intentionally never logged.
     });
     base.cloudwatch = new HttpUrbaniLogsAdapter(
+      config.urbani.apiBaseUrl!,
+      config.urbani.apiKey!,
+      config.urbani.service,
+      config.urbani.refreshMinutes,
+    );
+    // Real AI chat (Bedrock Nova Lite via POST /chat); Mock stays as fallback
+    // inside the provider for analyze + any live failure.
+    base.aiProvider = new HttpUrbaniChatProvider(
+      config.urbani.apiBaseUrl!,
+      config.urbani.apiKey!,
+      config.urbani.service,
+      config.urbani.chatModelId,
+      config.urbani.chatTimeoutMs,
+    );
+    // Real AI-generated incident alerts.
+    base.urbaniAlerts = new HttpUrbaniAlertsAdapter(
       config.urbani.apiBaseUrl!,
       config.urbani.apiKey!,
       config.urbani.service,
