@@ -54,15 +54,20 @@ export class HttpUrbaniChatProvider implements AIProvider {
   /** Deterministic fallback used for analyze + on any live chat failure. */
   private readonly fallback: MockAIProvider;
 
+  /** Grounding window (minutes) sent to AWS /chat so it matches the Logs page. */
+  private readonly windowMinutes: number;
+
   constructor(
     private readonly baseUrl: string,
     private readonly apiKey: string,
     private readonly service: string,
     modelId: string,
     private readonly timeoutMs: number,
+    windowMinutes = 0,
   ) {
     this.modelId = modelId;
     this.fallback = new MockAIProvider(modelId);
+    this.windowMinutes = Math.max(windowMinutes, 0);
   }
 
   /**
@@ -76,9 +81,10 @@ export class HttpUrbaniChatProvider implements AIProvider {
 
   /**
    * Answer a question via the live POST {base}/chat. The AWS endpoint grounds on
-   * its OWN current Bedrock log window (not the logs we fetched for context), so
-   * we send only { service, question }. On any failure we fall back to Mock so
-   * the chat never 500s.
+   * its own Bedrock log window; by default that is the last 60 minutes, which is
+   * usually empty when the app is idle and mismatches the Logs page (24h). We
+   * therefore send `minutes` so the chatbot grounds on the SAME window the Logs
+   * page shows. On any failure we fall back to Mock so the chat never 500s.
    */
   async askLogs(input: AskLogsInput): Promise<AskLogsResult> {
     const url = `${this.baseUrl.replace(/\/$/, '')}/chat`;
@@ -93,7 +99,13 @@ export class HttpUrbaniChatProvider implements AIProvider {
           'content-type': 'application/json',
           accept: 'application/json',
         },
-        body: JSON.stringify({ service: this.service, question: input.question }),
+        body: JSON.stringify({
+          service: this.service,
+          question: input.question,
+          // Match the Logs-page window so dashboard + chatbot agree. The AWS
+          // endpoint accepts `minutes`; when 0/unset it defaults to 60 min.
+          ...(this.windowMinutes > 0 ? { minutes: this.windowMinutes } : {}),
+        }),
         signal: controller.signal,
       });
 
@@ -128,8 +140,12 @@ export class HttpUrbaniChatProvider implements AIProvider {
         ? body.answer
         : 'No log evidence was found in the current log window.';
 
-    // evidence[] -> citations (string[]). NEVER synthesize entries.
-    const citations = Array.isArray(body.evidence) ? body.evidence.map((e) => String(e)) : [];
+    // evidence[] -> citations (string[]). NEVER synthesize entries. Each item
+    // may be a nested JSON string (same shape as the logs API); unwrap it to the
+    // human-readable message so citations are clean, not raw JSON blobs.
+    const citations = Array.isArray(body.evidence)
+      ? body.evidence.map((e) => this.cleanEvidence(String(e)))
+      : [];
 
     // AWS returns modelId: null on the empty-window response; surface the real
     // configured model label without claiming any evidence.
@@ -151,5 +167,24 @@ export class HttpUrbaniChatProvider implements AIProvider {
       guardrailIntervened: false,
       meta: { source: 'LIVE', note: 'Live Urbani chat (Amazon Bedrock Nova Lite).' },
     };
+  }
+
+  /**
+   * An evidence string may be a nested JSON log event, e.g.
+   * {"level":"ERROR","message":"DatabaseConnectionTimeout ...","error_code":"..."}.
+   * Extract a clean, human-readable citation. If it is not JSON, return as-is.
+   */
+  private cleanEvidence(s: string): string {
+    const t = s.trim();
+    if (!t.startsWith('{') || !t.endsWith('}')) return s;
+    try {
+      const o = JSON.parse(t) as Record<string, unknown>;
+      const level = typeof o.level === 'string' ? o.level : undefined;
+      const msg = typeof o.message === 'string' ? o.message : undefined;
+      if (msg) return level ? `${level}: ${msg}` : msg;
+      return s;
+    } catch {
+      return s;
+    }
   }
 }

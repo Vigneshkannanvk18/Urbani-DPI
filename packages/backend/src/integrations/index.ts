@@ -94,6 +94,7 @@ function buildLive(): Integrations {
       config.urbani.service,
       config.urbani.chatModelId,
       config.urbani.chatTimeoutMs,
+      config.urbani.logsWindowMinutes,
     );
     // Real AI-generated incident alerts.
     base.urbaniAlerts = new HttpUrbaniAlertsAdapter(

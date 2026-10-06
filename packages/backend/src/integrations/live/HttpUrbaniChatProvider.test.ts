@@ -89,6 +89,40 @@ describe('HttpUrbaniChatProvider', () => {
     expect(JSON.stringify(res)).not.toContain(KEY);
   });
 
+  it('sends the configured minutes window so chat matches the Logs page', async () => {
+    const f = mockFetch({ answer: 'ok', evidence: [], modelId: null, log_count: 0 });
+    vi.stubGlobal('fetch', f);
+
+    const windowed = new HttpUrbaniChatProvider(BASE, KEY, 'urbani-app', MODEL, 20_000, 1440);
+    await windowed.askLogs(input);
+
+    const [, init] = (f as unknown as vi.Mock).mock.calls[0];
+    const sent = JSON.parse(init.body as string);
+    expect(sent).toEqual({ service: 'urbani-app', question: input.question, minutes: 1440 });
+  });
+
+  it('unwraps nested-JSON evidence into clean "LEVEL: message" citations', async () => {
+    const nested = JSON.stringify({
+      timestamp: '2026-10-06T06:48:12+00:00',
+      level: 'ERROR',
+      service: 'urbani-app',
+      message: 'DatabaseConnectionTimeout connection pool exhausted',
+      error_code: 'DB_CONNECTION_TIMEOUT',
+    });
+    vi.stubGlobal('fetch', mockFetch({
+      service_id: 'urbani-app',
+      log_count: 1,
+      answer: 'Yes, there are errors right now.',
+      evidence: [nested],
+      confidence: 1.0,
+      advisory: true,
+      modelId: 'apac.amazon.nova-lite-v1:0',
+    }));
+
+    const res = await new HttpUrbaniChatProvider(BASE, KEY, 'urbani-app', MODEL, 20_000, 1440).askLogs(input);
+    expect(res.citations).toEqual(['ERROR: DatabaseConnectionTimeout connection pool exhausted']);
+  });
+
   it('falls back to the Mock provider on a non-200 (no throw, no key leak)', async () => {
     vi.stubGlobal('fetch', mockFetch({}, false, 403));
 
