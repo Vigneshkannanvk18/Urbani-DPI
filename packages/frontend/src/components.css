@@ -354,16 +354,20 @@ td.mono, .cell-mono { font-family: var(--font-mono); font-size: var(--text-capti
 
 /* ---------- Floating AI Log Assistant widget ---------- */
 /* Launcher: fixed bottom-right, above sidebar (40) / scrim (30) / topbar (10). */
+/* The icon image already includes the gold circular background, so the button
+   itself is transparent (option a) — no gold-on-gold circle. */
 .assistant-launcher {
   position: fixed; bottom: 24px; right: 24px; z-index: 60;
-  width: 56px; height: 56px; border-radius: var(--radius-lg);
-  background: var(--color-primary); color: var(--color-on-primary);
-  border: none; cursor: pointer; box-shadow: var(--shadow-md);
+  width: 56px; height: 56px; border-radius: 50%; padding: 0;
+  background: transparent; border: none; cursor: pointer;
+  box-shadow: var(--shadow-md); overflow: hidden;
   display: flex; align-items: center; justify-content: center;
-  transition: background .15s ease, transform .15s ease;
+  transition: transform .15s ease, box-shadow .15s ease;
 }
-.assistant-launcher:hover { background: var(--color-primary-hover); }
+.assistant-launcher:hover { transform: scale(1.05); box-shadow: 0 6px 18px rgba(16, 24, 40, 0.16); }
 .assistant-launcher:active { transform: scale(0.96); }
+/* The icon fills the circular button. */
+.assistant-launcher-img { width: 100%; height: 100%; display: block; object-fit: cover; }
 
 /* Floating panel: desktop 400x640 (within 380-440 / 560-680). */
 .assistant-panel {

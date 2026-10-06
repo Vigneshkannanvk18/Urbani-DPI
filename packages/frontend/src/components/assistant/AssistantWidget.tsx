@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { IconAssistant } from '../icons';
 import { AssistantPanel } from './AssistantPanel';
+import copilotIcon from '../../assets/copilot-icon.png';
 
 const PANEL_ID = 'assistant-floating-panel';
 
@@ -61,7 +61,7 @@ export function AssistantWidget() {
         aria-controls={PANEL_ID}
         title="Urbani Copilot"
       >
-        <IconAssistant size={24} />
+        <img className="assistant-launcher-img" src={copilotIcon} alt="" />
       </button>
     </>
   );
