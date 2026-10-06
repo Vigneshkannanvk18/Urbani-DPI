@@ -56,6 +56,10 @@ const schema = z.object({
   URBANI_API_KEY: z.string().optional(),
   URBANI_SERVICE: z.string().default('urbani-app'),
   URBANI_REFRESH_MINUTES: z.coerce.number().default(5),
+  // Width of the logs window the dashboard requests from GET /logs/latest?minutes=N.
+  // The AWS endpoint defaults to a live 5-min window (often empty when idle); a
+  // wider default (24h) surfaces recent historical logs so the page is useful.
+  URBANI_LOGS_WINDOW_MINUTES: z.coerce.number().default(1440),
   // Live chat (Bedrock Nova Lite via API Gateway POST /chat). Model id is the
   // label surfaced in provenance when AWS returns modelId: null (empty window).
   URBANI_CHAT_MODEL_ID: z.string().default('apac.amazon.nova-lite-v1:0'),
@@ -166,6 +170,8 @@ export const config = {
     apiKey: env.URBANI_API_KEY ?? null,
     service: env.URBANI_SERVICE,
     refreshMinutes: env.URBANI_REFRESH_MINUTES,
+    /** Minutes window requested from GET /logs/latest?minutes=N (default 24h). */
+    logsWindowMinutes: env.URBANI_LOGS_WINDOW_MINUTES,
     /** Model label surfaced for live chat (and when AWS returns modelId: null). */
     chatModelId: env.URBANI_CHAT_MODEL_ID,
     /** Abort timeout for the live POST /chat call. */

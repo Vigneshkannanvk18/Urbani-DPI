@@ -84,6 +84,7 @@ function buildLive(): Integrations {
       config.urbani.apiKey!,
       config.urbani.service,
       config.urbani.refreshMinutes,
+      config.urbani.logsWindowMinutes,
     );
     // Real AI chat (Bedrock Nova Lite via POST /chat); Mock stays as fallback
     // inside the provider for analyze + any live failure.

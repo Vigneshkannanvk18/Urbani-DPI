@@ -57,6 +57,42 @@ describe('HttpUrbaniLogsAdapter', () => {
     }
   });
 
+  it('unwraps the real Urbani shape where message is a nested JSON string', async () => {
+    // Mirrors the live /logs/latest?minutes=1440 response: each item is
+    // {timestamp, message} where message is a stringified JSON log event.
+    const inner = JSON.stringify({
+      timestamp: '2026-10-06T06:48:12.033704+00:00',
+      level: 'ERROR',
+      service: 'urbani-app',
+      environment: 'test',
+      message: 'DatabaseConnectionTimeout connection pool exhausted',
+      component: 'database',
+      error_code: 'DB_CONNECTION_TIMEOUT',
+    });
+    vi.stubGlobal('fetch', mockFetch({
+      service_id: 'urbani-app',
+      requested_minutes: 1440,
+      log_count: '1',
+      logs: [{ timestamp: '2026-10-06 06:48:21.475', message: inner }],
+    }));
+    const adapter = new HttpUrbaniLogsAdapter(BASE, KEY, 'urbani-app', 5, 1440);
+    const { value } = await adapter.getLogs({});
+    expect(value).toHaveLength(1);
+    // Real level + message surface, not a raw JSON blob or default INFO.
+    expect(value[0].level).toBe('ERROR');
+    expect(value[0].message).toBe('DatabaseConnectionTimeout connection pool exhausted');
+    expect(value[0].environment).toBe('test');
+  });
+
+  it('requests the configured minutes window via the query string', async () => {
+    const f = mockFetch({ service_id: 'urbani-app', logs: [], log_count: '0' });
+    vi.stubGlobal('fetch', f);
+    const adapter = new HttpUrbaniLogsAdapter(BASE, KEY, 'urbani-app', 5, 1440);
+    await adapter.getLogs({});
+    const [url] = (f as unknown as vi.Mock).mock.calls[0];
+    expect(url).toContain('minutes=1440');
+  });
+
   it('applies level filtering over the fetched window', async () => {
     vi.stubGlobal('fetch', mockFetch({
       service_id: 'urbani-app',

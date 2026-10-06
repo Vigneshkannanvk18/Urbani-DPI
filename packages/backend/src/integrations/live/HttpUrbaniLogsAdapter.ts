@@ -50,14 +50,20 @@ export class HttpUrbaniLogsAdapter implements CloudWatchAdapter {
   private cache: CacheEntry | null = null;
   private readonly ttlMs: number;
 
+  private readonly windowMinutes: number;
+
   constructor(
     private readonly baseUrl: string,
     private readonly apiKey: string,
     private readonly service: string,
     refreshMinutes: number,
+    windowMinutes = 0,
   ) {
     // Align caching with the API's refresh window so we poll at most once per cycle.
     this.ttlMs = Math.max(refreshMinutes, 1) * 60_000;
+    // When > 0, request a wider window via ?minutes=N so the page shows recent
+    // historical logs instead of an often-empty 5-minute live window.
+    this.windowMinutes = Math.max(windowMinutes, 0);
   }
 
   async getLogs(query: CloudWatchLogQuery): Promise<WithMeta<LogEntry[]>> {
@@ -104,7 +110,8 @@ export class HttpUrbaniLogsAdapter implements CloudWatchAdapter {
       return this.cache.value;
     }
 
-    const url = `${this.baseUrl.replace(/\/$/, '')}/logs/latest?service=${encodeURIComponent(this.service)}`;
+    const minutesParam = this.windowMinutes > 0 ? `&minutes=${this.windowMinutes}` : '';
+    const url = `${this.baseUrl.replace(/\/$/, '')}/logs/latest?service=${encodeURIComponent(this.service)}${minutesParam}`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15_000);
 
@@ -151,15 +158,43 @@ export class HttpUrbaniLogsAdapter implements CloudWatchAdapter {
     const raw = Array.isArray(body.logs) ? body.logs : [];
 
     return raw.map((entry) => {
-      // String log lines are supported too.
+      // String log lines are supported too (may themselves be JSON).
       if (typeof entry === 'string') {
+        const inner = this.tryParseJson(entry);
+        if (inner) return this.buildEntry(service, inner, this.innerMessage(inner, entry));
         return this.buildEntry(service, {}, entry);
       }
       const o = (entry ?? {}) as Record<string, unknown>;
-      const message =
-        this.str(o.message) ?? this.str(o['@message']) ?? this.str(o.msg) ?? this.str(o.log) ?? JSON.stringify(o);
+      // The Urbani logs API wraps the real event as a JSON STRING in `message`,
+      // e.g. {"timestamp","message":"{\"level\":\"ERROR\",\"message\":\"...\"}"}.
+      // Unwrap it so the real level/message/environment surface instead of a blob.
+      const rawMessage = this.str(o.message) ?? this.str(o['@message']) ?? this.str(o.msg) ?? this.str(o.log);
+      const inner = rawMessage ? this.tryParseJson(rawMessage) : undefined;
+      if (inner) {
+        // Prefer inner fields; keep the outer timestamp if the inner lacks one.
+        const merged = { timestamp: o.timestamp, ...inner } as Record<string, unknown>;
+        return this.buildEntry(service, merged, this.innerMessage(inner, rawMessage));
+      }
+      const message = rawMessage ?? JSON.stringify(o);
       return this.buildEntry(service, o, message);
     });
+  }
+
+  /** Parse a string that may be a JSON object; return undefined if it isn't. */
+  private tryParseJson(s: string): Record<string, unknown> | undefined {
+    const t = s.trim();
+    if (!t.startsWith('{') || !t.endsWith('}')) return undefined;
+    try {
+      const parsed = JSON.parse(t);
+      return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** The human-readable message from a parsed inner log object. */
+  private innerMessage(inner: Record<string, unknown>, fallback: string | undefined): string {
+    return this.str(inner.message) ?? this.str(inner.msg) ?? fallback ?? JSON.stringify(inner);
   }
 
   private buildEntry(service: string, o: Record<string, unknown>, message: string): LogEntry {
