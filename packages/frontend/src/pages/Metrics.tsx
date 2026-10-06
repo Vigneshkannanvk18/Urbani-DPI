@@ -17,7 +17,7 @@ export function Metrics() {
     <div className="stack">
       <PageHeader
         title="Metrics"
-        subtitle="Performance metrics via the CloudWatch Metrics adapter boundary."
+        subtitle="Performance metrics via the CloudWatch Metrics adapter boundary. Seeded until the AWS metrics endpoint is provided."
         source={(metrics.data?.source ?? 'MOCK') as 'LIVE' | 'MOCK' | 'WAITING_FOR_INTEGRATION'}
       />
       <FilterBar>

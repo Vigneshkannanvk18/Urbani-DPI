@@ -10,7 +10,7 @@ export function Services() {
     <div className="stack">
       <PageHeader
         title="Services / Applications"
-        subtitle="Monitored services. Populated from the Urbani Elastic Beanstalk environment in a later phase."
+        subtitle="Monitored services. Seeded until the AWS services endpoint is provided."
         source={(services.data?.source ?? 'MOCK') as 'LIVE' | 'MOCK' | 'WAITING_FOR_INTEGRATION'}
       />
       <Card>

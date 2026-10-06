@@ -17,7 +17,7 @@ export function Audit() {
     <div className="stack">
       <PageHeader
         title="Audit / Activity"
-        subtitle="Application-level audit trail. AWS CloudTrail integration is planned for a later phase."
+        subtitle="Application-level audit trail. AWS CloudTrail integration pending its endpoint."
         source={(audit.data?.source ?? 'MOCK') as 'LIVE' | 'MOCK' | 'WAITING_FOR_INTEGRATION'}
       />
       <Card>

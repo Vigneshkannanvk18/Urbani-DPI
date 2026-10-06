@@ -16,7 +16,7 @@ export function Usage() {
     <div className="stack">
       <PageHeader
         title="Usage & Cost"
-        subtitle="AI request / token / cost tracking with budget guardrails. Live AWS billing integrates in a later phase."
+        subtitle="AI request / token / cost tracking with budget guardrails. Seeded until the AWS billing/usage endpoint is provided."
         source={(usage.data?.source ?? 'MOCK') as 'LIVE' | 'MOCK' | 'WAITING_FOR_INTEGRATION'}
       />
 

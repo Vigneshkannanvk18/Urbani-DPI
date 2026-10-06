@@ -30,7 +30,7 @@ export function AIInsights() {
     <div className="stack">
       <PageHeader
         title="AI Insights"
-        subtitle="Provider-agnostic analyses. Phase 1 uses MockAIProvider; Bedrock activates in a later phase with no UI change."
+        subtitle="Provider-agnostic batch analyses. Seeded until the AWS analysis endpoint is provided (the live Copilot chat already uses Bedrock Nova Lite)."
         source="MOCK"
       />
 
