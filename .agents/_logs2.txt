@@ -1,0 +1,11 @@
+time=2026-10-06T11:41:01.4918155Z
+
+### latest (5min)        HTTP 200
+{"service_id": "urbani-app", "logs": [], "log_count": "0", "window_start": "2026-10-06T11:32:51.390328+00:00", "window_end": "2026-10-06T11:37:51.390328+00:00"}
+
+### latest minutes=1440  HTTP 200
+{"service_id": "urbani-app", "requested_minutes": 1440, "logs": [{"timestamp": "2026-10-06 06:48:21.475", "message": "{\"timestamp\": \"2026-10-06T06:48:12.033704+00:00\", \"level\": \"ERROR\", \"service\": \"urbani-app\", \"environment\": \"test\", \"request_id\": \"0df64eeb-e61c-4a53-b8c8-9c28c31af26d\", \"message\": \"DatabaseConnectionTimeout connection pool exhausted\", \"component\": \"database\", \"error_code\": \"DB_CONNECTION_TIMEOUT\"}"}, {"message": "{\"timestamp\": \"2026-10-06T07:01:52.946767+00:00\", \"level\": \"ERROR\", \"service\": \"urbani-app\", \"environment\": \"test\", \"request_id\": \"39057f8b-0dc9-4d62-b376-0cdc90da9fdb\", \"message\": \"DatabaseConnectionTimeout connection pool exhausted\", \"component\": \"database\", \"error_code\": \"DB_CONNECTION_TIMEOUT\"}", "timestamp": "2026-10-06 07:02:29.564"}], "log_count": "2", "window_start": "2026-10-05T11:41:03.369053+00:00", "window_end": "2026-10-06T11:41:03.369053+00:00"}
+
+### history 24h limit100 HTTP 200
+{"service_id": "urbani-app", "hours": 24, "logs": [{"timestamp": "2026-10-06 06:48:21.475", "message": "{\"timestamp\": \"2026-10-06T06:48:12.033704+00:00\", \"level\": \"ERROR\", \"service\": \"urbani-app\", \"environment\": \"test\", \"request_id\": \"0df64eeb-e61c-4a53-b8c8-9c28c31af26d\", \"message\": \"DatabaseConnectionTimeout connection pool exhausted\", \"component\": \"database\", \"error_code\": \"DB_CONNECTION_TIMEOUT\"}"}, {"message": "{\"timestamp\": \"2026-10-06T07:01:52.946767+00:00\", \"level\": \"ERROR\", \"service\": \"urbani-app\", \"environment\": \"test\", \"request_id\": \"39057f8b-0dc9-4d62-b376-0cdc90da9fdb\", \"message\": \"DatabaseConnectionTimeout connection pool exhausted\", \"component\": \"database\", \"error_code\": \"DB_CONNECTION_TIMEOUT\"}", "timestamp": "2026-10-06 07:02:29.564"}], "log_count": "2", "window_start": "2026-10-05T11:41:03.694686+00:00", "window_end": "2026-10-06T11:41:03.694686+00:00"}
+
