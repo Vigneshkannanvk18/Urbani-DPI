@@ -1,7 +1,7 @@
-/* Generates OUTPUT/Urbani_AWS_Architecture_Proposal.docx reflecting the current
- * plan: custom web dashboard (no Grafana/CloudWatch dashboards), AI log chatbot,
- * live logs API + LIVE/MOCK provenance, CDK IaC, phase status. Embeds the new
- * AWS-icon architecture diagram PNG. */
+/* Generates OUTPUT/Urbani_AWS_Architecture_Proposal.docx as a forward-looking
+ * PROPOSAL: custom web dashboard (no Grafana/CloudWatch dashboards), AI log
+ * chatbot, live logs API, CDK IaC. All language is proposed/planned tense — no
+ * claims of work already delivered. Embeds the AWS-icon architecture diagram. */
 const fs = require('fs');
 const path = require('path');
 const {
@@ -47,7 +47,7 @@ const diagram = () => {
   return new Paragraph({
     alignment: AlignmentType.CENTER,
     spacing: { before: 120, after: 120 },
-    children: [new ImageRun({ data: img, transformation: { width: 620, height: 366 } })],
+    children: [new ImageRun({ data: img, type: 'png', transformation: { width: 620, height: 360 } })],
   });
 };
 
@@ -62,21 +62,21 @@ const children = [
     ['Project', 'Urbani Proactive Observability & AI Troubleshooting Assistant'],
     ['Client', 'Urbani — Engineering & Operations Team'],
     ['Document Version', '3.0 (Custom Web Dashboard, AI Log Chatbot, Live Logs API, CDK IaC)'],
-    ['Delivery', 'Custom web application + AWS CDK infrastructure'],
-    ['Status', 'Updated proposal reflecting implemented Phase 1/2 + live log integration'],
+    ['Scope', 'Proposed custom web application + AWS CDK infrastructure'],
+    ['Status', 'Proposal for review — scope, architecture, and delivery plan'],
     ['Confidentiality', 'Internal & Urbani — Confidential'],
   ]),
 
   H('2. Executive Summary', HeadingLevel.HEADING_1),
-  P('Urbani operates cloud applications on AWS Elastic Beanstalk. For over two years the team has relied on manual CloudWatch queries to detect and resolve incidents, causing operational toil and knowledge loss. This solution introduces an AI-assisted, proactive observability platform: telemetry is collected on a fixed schedule, analyzed by Amazon Bedrock for anomalies, persisted as evidence-based alerts, and surfaced through a custom web dashboard with an AI log chatbot.'),
-  P('Key delivery decision: the visualization layer is a purpose-built custom web dashboard (React SPA + Node API) — not Amazon Managed Grafana and not CloudWatch dashboards. This gives Urbani full control over UX, an integrated AI log chatbot, and a clean provenance model (LIVE / MOCK / WAITING) so users always know whether data is real telemetry or placeholder.', { bold: true }),
+  P('Urbani operates cloud applications on AWS Elastic Beanstalk. For over two years the team has relied on manual CloudWatch queries to detect and resolve incidents, causing operational toil and knowledge loss. This document proposes an AI-assisted, proactive observability platform: telemetry would be collected on a fixed schedule, analyzed by Amazon Bedrock for anomalies, persisted as evidence-based alerts, and surfaced through a custom web dashboard with an AI log chatbot.'),
+  P('Key design decision: the visualization layer is proposed as a purpose-built custom web dashboard (React SPA + Node API) — not Amazon Managed Grafana and not CloudWatch dashboards. This would give Urbani full control over UX, an integrated AI log chatbot, and a clear data-provenance model so users always know whether a value is real telemetry or a placeholder.', { bold: true }),
 
-  H('3. What Has Been Delivered', HeadingLevel.HEADING_1),
+  H('3. Proposed Scope', HeadingLevel.HEADING_1),
   bullet('Custom web dashboard (React + Node, containerized behind an nginx reverse proxy) — Dashboard, Alerts, Logs, Metrics, AI Insights, Services, Usage & Cost, Audit, Settings.'),
-  bullet('AI Log Chatbot — engineers ask natural-language questions about the logs; answers are grounded in the current log window, cite specific log lines, and are advisory only.'),
-  bullet('Live log integration — real Urbani CloudWatch logs are already consumed via an API Gateway endpoint (x-api-key), surfaced with a LIVE provenance label.'),
-  bullet('Adapter architecture — CloudWatch / Bedrock / DynamoDB / Urbani-application integrations sit behind interfaces; unavailable sources show MOCK/WAITING until provisioned.'),
-  bullet('AWS CDK infrastructure (TypeScript) — synth-ready stack for the full pipeline (not auto-deployed).'),
+  bullet('AI Log Chatbot — engineers ask natural-language questions about the logs; answers would be grounded in the current log window, cite specific log lines, and remain advisory only.'),
+  bullet('Live log integration — Urbani CloudWatch logs consumed via an API Gateway endpoint (x-api-key), surfaced with a clear data-provenance label.'),
+  bullet('Adapter architecture — CloudWatch / Bedrock / DynamoDB / Urbani-application integrations sit behind interfaces so each source can be enabled independently as it is provisioned.'),
+  bullet('AWS CDK infrastructure (TypeScript) — a single stack defining the full pipeline, to be deployed once AWS access is granted.'),
   bullet('Production hardening — single environment-config model, Dockerized stack, health/readiness probes, security headers, rate limiting, and a professional light UI (brand #D1990A).'),
 
   H('4. Target Architecture', HeadingLevel.HEADING_1),
@@ -94,10 +94,10 @@ const children = [
     ['Grounding rule', 'No log evidence → NO_ANOMALY_DETECTED; chatbot refuses to speculate'],
     ['Model configuration', 'Config-driven (never hardcoded); confirmed at AWS enablement'],
   ]),
-  P('The dashboard and chatbot are provider-agnostic: they consume an AIProvider contract. Phase 1 uses a deterministic mock provider; enabling Amazon Bedrock requires no UI or business-logic changes.'),
+  P('The dashboard and chatbot are designed to be provider-agnostic: they consume an AIProvider contract. A deterministic mock provider would be used during development; enabling Amazon Bedrock would require no UI or business-logic changes.'),
 
   H('6. AI Log Chatbot', HeadingLevel.HEADING_1),
-  P('The chatbot lets engineers ask questions such as “are there any errors right now?”, “summarize the current logs”, or “what should I investigate next?”. It pulls the current log window through the same adapter boundary as the dashboard (LIVE when the real API is connected), grounds its answer in that evidence, cites the specific log lines used, and never performs any automated action. This directly addresses the two-year problem of manual, repetitive log triage.'),
+  P('The chatbot would let engineers ask questions such as “are there any errors right now?”, “summarize the current logs”, or “what should I investigate next?”. It would pull the current log window through the same adapter boundary as the dashboard, ground its answer in that evidence, cite the specific log lines used, and never perform any automated action. This directly addresses the two-year problem of manual, repetitive log triage. No vector database or RAG index is required for this scope: the chatbot grounds answers in the current, bounded log window queried directly. A Bedrock Knowledge Base could be added later as future scope if semantic search over long log history or runbooks becomes a requirement.'),
 
   H('7. Data & Persistence', HeadingLevel.HEADING_1),
   kvTable([
@@ -116,23 +116,23 @@ const children = [
   bullet('No secrets in source, logs, or the browser bundle; API keys injected via environment only.'),
 
   H('9. Infrastructure as Code (AWS CDK)', HeadingLevel.HEADING_1),
-  P('All AWS resources are defined as an AWS CDK app (TypeScript) — SecurityConstruct (KMS, CloudTrail, IAM), PersistenceConstruct (DynamoDB), OrchestrationConstruct (EventBridge + Lambdas), CostConstruct (Budgets), and DashboardConstruct (custom dashboard hosting boundary). The stack is synth-ready and validated; it is not deployed until AWS credentials, model access, and a least-privilege review are confirmed.'),
+  P('All AWS resources would be defined as an AWS CDK app (TypeScript) — SecurityConstruct (KMS, CloudTrail, IAM), PersistenceConstruct (DynamoDB), OrchestrationConstruct (EventBridge + Lambdas), CostConstruct (Budgets), and DashboardConstruct (custom dashboard hosting boundary). The stack would be deployed once AWS credentials, model access, and a least-privilege review are confirmed.'),
 
-  H('10. Delivery Phases', HeadingLevel.HEADING_1),
+  H('10. Proposed Delivery Phases', HeadingLevel.HEADING_1),
   kvTable([
-    ['Phase', 'Status'],
-    ['Phase 1 — App foundation + custom Admin Dashboard (mock adapters)', 'DONE'],
-    ['Phase 2 — Production hardening, Dockerization, light UI redesign', 'DONE'],
-    ['Phase 3 — Live logs API integration + AI Log Chatbot', 'DONE (logs LIVE; metrics/services/alerts MOCK until endpoints provisioned)'],
-    ['Phase 4 — Bedrock model enablement (real AI analysis + chatbot answers)', 'READY — flip provider behind AIProvider'],
-    ['Phase 5 — Full AWS deploy via CDK (Lambdas, EventBridge, DynamoDB)', 'READY — synth validated, awaiting AWS access'],
+    ['Phase', 'Scope'],
+    ['Phase 1 — App foundation + custom Admin Dashboard', 'Build the dashboard shell and all pages against adapter interfaces.'],
+    ['Phase 2 — Production hardening, Dockerization, light UI', 'Containerize the stack, add health probes, security headers, rate limiting, light UI.'],
+    ['Phase 3 — Live logs API integration + AI Log Chatbot', 'Wire Urbani logs via API Gateway; build the grounded, advisory chatbot.'],
+    ['Phase 4 — Bedrock model enablement', 'Enable Claude 3.5 Sonnet v2 + guardrail behind the AIProvider contract.'],
+    ['Phase 5 — Full AWS deploy via CDK', 'Deploy Lambdas, EventBridge, DynamoDB, and governance via the CDK stack.'],
   ]),
 
-  H('11. Open Items / Awaiting Client', HeadingLevel.HEADING_1),
-  bullet('Metrics and services API endpoints (currently 403 for the provided key) — needed to move those areas from MOCK to LIVE.'),
-  bullet('Confirmed Amazon Bedrock model access + guardrail provisioning to enable real AI analysis and chatbot answers.'),
+  H('11. Prerequisites from Client / AWS', HeadingLevel.HEADING_1),
+  bullet('Metrics and services API endpoints — needed to surface those areas as live data.'),
+  bullet('Amazon Bedrock model access + guardrail provisioning to enable AI analysis and chatbot answers.'),
   bullet('AWS account/region + IAM permissions to deploy the CDK stack.'),
-  bullet('The current logs window is often empty; real log activity (or a historical endpoint) is required to demonstrate populated data.'),
+  bullet('Access to real log activity (or a historical logs endpoint) to demonstrate populated data.'),
 ];
 
 const doc = new Document({

@@ -25,18 +25,18 @@ s.background = { color: BG };
 s.addShape(pptx.ShapeType.rect, { x: 0, y: 3.0, w: 13.333, h: 0.08, fill: { color: GOLD } });
 s.addText('URBANI', { x: 0.5, y: 1.9, w: 12.3, h: 0.9, fontSize: 54, bold: true, color: GOLD, align: 'center', fontFace: 'Calibri' });
 s.addText('Proactive Observability & AI Troubleshooting Assistant', { x: 0.5, y: 3.15, w: 12.3, h: 0.6, fontSize: 24, color: DARK, align: 'center' });
-s.addText('Custom Web Dashboard  ·  AI Log Chatbot  ·  Live Logs  ·  AWS CDK  —  v3.0', { x: 0.5, y: 3.9, w: 12.3, h: 0.5, fontSize: 15, color: GREY, italic: true, align: 'center' });
+s.addText('Custom Web Dashboard  ·  AI Log Chatbot  ·  Live Logs  ·  AWS CDK  —  v3.0 Proposal', { x: 0.5, y: 3.9, w: 12.3, h: 0.5, fontSize: 15, color: GREY, italic: true, align: 'center' });
 
-// --- Slide 2: What we deliver ---
+// --- Slide 2: What we propose ---
 s = pptx.addSlide();
-titleBar(s, 'What We Deliver');
+titleBar(s, 'What We Propose');
 const deliver = [
   'Custom web dashboard (React + Node) — NOT Grafana / NOT CloudWatch dashboards',
   'AI Log Chatbot — ask questions about logs in natural language, evidence-grounded',
-  'Live Urbani log integration via API Gateway (LIVE provenance labels)',
+  'Urbani log integration via API Gateway with clear data-provenance labels',
   'Amazon Bedrock analysis (Claude 3.5 Sonnet v2) behind a provider abstraction',
   'DynamoDB alert persistence · KMS · CloudTrail · IAM least-privilege · Budgets',
-  'Full infrastructure as AWS CDK (TypeScript) — synth-validated',
+  'Full infrastructure as AWS CDK (TypeScript)',
 ];
 s.addText(deliver.map((t) => ({ text: t, options: { bullet: { code: '2022', indent: 15 }, color: DARK, fontSize: 18, paraSpaceAfter: 10 } })),
   { x: 0.7, y: 1.4, w: 12, h: 5 });
@@ -63,16 +63,16 @@ const rows = [
 ];
 s.addTable(rows, { x: 0.7, y: 1.5, w: 12, colW: [3, 9], fontSize: 15, color: DARK, border: { type: 'solid', color: 'E5E7EB', pt: 1 }, valign: 'middle', rowH: 0.6 });
 
-// --- Slide 5: Status & next steps ---
+// --- Slide 5: Delivery phases & prerequisites ---
 s = pptx.addSlide();
-titleBar(s, 'Delivery Status & Next Steps');
-s.addText('Delivered', { x: 0.7, y: 1.35, w: 6, h: 0.4, fontSize: 18, bold: true, color: GOLD });
+titleBar(s, 'Delivery Plan & Prerequisites');
+s.addText('Proposed Phases', { x: 0.7, y: 1.35, w: 6, h: 0.4, fontSize: 18, bold: true, color: GOLD });
 s.addText(
-  ['Custom dashboard + all pages', 'Production hardening + Docker', 'Live logs API (LIVE)', 'AI Log Chatbot', 'AWS CDK stack (synth-validated)'].map((t) => ({ text: t, options: { bullet: { code: '2022' }, color: DARK, fontSize: 15, paraSpaceAfter: 8 } })),
+  ['Custom dashboard + all pages', 'Production hardening + Docker', 'Logs API integration', 'AI Log Chatbot', 'AWS CDK stack', 'Bedrock enablement + full deploy'].map((t) => ({ text: t, options: { bullet: { code: '2022' }, color: DARK, fontSize: 15, paraSpaceAfter: 8 } })),
   { x: 0.8, y: 1.85, w: 5.7, h: 4 });
-s.addText('Awaiting Client / AWS', { x: 6.9, y: 1.35, w: 6, h: 0.4, fontSize: 18, bold: true, color: DARK });
+s.addText('Prerequisites from Client / AWS', { x: 6.9, y: 1.35, w: 6, h: 0.4, fontSize: 18, bold: true, color: DARK });
 s.addText(
-  ['Bedrock model + guardrail access', 'Metrics/services API endpoints', 'AWS account + IAM to deploy CDK', 'Real log activity (or history endpoint)', 'Rotate shared logs API key'].map((t) => ({ text: t, options: { bullet: { code: '2022' }, color: DARK, fontSize: 15, paraSpaceAfter: 8 } })),
+  ['Bedrock model + guardrail access', 'Metrics/services API endpoints', 'AWS account + IAM to deploy CDK', 'Real log activity (or history endpoint)', 'Secure handling of logs API key'].map((t) => ({ text: t, options: { bullet: { code: '2022' }, color: DARK, fontSize: 15, paraSpaceAfter: 8 } })),
   { x: 7.0, y: 1.85, w: 5.8, h: 4 });
 
 pptx.writeFile({ fileName: path.join(OUT, 'Urbani_AWS_Architecture_v3.pptx') }).then((f) => console.log('Wrote ' + path.basename(f)));
