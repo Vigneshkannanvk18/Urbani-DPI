@@ -1,6 +1,6 @@
 import { SourceBadge } from '../ui';
-import { IconAssistant } from '../icons';
 import type { AssistantMessageData } from './useAssistantChat';
+import copilotIcon from '../../assets/copilot-icon.png';
 
 /**
  * Renders one chat message — user/assistant bubble, citations, provenance meta,
@@ -14,7 +14,7 @@ export function AssistantMessage({ message }: { message: AssistantMessageData })
   return (
     <div className={`chat-msg ${role}`}>
       <div className={`chat-avatar ${role}`} aria-hidden>
-        {role === 'assistant' ? <IconAssistant size={16} /> : 'You'}
+        {role === 'assistant' ? <img className="chat-avatar-img" src={copilotIcon} alt="" /> : 'You'}
       </div>
       <div>
         <div className={`chat-bubble ${isError ? 'is-error' : ''}`}>{content}</div>

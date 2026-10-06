@@ -51,15 +51,20 @@ export function AssistantWidget() {
           <AssistantPanel variant="floating" onClose={close} inputRef={inputRef} />
         </div>
       )}
+      {/* Launcher is hidden while the panel is open so it never overlaps the
+          panel's input/Send; the panel's header X is the close affordance.
+          Kept mounted (visually hidden) so focus can return to it on close. */}
       <button
         ref={launcherRef}
         type="button"
-        className="assistant-launcher"
+        className={`assistant-launcher ${open ? 'is-hidden' : ''}`}
         onClick={() => setOpen((o) => !o)}
-        aria-label={open ? 'Close Urbani Copilot' : 'Open Urbani Copilot'}
+        aria-label="Open Urbani Copilot"
         aria-expanded={open}
         aria-controls={PANEL_ID}
         title="Urbani Copilot"
+        aria-hidden={open}
+        tabIndex={open ? -1 : 0}
       >
         <img className="assistant-launcher-img" src={copilotIcon} alt="" />
       </button>

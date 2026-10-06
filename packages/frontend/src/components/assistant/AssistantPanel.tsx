@@ -2,8 +2,9 @@ import { useEffect, useRef } from 'react';
 import { servicesApi } from '../../api/endpoints';
 import { useApi } from '../../hooks/useApi';
 import { Select, SourceBadge } from '../ui';
-import { IconAssistant, IconClose } from '../icons';
+import { IconClose } from '../icons';
 import { useAssistantChat } from './useAssistantChat';
+import copilotIcon from '../../assets/copilot-icon.png';
 import { AssistantMessage } from './AssistantMessage';
 import { AssistantSuggestions } from './AssistantSuggestions';
 import { AssistantInput } from './AssistantInput';
@@ -45,7 +46,7 @@ export function AssistantPanel({
       {variant === 'floating' && (
         <div className="assistant-panel-header">
           <span className="assistant-panel-icon" aria-hidden>
-            <IconAssistant size={16} />
+            <img className="assistant-panel-icon-img" src={copilotIcon} alt="" />
           </span>
           <div className="assistant-panel-heading">
             <div className="assistant-panel-title">Urbani Copilot</div>
@@ -98,7 +99,7 @@ export function AssistantPanel({
         {busy && (
           <div className="chat-msg assistant">
             <div className="chat-avatar assistant" aria-hidden>
-              <IconAssistant size={16} />
+              <img className="chat-avatar-img" src={copilotIcon} alt="" />
             </div>
             <div className="chat-bubble" aria-label="Assistant is typing">
               <span className="typing-dot" />
