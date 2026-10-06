@@ -41,3 +41,7 @@ export const IconWarn = (p: IconProps) => (<svg {...base(p)}><circle cx="12" cy=
 export const IconCheck = (p: IconProps) => (<svg {...base(p)}><polyline points="20 6 9 17 4 12"/></svg>);
 export const IconActivity = (p: IconProps) => (<svg {...base(p)}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>);
 export const IconServer = (p: IconProps) => (<svg {...base(p)}><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>);
+// Professional assistant chat icon: a rounded speech bubble with a small AI
+// spark, used by the floating assistant launcher and chat messages (replaces
+// the old sun-like IconAI in the chatbot). IconAI is kept for AI Insights.
+export const IconAssistant = (p: IconProps) => (<svg {...base(p)}><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 9 9 0 0 1-3.8-.85L3 21l1.35-4.05A8.38 8.38 0 0 1 3.5 12 8.5 8.5 0 0 1 12 3.5a8.38 8.38 0 0 1 8.5 8"/><path d="M14.4 7.6 15 9l1.4.6L15 10.2l-.6 1.4-.6-1.4L12.4 9.6 13.8 9z"/><circle cx="9" cy="12.5" r="0.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12.5" r="0.6" fill="currentColor" stroke="none"/><circle cx="15" cy="12.5" r="0.6" fill="currentColor" stroke="none"/></svg>);

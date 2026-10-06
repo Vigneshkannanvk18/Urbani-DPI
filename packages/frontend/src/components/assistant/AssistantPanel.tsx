@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { servicesApi } from '../../api/endpoints';
 import { useApi } from '../../hooks/useApi';
 import { Select, SourceBadge } from '../ui';
-import { IconAI, IconClose } from '../icons';
+import { IconAssistant, IconClose } from '../icons';
 import { useAssistantChat } from './useAssistantChat';
 import { AssistantMessage } from './AssistantMessage';
 import { AssistantSuggestions } from './AssistantSuggestions';
@@ -45,16 +45,16 @@ export function AssistantPanel({
       {variant === 'floating' && (
         <div className="assistant-panel-header">
           <span className="assistant-panel-icon" aria-hidden>
-            <IconAI size={16} />
+            <IconAssistant size={16} />
           </span>
           <div className="assistant-panel-heading">
-            <div className="assistant-panel-title">AI Log Assistant</div>
+            <div className="assistant-panel-title">Urbani Copilot</div>
             <div className="assistant-panel-status">
               <SourceBadge
                 source={logsSource}
                 note={`Logs: ${logsSource}`}
               />{' '}
-              Powered by MockAIProvider · Phase 1
+              Powered by Amazon Bedrock (Nova Lite)
             </div>
           </div>
           {onClose && (
@@ -62,7 +62,7 @@ export function AssistantPanel({
               type="button"
               className="assistant-panel-close"
               onClick={onClose}
-              aria-label="Close AI Log Assistant"
+              aria-label="Close Urbani Copilot"
             >
               <IconClose size={18} />
             </button>
@@ -98,7 +98,7 @@ export function AssistantPanel({
         {busy && (
           <div className="chat-msg assistant">
             <div className="chat-avatar assistant" aria-hidden>
-              <IconAI size={16} />
+              <IconAssistant size={16} />
             </div>
             <div className="chat-bubble" aria-label="Assistant is typing">
               <span className="typing-dot" />

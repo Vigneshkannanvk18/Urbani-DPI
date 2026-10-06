@@ -12,15 +12,16 @@ export interface AssistantMessageData {
 }
 
 /** Required copy for an unreachable backend (never leaks internals). */
-const API_ERROR_MESSAGE = 'Unable to reach the AI Log Assistant. Please try again.';
+const API_ERROR_MESSAGE = 'Unable to reach Urbani Copilot. Please try again.';
 
 /** Initial greeting — identical to the long-standing Assistant page copy. */
 const INITIAL_MESSAGES: AssistantMessageData[] = [
   {
     role: 'assistant',
     content:
-      'Hi — I\'m the Urbani log assistant. Ask me anything about the current logs and I\'ll answer ' +
-      'from the evidence in the latest window. I\'m advisory only and never take any action.',
+      'Hi — I\'m Urbani Copilot, your observability assistant. Ask me anything about the current ' +
+      'logs and I\'ll answer from the evidence in the latest window. I\'m advisory only and never ' +
+      'take any action.',
   },
 ];
 

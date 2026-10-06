@@ -98,8 +98,8 @@ export function Layout() {
           </button>
           <div className="topbar-title">{current.title}</div>
           <div className="spacer" />
-          <span className="src src-MOCK" title="Phase 1 runs on controlled mock data">
-            ENV · PHASE 1 / MOCK
+          <span className="src src-LIVE" title="Connected to the live Urbani AWS backend">
+            ENV · LIVE
           </span>
           <div className="topbar-user">
             <div className="avatar" aria-hidden>{initials}</div>

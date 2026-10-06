@@ -20,7 +20,7 @@ export function Assistant() {
   return (
     <div className="stack">
       <PageHeader
-        title="AI Log Assistant"
+        title="Urbani Copilot"
         subtitle="Ask questions about your logs in natural language. Evidence-grounded and advisory — no automated actions."
         source={headerSource}
         note="Answers are grounded in the current log window and cite the evidence used."

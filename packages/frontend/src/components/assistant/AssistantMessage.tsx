@@ -1,5 +1,5 @@
 import { SourceBadge } from '../ui';
-import { IconAI } from '../icons';
+import { IconAssistant } from '../icons';
 import type { AssistantMessageData } from './useAssistantChat';
 
 /**
@@ -14,7 +14,7 @@ export function AssistantMessage({ message }: { message: AssistantMessageData })
   return (
     <div className={`chat-msg ${role}`}>
       <div className={`chat-avatar ${role}`} aria-hidden>
-        {role === 'assistant' ? <IconAI size={16} /> : 'You'}
+        {role === 'assistant' ? <IconAssistant size={16} /> : 'You'}
       </div>
       <div>
         <div className={`chat-bubble ${isError ? 'is-error' : ''}`}>{content}</div>

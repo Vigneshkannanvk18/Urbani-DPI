@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { IconAI } from '../icons';
+import { IconAssistant } from '../icons';
 import { AssistantPanel } from './AssistantPanel';
 
 const PANEL_ID = 'assistant-floating-panel';
@@ -47,7 +47,7 @@ export function AssistantWidget() {
   return (
     <>
       {open && (
-        <div className="assistant-panel" id={PANEL_ID} role="dialog" aria-label="AI Log Assistant">
+        <div className="assistant-panel" id={PANEL_ID} role="dialog" aria-label="Urbani Copilot">
           <AssistantPanel variant="floating" onClose={close} inputRef={inputRef} />
         </div>
       )}
@@ -56,12 +56,12 @@ export function AssistantWidget() {
         type="button"
         className="assistant-launcher"
         onClick={() => setOpen((o) => !o)}
-        aria-label={open ? 'Close AI Log Assistant' : 'Open AI Log Assistant'}
+        aria-label={open ? 'Close Urbani Copilot' : 'Open Urbani Copilot'}
         aria-expanded={open}
         aria-controls={PANEL_ID}
-        title="AI Log Assistant"
+        title="Urbani Copilot"
       >
-        <IconAI size={24} />
+        <IconAssistant size={24} />
       </button>
     </>
   );
