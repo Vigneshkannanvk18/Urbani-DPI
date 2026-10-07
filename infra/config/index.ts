@@ -30,6 +30,17 @@ export interface UrbaniConfig {
   /** AWS Budgets soft/hard alert thresholds (USD). */
   budgetSoftUsd: number;
   budgetHardUsd: number;
+
+  /**
+   * Dashboard hosting on ECS Fargate (serverless containers — no EC2 instance
+   * type to manage). Task size is expressed as CPU units + memory (MiB), the
+   * Fargate sizing model. Container images come from ECR (frontend/backend).
+   */
+  dashboardCpu: number;        // Fargate task CPU units (256 = 0.25 vCPU, 512 = 0.5, 1024 = 1)
+  dashboardMemoryMiB: number;  // Fargate task memory (MiB) — must pair validly with CPU
+  dashboardDesiredCount: number; // number of running tasks (set >=2 for HA)
+  frontendImage: string;       // ECR image URI/tag for urbani/frontend
+  backendImage: string;        // ECR image URI/tag for urbani/backend
 }
 
 function ctx<T extends string | number>(
@@ -68,5 +79,13 @@ export function loadConfig(scope: Construct): UrbaniConfig {
     anomalyTypeGsi: ctx(scope, 'anomalyTypeGsi', process.env.URBANI_ANOMALY_GSI, 'anomaly_type-index'),
     budgetSoftUsd: ctx(scope, 'budgetSoftUsd', process.env.URBANI_BUDGET_SOFT, 50),
     budgetHardUsd: ctx(scope, 'budgetHardUsd', process.env.URBANI_BUDGET_HARD, 100),
+    // ECS Fargate dashboard hosting. Defaults sized for a low-footprint
+    // observability dashboard: 0.5 vCPU / 1 GB, a single task. Raise
+    // dashboardDesiredCount to >=2 for high availability across AZs.
+    dashboardCpu: ctx(scope, 'dashboardCpu', process.env.URBANI_DASHBOARD_CPU, 512),
+    dashboardMemoryMiB: ctx(scope, 'dashboardMemoryMiB', process.env.URBANI_DASHBOARD_MEMORY, 1024),
+    dashboardDesiredCount: ctx(scope, 'dashboardDesiredCount', process.env.URBANI_DASHBOARD_COUNT, 1),
+    frontendImage: ctx(scope, 'frontendImage', process.env.URBANI_FRONTEND_IMAGE, 'urbani/frontend:latest'),
+    backendImage: ctx(scope, 'backendImage', process.env.URBANI_BACKEND_IMAGE, 'urbani/backend:latest'),
   };
 }
