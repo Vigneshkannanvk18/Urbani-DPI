@@ -75,6 +75,8 @@
   min-width: 20px;
   text-align: center;
 }
+/* Logs badge is informational, not an alert — use the brand gold, not red. */
+.nav-count-logs { background: var(--color-primary); }
 .sidebar-foot { border-top: 1px solid var(--color-border); padding-top: var(--space-3); }
 .collapse-btn {
   display: flex; align-items: center; gap: var(--space-3);
@@ -275,12 +277,6 @@ td.mono, .cell-mono { font-family: var(--font-mono); font-size: var(--text-capti
   white-space: pre-wrap; word-break: break-word;
   color: var(--color-text-primary);
 }
-
-/* ---------- Login ---------- */
-.login-wrap { display: flex; min-height: 100vh; align-items: center; justify-content: center; background: var(--color-background); padding: var(--space-4); }
-.login-card { width: 380px; max-width: 100%; }
-.login-brand { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-5); }
-.login-error { background: var(--color-danger-soft); color: var(--color-danger); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); margin-top: var(--space-3); font-size: var(--text-caption); }
 
 /* ---------- Responsive shell (Part 27) ---------- */
 .menu-btn { display: none; background: none; border: none; cursor: pointer; color: var(--color-text-secondary); padding: var(--space-2); border-radius: var(--radius-md); }

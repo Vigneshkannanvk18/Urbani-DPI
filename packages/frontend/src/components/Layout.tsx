@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { NAV_SECTIONS } from '../navigation';
 import { useAuth } from '../auth/AuthContext';
 import { useApi } from '../hooks/useApi';
-import { dashboardApi } from '../api/endpoints';
+import { dashboardApi, logsApi } from '../api/endpoints';
 import { Button } from './ui';
 import { IconLogout, IconMenu, IconChevronLeft, IconChevronRight } from './icons';
 import { AssistantChatProvider } from './assistant/useAssistantChat';
@@ -24,6 +24,12 @@ export function Layout() {
   // Live active-alert count drives the sidebar badge.
   const summary = useApi(() => dashboardApi.summary(), []);
   const activeAlerts = summary.data?.data.activeAlerts ?? 0;
+
+  // Live log count drives the Logs sidebar badge. Uses the same live window as
+  // the Logs page (/logs/latest), so it shows the number of current entries and
+  // disappears when the window is empty.
+  const logsSummary = useApi(() => logsApi.list({ page: 1 }), []);
+  const liveLogCount = logsSummary.data?.data.total ?? 0;
 
   const current =
     NAV_SECTIONS.find((s) => s.path !== '/' && location.pathname.startsWith(s.path)) ??
@@ -73,6 +79,9 @@ export function Layout() {
                 <span className="nav-label">{s.label}</span>
                 {s.key === 'alerts' && activeAlerts > 0 && (
                   <span className="nav-count" aria-label={`${activeAlerts} active alerts`}>{activeAlerts}</span>
+                )}
+                {s.key === 'logs' && liveLogCount > 0 && (
+                  <span className="nav-count nav-count-logs" aria-label={`${liveLogCount} live log entries`}>{liveLogCount}</span>
                 )}
               </NavLink>
             );

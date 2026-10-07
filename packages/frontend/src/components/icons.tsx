@@ -45,3 +45,32 @@ export const IconServer = (p: IconProps) => (<svg {...base(p)}><rect x="2" y="2"
 // spark, used by the floating assistant launcher and chat messages (replaces
 // the old sun-like IconAI in the chatbot). IconAI is kept for AI Insights.
 export const IconAssistant = (p: IconProps) => (<svg {...base(p)}><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 9 9 0 0 1-3.8-.85L3 21l1.35-4.05A8.38 8.38 0 0 1 3.5 12 8.5 8.5 0 0 1 12 3.5a8.38 8.38 0 0 1 8.5 8"/><path d="M14.4 7.6 15 9l1.4.6L15 10.2l-.6 1.4-.6-1.4L12.4 9.6 13.8 9z"/><circle cx="9" cy="12.5" r="0.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12.5" r="0.6" fill="currentColor" stroke="none"/><circle cx="15" cy="12.5" r="0.6" fill="currentColor" stroke="none"/></svg>);
+
+/* ---- Login page icons ---- */
+export const IconMail = (p: IconProps) => (<svg {...base(p)}><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>);
+export const IconLock = (p: IconProps) => (<svg {...base(p)}><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>);
+export const IconEye = (p: IconProps) => (<svg {...base(p)}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>);
+export const IconEyeOff = (p: IconProps) => (<svg {...base(p)}><path d="M9.88 9.88a3 3 0 0 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c6.5 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3.5 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>);
+export const IconArrowRight = (p: IconProps) => (<svg {...base(p)}><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>);
+export const IconShield = (p: IconProps) => (<svg {...base(p)}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>);
+export const IconBrain = (p: IconProps) => (<svg {...base(p)}><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></svg>);
+
+/* ---- Filled / duotone login feature glyphs (gold, match mockup) ---- */
+function fillBase({ size = 20, ...props }: IconProps) {
+  return {
+    width: size,
+    height: size,
+    viewBox: '0 0 24 24',
+    fill: 'currentColor',
+    'aria-hidden': true,
+    ...props,
+  };
+}
+// Bar chart (Real-time Monitoring)
+export const IconBarsFill = (p: IconProps) => (<svg {...fillBase(p)}><rect x="3" y="12" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="17" y="3" width="4" height="17" rx="1"/></svg>);
+// Warning triangle outline (Proactive Alerts)
+export const IconTriangleAlert = (p: IconProps) => (<svg {...base({ ...p, strokeWidth: 2 })}><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>);
+// Brain (AI-Powered Insights)
+export const IconBrainFill = (p: IconProps) => (<svg {...base({ ...p, strokeWidth: 2 })}><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></svg>);
+// Shield (Faster Troubleshooting)
+export const IconShieldOutline = (p: IconProps) => (<svg {...base({ ...p, strokeWidth: 2 })}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>);
