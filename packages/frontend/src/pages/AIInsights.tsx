@@ -1,20 +1,24 @@
 import { useState } from 'react';
 import { useApi } from '../hooks/useApi';
-import { aiApi, servicesApi } from '../api/endpoints';
+import { aiApi, alertsApi, servicesApi } from '../api/endpoints';
 import {
-  PageHeader, Card, Button, Select, AsyncView, Confidence, fmtTime, SourceBadge,
+  PageHeader, Card, Button, Select, AsyncView, Confidence, fmtTime, SourceBadge, SeverityBadge,
 } from '../components/ui';
 
-/** AI Insights (Part 22). Provider-agnostic — the UI cannot tell Mock from
- *  Bedrock; it only reads the AIProvider contract. MOCK-labelled in Phase 1. */
+/** AI Insights (Part 22). The LIVE section surfaces the real Bedrock Nova 2 Lite
+ *  incident analyses per enabled service; the batch Analyze tool stays MOCK (no
+ *  QA analyze endpoint). The UI cannot tell Mock from Bedrock — it only reads the
+ *  AIProvider / alerts contract. */
 export function AIInsights() {
   const [page, setPage] = useState(1);
-  const [service, setService] = useState('urbani-core-api');
-  const [environment, setEnvironment] = useState('production-eb');
+  const [service, setService] = useState('main');
+  const [environment, setEnvironment] = useState('qa');
   const [busy, setBusy] = useState(false);
 
   const services = useApi(() => servicesApi.list(), []);
   const analyses = useApi(() => aiApi.list({ page }), [page]);
+
+  const enabledServices = (services.data?.data ?? []).filter((s) => s.enabled !== false);
 
   const runAnalysis = async () => {
     setBusy(true);
@@ -30,18 +34,29 @@ export function AIInsights() {
     <div className="stack">
       <PageHeader
         title="AI Insights"
-        subtitle="Provider-agnostic batch analyses. Seeded until the AWS analysis endpoint is provided (the live Copilot chat already uses Bedrock Nova Lite)."
+        subtitle="Live incident analyses come from the real alerts pipeline (Amazon Bedrock Nova 2 Lite). The batch analyze tool below is seeded/MOCK until an AWS analyze endpoint is provided."
         source="MOCK"
       />
 
-      <Card title="Run advisory analysis" titleSub="Human-in-the-loop — produces a finding only">
+      <Card title="Live incident analysis — Amazon Bedrock Nova 2 Lite" titleSub="Newest live alert per enabled service">
+        <AsyncView state={services}>
+          {() => (
+            <div className="grid two">
+              {enabledServices.map((svc) => (
+                <LiveServiceAnalysis key={svc.id} service={svc.name} />
+              ))}
+            </div>
+          )}
+        </AsyncView>
+      </Card>
+
+      <Card title="Run advisory analysis" titleSub="MOCK — human-in-the-loop, produces a finding only">
         <div className="filter-bar" style={{ marginBottom: 0 }}>
           <Select value={service} onChange={(e) => setService(e.target.value)} aria-label="Service">
-            {services.data?.data.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+            {enabledServices.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
           </Select>
           <Select value={environment} onChange={(e) => setEnvironment(e.target.value)} aria-label="Environment">
-            <option>production-eb</option>
-            <option>staging-eb</option>
+            <option>qa</option>
           </Select>
           <Button onClick={runAnalysis} disabled={busy}>{busy ? 'Analyzing…' : 'Analyze telemetry'}</Button>
         </div>
@@ -86,6 +101,43 @@ export function AIInsights() {
           )}
         </AsyncView>
       </Card>
+    </div>
+  );
+}
+
+/** The newest live alert analysis for one enabled service (LIVE-badged). */
+function LiveServiceAnalysis({ service }: { service: string }) {
+  const latest = useApi(() => alertsApi.list({ service, pageSize: 1 }), [service]);
+  return (
+    <div className="card">
+      <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {service}
+        <SourceBadge source={(latest.data?.source as 'LIVE' | 'MOCK' | 'WAITING_FOR_INTEGRATION') ?? 'MOCK'} />
+      </div>
+      <AsyncView state={latest}>
+        {(res) => {
+          const alert = res.data.items[0];
+          if (!alert) return <p className="text-secondary">No current incident for {service}.</p>;
+          return (
+            <div className="detail-grid">
+              <div className="k">Severity</div><div><SeverityBadge severity={alert.severity} /></div>
+              <div className="k">Anomaly</div><div>{alert.anomalyType}</div>
+              <div className="k">Summary</div><div>{alert.summary}</div>
+              <div className="k">Probable cause</div><div>{alert.probableCause}</div>
+              <div className="k">Recommendation</div>
+              <div>
+                {alert.recommendedActions.length ? (
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    {alert.recommendedActions.map((a, i) => <li key={i}>{a}</li>)}
+                  </ul>
+                ) : '—'}
+              </div>
+              <div className="k">Confidence</div><div><Confidence value={alert.confidence} /></div>
+              <div className="k">Model</div><div className="cell-mono">{alert.modelId}</div>
+            </div>
+          );
+        }}
+      </AsyncView>
     </div>
   );
 }

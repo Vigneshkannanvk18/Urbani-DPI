@@ -33,7 +33,10 @@ export const urbaniIncidentAlertSchema = z.object({
   evidence: z.array(z.string()),
   probableCause: z.string(),
   recommendedActions: z.array(z.string()),
-  confidence: z.number().min(0).max(1),
+  // Nullable: the live QA /alerts API returns no confidence score. A fixed
+  // numeric default would paint a fabricated precision onto a LIVE incident, so
+  // "unknown" is modelled honestly as null (rendered '—' in the UI).
+  confidence: z.number().min(0).max(1).nullable(),
   modelId: z.string(),
 });
 

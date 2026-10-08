@@ -11,8 +11,8 @@ export interface AssistantMessageData {
   isError?: boolean;
 }
 
-/** Required copy for an unreachable backend (never leaks internals). */
-const API_ERROR_MESSAGE = 'Unable to reach Urbani Copilot. Please try again.';
+/** Honest copy for a 503/unavailable turn or a transport failure (no internals). */
+const API_ERROR_MESSAGE = 'Urbani Copilot is temporarily unavailable. Please try again.';
 
 /** Initial greeting — identical to the long-standing Assistant page copy. */
 const INITIAL_MESSAGES: AssistantMessageData[] = [
@@ -49,8 +49,8 @@ const AssistantChatContext = createContext<AssistantChatValue | null>(null);
  * and is torn down on logout when the shell unmounts.
  */
 export function AssistantChatProvider({ children }: { children: ReactNode }) {
-  const [service, setService] = useState('urbani-app');
-  const [environment, setEnvironment] = useState('production-eb');
+  const [service, setService] = useState('main');
+  const [environment, setEnvironment] = useState('qa');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<AssistantMessageData[]>(INITIAL_MESSAGES);
@@ -78,7 +78,10 @@ export function AssistantChatProvider({ children }: { children: ReactNode }) {
           role: 'assistant',
           content: res.data.answer,
           citations: res.data.citations,
-          source: res.data.logsSource,
+          // AC16: the per-answer badge reflects the ANSWER provenance (res.source),
+          // not the log-window grounding source, so a MOCK/unavailable turn is
+          // never shown with a LIVE badge.
+          source: res.source,
           meta: `${res.data.provider} · ${res.data.modelId}`,
         },
       ]);

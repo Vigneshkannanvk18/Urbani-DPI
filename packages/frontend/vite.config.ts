@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -18,6 +19,19 @@ const devApiTarget = process.env.VITE_API_TARGET ?? `http://${devApiHost}:${devA
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      // The @urbani/shared package ships a CommonJS build whose named exports
+      // Rollup can't statically detect through its re-export barrel. The
+      // assistant markdown renderer needs the pure helper's RUNTIME exports, so
+      // alias the subpath to its TypeScript SOURCE — Vite/esbuild compiles it on
+      // the fly and reads native ESM exports. (Type-only imports from the barrel
+      // are erased and remain unaffected.)
+      '@urbani/shared/markdown': fileURLToPath(
+        new URL('../shared/src/markdown.ts', import.meta.url),
+      ),
+    },
+  },
   server: {
     host: true, // listen on all interfaces so it works inside a dev container too
     port: Number(process.env.VITE_DEV_PORT ?? 5173),

@@ -36,7 +36,9 @@ export function Settings() {
 
             <Card title="CloudWatch">
               <div className="detail-grid">
-                <Row k="Log group" v={s.cloudwatch.logGroup} mono />
+                {s.cloudwatch.logGroups.map((lg, i) => (
+                  <Row key={lg} k={i === 0 ? 'Log groups' : ''} v={lg} mono />
+                ))}
                 <Row k="Max log lines" v={String(s.cloudwatch.maxLogLines)} />
                 <Row k="Query window (min)" v={String(s.cloudwatch.queryWindowMinutes)} />
               </div>
@@ -53,12 +55,36 @@ export function Settings() {
               <div className="detail-grid">
                 <Row k="Primary model" v={s.ai.primaryModelId} mono />
                 <Row k="Fallback model" v={s.ai.fallbackModelId} mono />
-                <Row k="Guardrail" v={s.ai.guardrailId} mono />
+                <Row k="Guardrail ID" v={s.ai.guardrailId} mono />
+                <Row k="Guardrail name" v={s.ai.guardrailName} mono />
+                <Row k="Guardrail version" v={s.ai.guardrailVersion} />
                 <Row k="Temperature" v={String(s.ai.temperature)} />
                 <Row k="Max tokens" v={String(s.ai.maxTokens)} />
                 <Row k="Top P" v={String(s.ai.topP)} />
               </div>
             </Card>
+
+            <div className="card" style={{ gridColumn: '1 / -1' }}>
+              <div className="card-title">AWS Observability Pipeline (QA)</div>
+              <div className="detail-grid">
+                <Row k="Region" v={s.pipeline.region} />
+                <Row k="Flow" v={s.pipeline.flow} />
+                <Row k="Collector Lambda" v={s.pipeline.collectorLambda} mono />
+                <Row k="EventBridge rule" v={s.pipeline.eventBridgeRule} mono />
+                <Row k="Collector schedule" v={`every ${s.pipeline.collectorScheduleMinutes} min`} />
+                <Row k="Alert writer Lambda" v={s.pipeline.alertWriterLambda} mono />
+                <Row k="Duplicate suppression" v={`${s.pipeline.duplicateSuppressionMinutes} min`} />
+                <Row k="Logs API Lambda" v={s.pipeline.logsApiLambda} mono />
+                <Row k="Alerts API Lambda" v={s.pipeline.alertsApiLambda} mono />
+                <Row k="Chat Lambda" v={s.pipeline.chatLambda} mono />
+                <Row
+                  k="Registered services"
+                  v={s.pipeline.registeredServices
+                    .map((r) => `${r.name} (${r.enabled ? 'enabled' : 'disabled'})`)
+                    .join(', ')}
+                />
+              </div>
+            </div>
 
             <Card title="Alerts & Budget">
               <div className="detail-grid">

@@ -36,7 +36,7 @@ export function Dashboard() {
         <span className="banner-icon"><IconWarn size={16} /></span>
         <span>
           <strong>Mixed data sources.</strong> Logs, alerts, and the AI assistant are
-          live from the Urbani AWS backend (Bedrock Nova Lite). Metrics, services, usage,
+          live from the Urbani AWS backend (Bedrock Nova 2 Lite). Metrics, services, usage,
           and audit remain seeded until their AWS endpoints are provided. Every panel is
           labelled with its true source: <span className="src src-LIVE">LIVE</span>{' '}
           <span className="src src-MOCK">MOCK</span> <span className="src src-WAITING_FOR_INTEGRATION">WAITING</span>.

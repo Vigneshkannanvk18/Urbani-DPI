@@ -1,4 +1,5 @@
 import { config } from '../config';
+import { URBANI_QA_PIPELINE } from '../config/urbaniQa';
 import { integrationRepository } from '../repositories/integrationRepository';
 import { auditRepository } from '../repositories/auditRepository';
 
@@ -12,12 +13,14 @@ import { auditRepository } from '../repositories/auditRepository';
 export interface SettingsView {
   general: { appName: string; environment: string; integrationMode: string };
   aws: { region: string; accountId: string | null; hasStaticCredentials: boolean };
-  cloudwatch: { logGroup: string; maxLogLines: number; queryWindowMinutes: number };
+  cloudwatch: { logGroup: string; logGroups: string[]; maxLogLines: number; queryWindowMinutes: number };
   dynamodb: { alertsTable: string; anomalyTypeGsi: string };
   ai: {
     primaryModelId: string;
     fallbackModelId: string;
     guardrailId: string;
+    guardrailName: string;
+    guardrailVersion: string;
     temperature: number;
     maxTokens: number;
     topP: number;
@@ -29,6 +32,19 @@ export interface SettingsView {
     hardAlertUsd: number;
   };
   scheduler: { collectorMinutes: number };
+  pipeline: {
+    region: string;
+    flow: string;
+    collectorLambda: string;
+    eventBridgeRule: string;
+    collectorScheduleMinutes: number;
+    alertWriterLambda: string;
+    duplicateSuppressionMinutes: number;
+    logsApiLambda: string;
+    alertsApiLambda: string;
+    chatLambda: string;
+    registeredServices: Array<{ name: string; enabled: boolean }>;
+  };
   integrations: Array<{ kind: string; displayName: string; mode: string; status: string }>;
 }
 
@@ -43,7 +59,7 @@ export interface SettingsView {
  *    logs API is configured (base URL + key present). Otherwise MOCK.
  *  - URBANI_APP log source follows the same condition (it is the same upstream).
  *  - Bedrock (AI chat) and DynamoDB (AI-generated alerts) are now genuinely live
- *    under the same condition: chat answers come from the real Bedrock Nova Lite
+ *    under the same condition: chat answers come from the real Bedrock Nova 2 Lite
  *    /chat endpoint and alerts come from the real /alerts endpoints. They report
  *    LIVE/CONNECTED in live mode, else the honest seeded "waiting" state.
  */
@@ -81,6 +97,7 @@ export const settingsService = {
       },
       cloudwatch: {
         logGroup: config.cloudwatch.logGroup,
+        logGroups: config.urbani.logGroups,
         maxLogLines: config.cloudwatch.maxLogLines,
         queryWindowMinutes: config.cloudwatch.queryWindowMinutes,
       },
@@ -92,6 +109,8 @@ export const settingsService = {
         primaryModelId: config.bedrock.primaryModelId,
         fallbackModelId: config.bedrock.fallbackModelId,
         guardrailId: config.bedrock.guardrailId,
+        guardrailName: config.bedrock.guardrailName,
+        guardrailVersion: config.bedrock.guardrailVersion,
         temperature: config.bedrock.inference.temperature,
         maxTokens: config.bedrock.inference.maxTokens,
         topP: config.bedrock.inference.topP,
@@ -103,6 +122,22 @@ export const settingsService = {
         hardAlertUsd: config.cost.hardAlertUsd,
       },
       scheduler: { collectorMinutes: config.scheduler.collectorMinutes },
+      pipeline: {
+        region: URBANI_QA_PIPELINE.region,
+        flow: URBANI_QA_PIPELINE.flow,
+        collectorLambda: URBANI_QA_PIPELINE.collectorLambda,
+        eventBridgeRule: URBANI_QA_PIPELINE.eventBridgeRule,
+        collectorScheduleMinutes: URBANI_QA_PIPELINE.collectorScheduleMinutes,
+        alertWriterLambda: URBANI_QA_PIPELINE.alertWriterLambda,
+        duplicateSuppressionMinutes: URBANI_QA_PIPELINE.duplicateSuppressionMinutes,
+        logsApiLambda: URBANI_QA_PIPELINE.logsApiLambda,
+        alertsApiLambda: URBANI_QA_PIPELINE.alertsApiLambda,
+        chatLambda: URBANI_QA_PIPELINE.chatLambda,
+        registeredServices: URBANI_QA_PIPELINE.registeredServices.map((s) => ({
+          name: s.name,
+          enabled: s.enabled,
+        })),
+      },
       integrations: integrationRepository.all().map((i) => {
         const live = runtimeIntegrationState(i.kind, i.mode, i.status);
         return {

@@ -1,5 +1,6 @@
 import { SourceBadge } from '../ui';
 import type { AssistantMessageData } from './useAssistantChat';
+import { renderMarkdown } from './markdown';
 import copilotIcon from '../../assets/copilot-icon.png';
 
 /**
@@ -11,13 +12,19 @@ import copilotIcon from '../../assets/copilot-icon.png';
  */
 export function AssistantMessage({ message }: { message: AssistantMessageData }) {
   const { role, content, citations, meta, source, isError } = message;
+  // Render markdown ONLY for assistant, non-error bubbles (the real Nova 2 Lite
+  // answer is markdown). User + error bubbles stay plain text. The renderer is
+  // XSS-safe (no dangerouslySetInnerHTML; disallowed URL schemes neutralized).
+  const renderMarkdownBody = role === 'assistant' && !isError;
   return (
     <div className={`chat-msg ${role}`}>
       <div className={`chat-avatar ${role}`} aria-hidden>
         {role === 'assistant' ? <img className="chat-avatar-img" src={copilotIcon} alt="" /> : 'You'}
       </div>
       <div>
-        <div className={`chat-bubble ${isError ? 'is-error' : ''}`}>{content}</div>
+        <div className={`chat-bubble ${isError ? 'is-error' : ''}`}>
+          {renderMarkdownBody ? renderMarkdown(content) : content}
+        </div>
         {citations && citations.length > 0 && (
           <div className="chat-citations">
             {citations.map((c, j) => (

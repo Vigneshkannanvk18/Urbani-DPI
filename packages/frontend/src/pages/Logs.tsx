@@ -28,7 +28,7 @@ export function Logs() {
     <div className="stack">
       <PageHeader
         title="Logs"
-        subtitle="Log stream via the CloudWatch adapter boundary (live Urbani logs API)."
+        subtitle="Live Urbani QA logs (latest + history, merged) for main and payments via the CloudWatch adapter boundary."
         source={(logs.data?.source ?? 'MOCK') as 'LIVE' | 'MOCK' | 'WAITING_FOR_INTEGRATION'}
       />
       <Card>
@@ -41,7 +41,7 @@ export function Logs() {
           </Select>
           <Select value={service} onChange={(e) => { reset(); setService(e.target.value); }} aria-label="Filter by service">
             <option value="">All services</option>
-            {services.data?.data.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+            {services.data?.data.filter((s) => s.enabled !== false).map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
           </Select>
         </FilterBar>
 

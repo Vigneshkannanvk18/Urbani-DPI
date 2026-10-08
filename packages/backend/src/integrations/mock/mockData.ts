@@ -11,8 +11,8 @@ import type {
  *
  * EVERYTHING here is fabricated demo data. It is ALWAYS surfaced with a MOCK
  * data-source label — it must never be presented as real AWS telemetry. It is
- * modelled on the documented demo scenario (DB connection exhaustion on
- * urbani-core-api) so the dashboard tells a coherent story.
+ * modelled on the documented demo scenario (DB connection exhaustion on the QA
+ * `main` service) so the dashboard tells a coherent story.
  */
 
 export const MOCK_NOTE = 'Seeded demo data (Phase 1). Not real AWS telemetry — awaiting integration.';
@@ -20,11 +20,15 @@ export const MOCK_NOTE = 'Seeded demo data (Phase 1). Not real AWS telemetry —
 const now = Date.parse('2026-09-23T08:00:00.000Z');
 const iso = (offsetMinutes: number): string => new Date(now + offsetMinutes * 60_000).toISOString();
 
+/**
+ * QA roster: main + payments are ENABLED; auth + support are registered but
+ * DISABLED upstream (surfaced disabled, never called). All environment: 'qa'.
+ */
 export const mockServices: ServiceSummary[] = [
   {
-    id: 'svc-core-api',
-    name: 'urbani-core-api',
-    environment: 'production-eb',
+    id: 'svc-main',
+    name: 'main',
+    environment: 'qa',
     status: 'DEGRADED',
     lastTelemetryAt: iso(-2),
     alertCount: 3,
@@ -32,9 +36,9 @@ export const mockServices: ServiceSummary[] = [
     lastIncidentAt: iso(-12),
   },
   {
-    id: 'svc-worker',
-    name: 'urbani-worker',
-    environment: 'production-eb',
+    id: 'svc-payments',
+    name: 'payments',
+    environment: 'qa',
     status: 'HEALTHY',
     lastTelemetryAt: iso(-1),
     alertCount: 0,
@@ -42,23 +46,39 @@ export const mockServices: ServiceSummary[] = [
     lastIncidentAt: null,
   },
   {
-    id: 'svc-web',
-    name: 'urbani-web',
-    environment: 'staging-eb',
-    status: 'HEALTHY',
-    lastTelemetryAt: iso(-3),
-    alertCount: 1,
-    errorRate: 0.8,
-    lastIncidentAt: iso(-1440),
+    id: 'svc-auth',
+    name: 'auth',
+    environment: 'qa',
+    status: 'UNKNOWN',
+    lastTelemetryAt: null,
+    alertCount: 0,
+    errorRate: 0,
+    lastIncidentAt: null,
+  },
+  {
+    id: 'svc-support',
+    name: 'support',
+    environment: 'qa',
+    status: 'UNKNOWN',
+    lastTelemetryAt: null,
+    alertCount: 0,
+    errorRate: 0,
+    lastIncidentAt: null,
   },
 ];
+
+/**
+ * Enabled services only (main, payments) — used to generate mock logs/metrics so
+ * disabled roster entries (auth, support) never carry seeded telemetry.
+ */
+const enabledMockServices = mockServices.filter((s) => s.name === 'main' || s.name === 'payments');
 
 export const mockAlerts: UrbaniIncidentAlert[] = [
   {
     alertId: 'ALT-20260923-001',
     timestamp: iso(-12),
-    service: 'urbani-core-api',
-    environment: 'production-eb',
+    service: 'main',
+    environment: 'qa',
     severity: 'CRITICAL',
     anomalyType: 'DatabaseConnectionTimeout',
     summary: 'High frequency of DB connection timeout exceptions in the last log window.',
@@ -74,13 +94,13 @@ export const mockAlerts: UrbaniIncidentAlert[] = [
       'Consider temporarily increasing the connection pool size while investigating.',
     ],
     confidence: 0.92,
-    modelId: 'anthropic.claude-3-5-sonnet-20241022-v2:0',
+    modelId: 'global.amazon.nova-2-lite-v1:0',
   },
   {
     alertId: 'ALT-20260923-002',
     timestamp: iso(-45),
-    service: 'urbani-core-api',
-    environment: 'production-eb',
+    service: 'main',
+    environment: 'qa',
     severity: 'HIGH',
     anomalyType: 'ElevatedErrorRate',
     summary: 'HTTP 5xx error rate exceeded the baseline for the /orders endpoint.',
@@ -94,13 +114,13 @@ export const mockAlerts: UrbaniIncidentAlert[] = [
       'Correlate the error spike with the most recent deployment timestamp.',
     ],
     confidence: 0.81,
-    modelId: 'anthropic.claude-3-5-sonnet-20241022-v2:0',
+    modelId: 'global.amazon.nova-2-lite-v1:0',
   },
   {
     alertId: 'ALT-20260923-003',
     timestamp: iso(-180),
-    service: 'urbani-web',
-    environment: 'staging-eb',
+    service: 'payments',
+    environment: 'qa',
     severity: 'MEDIUM',
     anomalyType: 'MemoryPressure',
     summary: 'Sustained memory usage above 85% on the staging web tier.',
@@ -111,7 +131,7 @@ export const mockAlerts: UrbaniIncidentAlert[] = [
       'Compare memory trend against the last known-good build.',
     ],
     confidence: 0.68,
-    modelId: 'amazon.nova-lite-v1:0',
+    modelId: 'global.amazon.nova-2-lite-v1:0',
   },
 ];
 
@@ -127,7 +147,7 @@ const LOG_MESSAGES: Array<Pick<LogEntry, 'level' | 'message'>> = [
 
 export const mockLogs: LogEntry[] = Array.from({ length: 60 }, (_, i) => {
   const tpl = LOG_MESSAGES[i % LOG_MESSAGES.length];
-  const svc = mockServices[i % mockServices.length];
+  const svc = enabledMockServices[i % enabledMockServices.length];
   return {
     id: `log-${String(i + 1).padStart(4, '0')}`,
     timestamp: iso(-i * 2),
@@ -138,7 +158,7 @@ export const mockLogs: LogEntry[] = Array.from({ length: 60 }, (_, i) => {
   };
 });
 
-export const mockMetrics: MetricSnapshot[] = mockServices.flatMap((svc) =>
+export const mockMetrics: MetricSnapshot[] = enabledMockServices.flatMap((svc) =>
   Array.from({ length: 12 }, (_, i) => ({
     id: `metric-${svc.id}-${i}`,
     service: svc.name,
@@ -161,7 +181,7 @@ export const mockUsage: UsageRecord[] = Array.from({ length: 7 }, (_, i) => {
   return {
     id: `usage-${i}`,
     date: new Date(now - i * 86_400_000).toISOString().slice(0, 10),
-    modelId: 'anthropic.claude-3-5-sonnet-20241022-v2:0',
+    modelId: 'global.amazon.nova-2-lite-v1:0',
     aiRequestCount: requests,
     inputTokens,
     outputTokens,

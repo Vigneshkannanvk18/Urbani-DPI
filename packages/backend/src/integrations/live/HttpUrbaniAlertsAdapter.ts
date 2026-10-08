@@ -1,20 +1,19 @@
-import { randomUUID } from 'node:crypto';
 import type { Severity, UrbaniIncidentAlert } from '@urbani/shared';
 import { SEVERITIES, urbaniIncidentAlertSchema } from '@urbani/shared';
 import { config } from '../../config';
 import { logger } from '../../lib/logger';
 
 /**
- * HttpUrbaniAlertsAdapter (Phase 3 — real AI-generated incidents).
+ * HttpUrbaniAlertsAdapter (Phase 3 — real AI-generated QA incidents).
  *
- * Reads the live, Bedrock-generated alerts from the API Gateway endpoints
+ * Reads the live, Bedrock-generated alerts from the QA API Gateway endpoints
  * (GET {base}/alerts/latest and GET {base}/alerts/history?limit=N), secured by
- * an x-api-key header, and maps each AWS alert object onto the shared
- * UrbaniIncidentAlert contract so alertService can serve them unchanged.
+ * an x-api-key header, and maps each FLAT, top-level, snake_case alert object
+ * onto the shared UrbaniIncidentAlert contract so alertService can serve them
+ * unchanged.
  *
  * This is a NEW, focused live source consumed by alertService — it is NOT the
- * DynamoDBAdapter interface (putAlert/getAlert/queryAlerts); the mock DynamoDB
- * adapter stays as-is for the analyze pipeline.
+ * DynamoDBAdapter interface (putAlert/getAlert/queryAlerts).
  *
  * It mirrors HttpUrbaniLogsAdapter's discipline:
  *  - API key read from env only; never hardcoded, logged, or returned.
@@ -22,25 +21,16 @@ import { logger } from '../../lib/logger';
  *  - On failure return [] (or stale) rather than breaking the Alerts page.
  */
 
+/** The real QA alert shape: FLAT, top-level, snake_case. */
 interface UrbaniAlertObject {
-  alertId?: string;
-  severity?: string;
+  service_id?: string;
   timestamp?: string;
-  service_id?: string;
-  service?: string;
-  environment?: string;
-  anomalyType?: string;
+  alert_id?: string;
+  anomaly_type?: string;
+  severity?: string;
   summary?: string;
-  probableCause?: string;
-  recommendedActions?: unknown;
-  evidence?: unknown;
-  confidence?: number | string;
-  modelId?: string | null;
-}
-
-interface LatestResponse {
-  service_id?: string;
-  alert?: UrbaniAlertObject | null;
+  probable_cause?: string;
+  recommendation?: string;
 }
 
 interface HistoryResponse {
@@ -57,56 +47,87 @@ interface CacheEntry {
 export class HttpUrbaniAlertsAdapter {
   readonly kind = 'URBANI_ALERTS' as const;
 
-  private latestCache: CacheEntry | null = null;
-  private historyCache: Map<number, CacheEntry> = new Map();
+  /** Per-service caches so each service is polled at most once per window. */
+  private latestCache: Map<string, CacheEntry> = new Map();
+  private historyCache: Map<string, CacheEntry> = new Map();
   private readonly ttlMs: number;
+
+  /** All enabled services (e.g. ['main','payments']); first is the default. */
+  private readonly services: string[];
+
+  /** Urbani environment label stamped onto every mapped alert. */
+  private readonly environment: string;
 
   constructor(
     private readonly baseUrl: string,
     private readonly apiKey: string,
-    private readonly service: string,
+    service: string,
     refreshMinutes: number,
+    services?: string[],
+    environment = 'qa',
   ) {
     this.ttlMs = Math.max(refreshMinutes, 1) * 60_000;
+    this.services = services && services.length ? services : [service];
+    this.environment = environment;
   }
 
-  /** The current (latest) alert as a 0-or-1 element array. */
+  /** The current (latest) alert across all enabled services. */
   async getLatest(): Promise<UrbaniIncidentAlert[]> {
+    const perService = await Promise.all(this.services.map((svc) => this.getLatestFor(svc)));
+    return perService.flat();
+  }
+
+  private async getLatestFor(service: string): Promise<UrbaniIncidentAlert[]> {
     const now = Date.now();
-    if (this.latestCache && now - this.latestCache.at < this.ttlMs) {
-      return this.latestCache.value;
+    const cached = this.latestCache.get(service);
+    if (cached && now - cached.at < this.ttlMs) {
+      return cached.value;
     }
     try {
-      const body = await this.get<LatestResponse>(
-        `/alerts/latest?service=${encodeURIComponent(this.service)}`,
+      // The real /alerts/latest body IS the alert (flat, top-level) — not wrapped.
+      const body = await this.get<UrbaniAlertObject>(
+        `/alerts/latest?service=${encodeURIComponent(service)}`,
       );
-      const raw = body.alert ?? null;
-      const mapped = raw ? this.mapMany([raw]) : [];
-      this.latestCache = { at: now, value: mapped };
+      // No alert_id means "no current alert" for this service.
+      const mapped =
+        body && typeof body.alert_id === 'string' && body.alert_id.length > 0
+          ? this.mapMany([body], service)
+          : [];
+      this.latestCache.set(service, { at: now, value: mapped });
       return mapped;
     } catch (err) {
-      return this.onFailure('alerts/latest', err, this.latestCache);
+      return this.onFailure('alerts/latest', err, this.latestCache.get(service) ?? null);
     }
   }
 
-  /** The most recent N alerts (history). */
+  /** The most recent N alerts (history) across all enabled services. */
   async getHistory(limit: number): Promise<UrbaniIncidentAlert[]> {
     const n = Math.max(1, Math.floor(limit) || 1);
+    const perService = await Promise.all(this.services.map((svc) => this.getHistoryFor(svc, n)));
+    return perService.flat();
+  }
+
+  private async getHistoryFor(service: string, n: number): Promise<UrbaniIncidentAlert[]> {
     const now = Date.now();
-    const cached = this.historyCache.get(n);
+    const key = `${service}:${n}`;
+    const cached = this.historyCache.get(key);
     if (cached && now - cached.at < this.ttlMs) {
       return cached.value;
     }
     try {
       const body = await this.get<HistoryResponse>(
-        `/alerts/history?service=${encodeURIComponent(this.service)}&limit=${n}`,
+        `/alerts/history?service=${encodeURIComponent(service)}&limit=${n}`,
       );
       const raw = Array.isArray(body.alerts) ? body.alerts : [];
-      const mapped = this.mapMany(raw);
-      this.historyCache.set(n, { at: now, value: mapped });
+      // Skip entries with no alert_id (defensive; mapMany validates the rest).
+      const mapped = this.mapMany(
+        raw.filter((o) => typeof o.alert_id === 'string' && o.alert_id.length > 0),
+        service,
+      );
+      this.historyCache.set(key, { at: now, value: mapped });
       return mapped;
     } catch (err) {
-      return this.onFailure('alerts/history', err, this.historyCache.get(n) ?? null);
+      return this.onFailure('alerts/history', err, this.historyCache.get(key) ?? null);
     }
   }
 
@@ -146,10 +167,10 @@ export class HttpUrbaniAlertsAdapter {
   }
 
   /** Map + validate each AWS alert object; skip malformed entries defensively. */
-  private mapMany(raw: UrbaniAlertObject[]): UrbaniIncidentAlert[] {
+  private mapMany(raw: UrbaniAlertObject[], service: string): UrbaniIncidentAlert[] {
     const out: UrbaniIncidentAlert[] = [];
     for (const o of raw) {
-      const mapped = this.mapOne(o);
+      const mapped = this.mapOne(o, service);
       const parsed = urbaniIncidentAlertSchema.safeParse(mapped);
       if (parsed.success) {
         out.push(parsed.data);
@@ -163,22 +184,25 @@ export class HttpUrbaniAlertsAdapter {
     return out;
   }
 
-  private mapOne(o: UrbaniAlertObject): UrbaniIncidentAlert {
+  private mapOne(o: UrbaniAlertObject, service: string): UrbaniIncidentAlert {
+    const recommendation =
+      typeof o.recommendation === 'string' && o.recommendation.trim() ? o.recommendation : undefined;
     return {
-      alertId: this.str(o.alertId) ?? randomUUID(),
+      alertId: this.str(o.alert_id) ?? '',
       timestamp: this.iso(o.timestamp) ?? new Date().toISOString(),
-      service: this.str(o.service) ?? this.str(o.service_id) ?? this.service,
-      environment: this.str(o.environment) ?? 'production-eb',
+      service: this.str(o.service_id) ?? service,
+      environment: this.environment,
       severity: this.severity(o.severity),
-      anomalyType: this.str(o.anomalyType) ?? 'UnknownAnomaly',
+      anomalyType: this.str(o.anomaly_type) ?? 'UnknownAnomaly',
       summary: this.str(o.summary) ?? '',
-      evidence: Array.isArray(o.evidence) ? o.evidence.map((e) => String(e)) : [],
-      probableCause: this.str(o.probableCause) ?? '',
-      recommendedActions: Array.isArray(o.recommendedActions)
-        ? o.recommendedActions.map((a) => String(a))
-        : [],
-      confidence: this.confidence(o.confidence),
-      modelId: this.str(o.modelId ?? undefined) ?? config.urbani.chatModelId,
+      // QA does not return evidence lines — never fabricate.
+      evidence: [],
+      probableCause: this.str(o.probable_cause) ?? '',
+      // recommendation is a SINGULAR STRING -> single-element array (never split).
+      recommendedActions: recommendation ? [recommendation] : [],
+      // QA returns no confidence score — honest "unknown" (rendered '—').
+      confidence: null,
+      modelId: config.urbani.chatModelId,
     };
   }
 
@@ -202,11 +226,5 @@ export class HttpUrbaniAlertsAdapter {
     const s = typeof v === 'string' ? v.toUpperCase() : '';
     if ((SEVERITIES as readonly string[]).includes(s)) return s as Severity;
     return 'MEDIUM';
-  }
-
-  private confidence(v: unknown): number {
-    const n = Number(v);
-    if (Number.isNaN(n)) return 0.5;
-    return Math.min(Math.max(n, 0), 1);
   }
 }

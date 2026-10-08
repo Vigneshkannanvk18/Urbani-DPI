@@ -49,7 +49,7 @@ export function Alerts() {
           </Select>
           <Select value={service} onChange={(e) => { reset(); setService(e.target.value); }} aria-label="Filter by service">
             <option value="">All services</option>
-            {services.data?.data.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+            {services.data?.data.filter((s) => s.enabled !== false).map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
           </Select>
           <Select value={status} onChange={(e) => { reset(); setStatus(e.target.value); }} aria-label="Filter by status">
             <option value="">All statuses</option>

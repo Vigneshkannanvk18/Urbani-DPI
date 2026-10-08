@@ -152,11 +152,16 @@ async function seed(): Promise<void> {
   }
 
   // ---- Integration rows (Phase 2 boundary state) ----
+  // Clean up any stale pre-QA URBANI_APP row (integrations.kind is NOT UNIQUE —
+  // only id is PK — so re-seeding with the new id would otherwise leave a
+  // duplicate URBANI_APP row on the Settings page). Delete every URBANI_APP row
+  // whose id is not the current one; the loop below re-inserts the fresh row.
+  db.prepare("DELETE FROM integrations WHERE kind = 'URBANI_APP' AND id != 'int-urbani-ecs'").run();
   const integrations = [
-    ['int-cloudwatch', 'CLOUDWATCH', 'CloudWatch Logs & Metrics'],
-    ['int-bedrock', 'BEDROCK', 'Amazon Bedrock (AI analysis)'],
-    ['int-dynamodb', 'DYNAMODB', 'DynamoDB UrbaniAlerts'],
-    ['int-urbani-app', 'URBANI_APP', 'Urbani Application (Elastic Beanstalk)'],
+    ['int-cloudwatch', 'CLOUDWATCH', 'CloudWatch Logs (ECS: main, payments)'],
+    ['int-bedrock', 'BEDROCK', 'Amazon Bedrock — Nova 2 Lite'],
+    ['int-dynamodb', 'DYNAMODB', 'AI incident alerts (/alerts API ← DynamoDB)'],
+    ['int-urbani-ecs', 'URBANI_APP', 'Urbani QA ECS services (main, payments)'],
   ];
   const intStmt = db.prepare(
     `INSERT OR REPLACE INTO integrations (id, kind, display_name, mode, status, config_json, updated_at)

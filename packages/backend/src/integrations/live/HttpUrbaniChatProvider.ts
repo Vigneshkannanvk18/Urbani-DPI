@@ -6,44 +6,46 @@ import type {
   AskLogsResult,
 } from '../ai/AIProvider';
 import { MockAIProvider } from '../ai/MockAIProvider';
+import { ServiceUnavailableError } from '../../lib/errors';
 import { logger } from '../../lib/logger';
 
 /**
- * HttpUrbaniChatProvider (Phase 3 — real AI chat via Amazon Bedrock Nova Lite).
+ * HttpUrbaniChatProvider (Phase 3 — real AI chat via Amazon Bedrock Nova 2 Lite).
  *
  * Implements the SAME AIProvider contract as MockAIProvider. The chatbot path
- * (chatService.ask -> askLogs) POSTs the question to the live API Gateway
- * endpoint {base}/chat, which grounds the answer server-side on the current
- * Bedrock-analyzed log window and returns the answer + evidence. Nothing above
- * this boundary changes: the /assistant widget, SourceBadge, citations and
- * conversation state keep consuming the same AskLogsResult shape.
+ * (chatService.ask -> askLogs) POSTs the question to the live QA API Gateway
+ * endpoint {base}/chat, which grounds the answer server-side on recent logs +
+ * alerts and returns the real Nova 2 Lite markdown answer. Nothing above this
+ * boundary changes: the /assistant widget, SourceBadge and conversation state
+ * keep consuming the same AskLogsResult shape.
  *
- * analyzeTelemetry has NO live endpoint (the proposal pipeline runs analyze
- * server-side in Lambda, not through this API), so it DELEGATES to an internal
+ * analyzeTelemetry has NO live endpoint (the pipeline runs analyze server-side
+ * in Lambda, not through this API), so it DELEGATES to an internal
  * MockAIProvider. That keeps the AIProvider contract fully satisfied without
  * fabricating a Bedrock analyze call.
  *
  * SECURITY:
  *  - The x-api-key is read from config (env) only; never hardcoded, never
  *    logged, never returned to the browser, never placed in meta/answer/throws.
- *  - On network error / non-2xx the chat does NOT crash chatService; it falls
- *    back to the internal MockAIProvider so the user still gets an honest,
- *    evidence-grounded answer from the fetched window.
- *
- * No-fabrication: the live endpoint returns answer "No log evidence was found
- * in the current log window.", evidence: [], modelId: null when the window is
- * empty — this is mapped FAITHFULLY (citations stay []), never embellished.
+ *  - There is NO mock-answer fallback in live mode: on non-2xx / network error /
+ *    timeout / abort / unmappable-2xx body, askLogs THROWS ServiceUnavailableError
+ *    so chatService surfaces a controlled HTTP 503 "temporarily unavailable" —
+ *    never a fabricated/mock answer, never a 500, never a key leak.
  */
 
 interface UrbaniChatResponse {
   service_id?: string;
-  window_start?: string;
-  window_end?: string;
-  log_count?: string | number;
+  question?: string;
   answer?: string;
-  evidence?: unknown;
-  confidence?: number;
-  advisory?: boolean;
+  // Defensive aliases in case the field name differs on the wire.
+  response?: string;
+  message?: string;
+  text?: string;
+  content?: string;
+  // evidence is an OBJECT OF COUNTS, not an array of citations.
+  evidence?: { log_windows?: unknown; alerts?: unknown };
+  model_id?: string;
+  // Tolerate a legacy camelCase key defensively.
   modelId?: string | null;
 }
 
@@ -51,11 +53,8 @@ export class HttpUrbaniChatProvider implements AIProvider {
   readonly name = 'HttpUrbaniChatProvider';
   readonly modelId: string;
 
-  /** Deterministic fallback used for analyze + on any live chat failure. */
+  /** Deterministic provider used ONLY for analyzeTelemetry delegation. */
   private readonly fallback: MockAIProvider;
-
-  /** Grounding window (minutes) sent to AWS /chat so it matches the Logs page. */
-  private readonly windowMinutes: number;
 
   constructor(
     private readonly baseUrl: string,
@@ -63,28 +62,25 @@ export class HttpUrbaniChatProvider implements AIProvider {
     private readonly service: string,
     modelId: string,
     private readonly timeoutMs: number,
-    windowMinutes = 0,
   ) {
     this.modelId = modelId;
     this.fallback = new MockAIProvider(modelId);
-    this.windowMinutes = Math.max(windowMinutes, 0);
   }
 
   /**
-   * No live analyze endpoint exists — the server-side proposal pipeline (Collector
-   * -> Bedrock -> Alert Writer) produces alerts out-of-band. Delegate to the
-   * deterministic mock so the contract is satisfied honestly.
+   * No live analyze endpoint exists — the server-side pipeline (Collector ->
+   * Bedrock -> Alert Writer) produces alerts out-of-band. Delegate to the
+   * deterministic mock so the contract is satisfied honestly (labelled MOCK).
    */
   async analyzeTelemetry(input: AnalyzeTelemetryInput): Promise<AnalyzeTelemetryResult> {
     return this.fallback.analyzeTelemetry(input);
   }
 
   /**
-   * Answer a question via the live POST {base}/chat. The AWS endpoint grounds on
-   * its own Bedrock log window; by default that is the last 60 minutes, which is
-   * usually empty when the app is idle and mismatches the Logs page (24h). We
-   * therefore send `minutes` so the chatbot grounds on the SAME window the Logs
-   * page shows. On any failure we fall back to Mock so the chat never 500s.
+   * Answer a question via the live POST {base}/chat for the SELECTED service.
+   * The QA endpoint grounds server-side on recent logs + alerts and returns the
+   * real Nova 2 Lite markdown answer. On ANY failure this throws
+   * ServiceUnavailableError (no mock answer).
    */
   async askLogs(input: AskLogsInput): Promise<AskLogsResult> {
     const url = `${this.baseUrl.replace(/\/$/, '')}/chat`;
@@ -99,120 +95,100 @@ export class HttpUrbaniChatProvider implements AIProvider {
           'content-type': 'application/json',
           accept: 'application/json',
         },
+        // Send the SELECTED service (presence-only resolve) + question. No minutes.
         body: JSON.stringify({
-          service: this.service,
+          service: this.resolveService(input.service),
           question: input.question,
-          // Match the Logs-page window so dashboard + chatbot agree. The AWS
-          // endpoint accepts `minutes`; when 0/unset it defaults to 60 min.
-          ...(this.windowMinutes > 0 ? { minutes: this.windowMinutes } : {}),
         }),
         signal: controller.signal,
       });
 
       if (!res.ok) {
         // Do NOT include headers/key in the warning.
-        logger.warn('Urbani chat API non-2xx; falling back to deterministic answer', {
+        logger.warn('Urbani chat API non-2xx; surfacing honest unavailable', {
           status: res.status,
-          service: this.service,
+          service: this.resolveService(input.service),
         });
-        return this.fallback.askLogs(input);
+        throw new ServiceUnavailableError(
+          'The AI assistant is temporarily unavailable. Please try again.',
+        );
       }
 
       const body = (await res.json()) as UrbaniChatResponse;
       return this.mapResponse(input, body);
     } catch (err) {
-      // Never echo the key or a raw stack; a short safe message only.
+      if (err instanceof ServiceUnavailableError) throw err;
+      // Network error / timeout / abort / unmappable body: honest 503, no key.
       const message = err instanceof Error ? err.message : 'unknown error';
-      logger.warn('Urbani chat API request failed; falling back to deterministic answer', {
-        service: this.service,
+      logger.warn('Urbani chat API request failed; surfacing honest unavailable', {
+        service: this.resolveService(input.service),
         message,
       });
-      return this.fallback.askLogs(input);
+      throw new ServiceUnavailableError(
+        'The AI assistant is temporarily unavailable. Please try again.',
+      );
     } finally {
       clearTimeout(timeout);
     }
   }
 
-  /** Map the live /chat response onto AskLogsResult (faithful, no fabrication). */
+  /**
+   * Presence-only service resolution: send the provided service verbatim when it
+   * is a non-empty string, else the constructor default. Enablement gating is
+   * chatService's responsibility — this must NEVER rewrite a provided service
+   * back to the default (that would send a valid payments request to main).
+   */
+  private resolveService(s: string | undefined): string {
+    return typeof s === 'string' && s.trim() ? s : this.service;
+  }
+
+  /** Map the live /chat 200 response onto AskLogsResult (faithful, no fabrication). */
   private mapResponse(input: AskLogsInput, body: UrbaniChatResponse): AskLogsResult {
-    const answer =
-      typeof body.answer === 'string' && body.answer.length > 0
-        ? body.answer
-        : 'No log evidence was found in the current log window.';
+    const answer = this.resolveAnswer(body);
+    if (!answer) {
+      // A 2xx body with no recognizable answer field is a shape mismatch, NOT a
+      // valid empty answer — surface an honest 503, never a canned LIVE answer.
+      logger.warn('Urbani chat API returned a 2xx body with no recognizable answer field');
+      throw new ServiceUnavailableError(
+        'The AI assistant is temporarily unavailable. Please try again.',
+      );
+    }
 
-    // evidence[] -> citations (string[]). NEVER synthesize entries. Each item
-    // may be a nested JSON string (same shape as the logs API); unwrap it to the
-    // human-readable message so citations are clean, not raw JSON blobs.
-    const citations = Array.isArray(body.evidence)
-      ? body.evidence.map((e) => this.cleanEvidence(String(e)))
-      : [];
-
-    // AWS returns modelId: null on the empty-window response; surface the real
-    // configured model label without claiming any evidence.
+    // Model id: snake_case model_id (QA), else legacy modelId, else configured label.
     const modelId =
-      typeof body.modelId === 'string' && body.modelId.length > 0 ? body.modelId : this.modelId;
+      (typeof body.model_id === 'string' && body.model_id.length > 0 && body.model_id) ||
+      (typeof body.modelId === 'string' && body.modelId.length > 0 && body.modelId) ||
+      this.modelId;
 
-    // Token counts are not returned by AWS; estimate like Mock for usage/audit.
+    // Honest grounding note from the counts object (optional-chain + default).
+    const nWindows = Number(body.evidence?.log_windows) || 0;
+    const nAlerts = Number(body.evidence?.alerts) || 0;
+    const note =
+      `Live Urbani chat (Amazon Bedrock Nova 2 Lite) — grounded server-side in ` +
+      `${nWindows} recent log window(s) and ${nAlerts} alert(s).`;
+
+    // Token counts are not returned by QA; estimate for usage/audit.
     const inputTokens = Math.min(Math.ceil(input.question.length / 4), 1500);
     const outputTokens = Math.ceil(answer.length / 4);
 
     return {
-      answer,
-      citations,
+      answer, // markdown, preserved verbatim (rendered client-side)
+      citations: [], // QA returns counts, not lines — never fabricate citations
       modelId,
       provider: this.name,
       inputTokens,
       outputTokens,
-      // AWS /chat does not expose a guardrail-intervention flag.
       guardrailIntervened: false,
-      meta: { source: 'LIVE', note: 'Live Urbani chat (Amazon Bedrock Nova Lite).' },
+      meta: { source: 'LIVE', note },
     };
   }
 
-  /**
-   * An evidence string may be a nested JSON log event, either a full object
-   * ({"level":"ERROR","message":"...","error_code":"..."}) OR a bare fragment
-   * ("message":"...","component":"database","error_code":"..."). Extract a clean
-   * "LEVEL: message" citation from whichever form arrives; if neither matches,
-   * return the string unchanged (never fabricate, never show a raw JSON blob).
-   */
-  private cleanEvidence(s: string): string {
-    const t = s.trim();
-
-    // 1. Full JSON object — parse strictly.
-    if (t.startsWith('{') && t.endsWith('}')) {
-      try {
-        const o = JSON.parse(t) as Record<string, unknown>;
-        const level = typeof o.level === 'string' ? o.level : undefined;
-        const msg = typeof o.message === 'string' ? o.message : undefined;
-        if (msg) return level ? `${level}: ${msg}` : msg;
-      } catch {
-        // fall through to fragment handling
-      }
+  /** First non-empty answer string among the primary + defensive alias fields. */
+  private resolveAnswer(body: UrbaniChatResponse): string | undefined {
+    const candidates = [body.answer, body.response, body.message, body.text, body.content];
+    for (const c of candidates) {
+      if (typeof c === 'string' && c.length > 0) return c;
     }
-
-    // 2. JSON fragment (or any string containing "message":"..."). Pull the
-    //    level and message fields out with a tolerant regex.
-    if (t.includes('"message"')) {
-      const msg = this.extractJsonField(t, 'message');
-      if (msg) {
-        const level = this.extractJsonField(t, 'level');
-        return level ? `${level}: ${msg}` : msg;
-      }
-    }
-
-    return s;
-  }
-
-  /** Extract a double-quoted string value for `"<key>":"<value>"` from text. */
-  private extractJsonField(text: string, key: string): string | undefined {
-    const m = new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`).exec(text);
-    if (!m) return undefined;
-    try {
-      // Decode any JSON escapes in the captured value.
-      return JSON.parse(`"${m[1]}"`) as string;
-    } catch {
-      return m[1];
-    }
+    return undefined;
   }
 }

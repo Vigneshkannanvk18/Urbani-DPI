@@ -27,12 +27,19 @@ services:
       DATABASE_URL: /data/urbani.sqlite
       DB_DRIVER: sqlite
       INTEGRATION_MODE: ${INTEGRATION_MODE:-mock}
-      # Real Urbani logs API (Phase 3). Secrets come from .env / secret manager,
-      # never committed. When set with INTEGRATION_MODE=live, logs become LIVE.
+      # Real Urbani QA API (Phase 3). Secrets come from .env / secret manager,
+      # never committed. When set with INTEGRATION_MODE=live, logs + alerts + chat
+      # become LIVE (Amazon Bedrock Nova 2 Lite via POST /chat).
       URBANI_API_BASE_URL: ${URBANI_API_BASE_URL:-}
       URBANI_API_KEY: ${URBANI_API_KEY:-}
-      URBANI_SERVICE: ${URBANI_SERVICE:-urbani-app}
+      URBANI_SERVICE: ${URBANI_SERVICE:-main}
+      URBANI_SERVICES: ${URBANI_SERVICES:-main,payments}
+      URBANI_ENVIRONMENT: ${URBANI_ENVIRONMENT:-qa}
       URBANI_REFRESH_MINUTES: ${URBANI_REFRESH_MINUTES:-5}
+      URBANI_LOGS_HISTORY_LIMIT: ${URBANI_LOGS_HISTORY_LIMIT:-20}
+      URBANI_CHAT_MODEL_ID: ${URBANI_CHAT_MODEL_ID:-global.amazon.nova-2-lite-v1:0}
+      URBANI_CHAT_TIMEOUT_MS: ${URBANI_CHAT_TIMEOUT_MS:-30000}
+      URBANI_ALERTS_HISTORY_LIMIT: ${URBANI_ALERTS_HISTORY_LIMIT:-5}
       # Same-origin behind the proxy => no CORS allow-list needed.
       CORS_ORIGIN: ${CORS_ORIGIN:-}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in your .env}
@@ -41,8 +48,12 @@ services:
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-ChangeMe123!}
       AWS_REGION: ${AWS_REGION:-us-east-1}
       AWS_ACCOUNT_ID: ${AWS_ACCOUNT_ID:-}
-      BEDROCK_PRIMARY_MODEL_ID: ${BEDROCK_PRIMARY_MODEL_ID:-anthropic.claude-3-5-sonnet-20241022-v2:0}
-      BEDROCK_GUARDRAIL_ID: ${BEDROCK_GUARDRAIL_ID:-urbani-dpi-guardrail-v1}
+      CLOUDWATCH_LOG_GROUP: ${CLOUDWATCH_LOG_GROUP:-/aws/ecs/urbaniqa-qa-main/app}
+      BEDROCK_PRIMARY_MODEL_ID: ${BEDROCK_PRIMARY_MODEL_ID:-global.amazon.nova-2-lite-v1:0}
+      BEDROCK_FALLBACK_MODEL_ID: ${BEDROCK_FALLBACK_MODEL_ID:-global.amazon.nova-2-lite-v1:0}
+      BEDROCK_GUARDRAIL_ID: ${BEDROCK_GUARDRAIL_ID:-0z947gmtk58a}
+      BEDROCK_GUARDRAIL_NAME: ${BEDROCK_GUARDRAIL_NAME:-UrbaniQaObservabilityGuardrail}
+      BEDROCK_GUARDRAIL_VERSION: ${BEDROCK_GUARDRAIL_VERSION:-1}
     volumes:
       - urbani_data:/data
     networks:

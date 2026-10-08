@@ -54,3 +54,14 @@ export class IntegrationError extends AppError {
     super('INTEGRATION_ERROR', message, 502, details);
   }
 }
+
+/**
+ * 503 — a live integration is reachable-but-failing right now (transient). Used
+ * by the live chat path so a failed /chat call surfaces a controlled, honest
+ * "temporarily unavailable" response (never a 500, never a fabricated answer).
+ */
+export class ServiceUnavailableError extends AppError {
+  constructor(message = 'Service temporarily unavailable') {
+    super('CHAT_UNAVAILABLE', message, 503);
+  }
+}

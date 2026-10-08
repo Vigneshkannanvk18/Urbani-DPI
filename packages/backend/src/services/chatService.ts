@@ -1,8 +1,10 @@
 import type { Sourced } from '@urbani/shared';
+import { config } from '../config';
 import { getIntegrations } from '../integrations';
 import type { ChatTurn } from '../integrations/ai/AIProvider';
 import { aiRepository } from '../repositories/aiRepository';
 import { auditRepository } from '../repositories/auditRepository';
+import { ServiceUnavailableError } from '../lib/errors';
 import { logger } from '../lib/logger';
 
 /**
@@ -33,8 +35,14 @@ export const chatService = {
     opts: { service?: string; environment?: string; history?: ChatTurn[]; actor: string },
   ): Promise<Sourced<ChatAnswer>> {
     const { cloudwatch, aiProvider } = getIntegrations();
-    const service = opts.service ?? 'urbani-app';
-    const environment = opts.environment ?? 'production-eb';
+    // Server-side service gating: only an enabled service reaches the live
+    // endpoint; disabled/unknown services fall back to the default (main). This
+    // owns the "disabled services are never called" invariant.
+    const service =
+      opts.service && config.urbani.services.includes(opts.service)
+        ? opts.service
+        : config.urbani.service;
+    const environment = opts.environment ?? config.urbani.environment;
 
     // Ground the answer in the current log window (LIVE if configured). A logs
     // fetch failure (e.g. an expired key -> HTTP 403) must NOT 500 the chat: the
@@ -52,13 +60,27 @@ export const chatService = {
       logsRes = { meta: { source: 'WAITING_FOR_INTEGRATION', note: 'Log window unavailable.' }, value: [] };
     }
 
-    const result = await aiProvider.askLogs({
-      question,
-      logs: logsRes.value,
-      service,
-      environment,
-      history: opts.history,
-    });
+    let result: Awaited<ReturnType<typeof aiProvider.askLogs>>;
+    try {
+      result = await aiProvider.askLogs({
+        question,
+        logs: logsRes.value,
+        service,
+        environment,
+        history: opts.history,
+      });
+    } catch (e) {
+      // Record a safe audit of the failed turn (no secrets, no key).
+      auditRepository.record(opts.actor, 'ALERT_VIEWED', 'chat', {
+        questionChars: question.length,
+        logsSource: logsRes.meta.source,
+        outcome: 'unavailable',
+      });
+      // Wrap anything not already a 503-mapped error so the handler returns a
+      // controlled 503 CHAT_UNAVAILABLE — never a 500, never a mock answer, no
+      // key leak (AC10). The live provider throws ServiceUnavailableError.
+      throw e instanceof ServiceUnavailableError ? e : new ServiceUnavailableError();
+    }
 
     // Record the interaction for usage/audit (question text only; no secrets).
     aiRepository.insert({

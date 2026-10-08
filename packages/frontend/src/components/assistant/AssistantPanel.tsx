@@ -31,8 +31,10 @@ export function AssistantPanel({
     useAssistantChat();
   const logRef = useRef<HTMLDivElement>(null);
 
-  // Service list only needed to populate the page selectors.
+  // Service list for the selectors. Only ENABLED services are selectable for
+  // live chat (disabled services are never called upstream).
   const services = useApi(() => servicesApi.list(), []);
+  const enabledServices = (services.data?.data ?? []).filter((s) => s.enabled !== false);
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' });
@@ -55,9 +57,22 @@ export function AssistantPanel({
                 source={logsSource}
                 note={`Logs: ${logsSource}`}
               />{' '}
-              Powered by Amazon Bedrock (Nova Lite)
+              Powered by Amazon Bedrock (Nova 2 Lite)
             </div>
           </div>
+          <Select
+            className="assistant-panel-service"
+            value={service}
+            onChange={(e) => setService(e.target.value)}
+            aria-label="Service"
+          >
+            {enabledServices.map((s) => (
+              <option key={s.id} value={s.name}>
+                {s.name}
+              </option>
+            ))}
+            {!services.data && <option value="main">main</option>}
+          </Select>
           {onClose && (
             <button
               type="button"
@@ -74,20 +89,19 @@ export function AssistantPanel({
       {variant === 'page' && (
         <div className="assistant-page-controls">
           <Select value={service} onChange={(e) => setService(e.target.value)} aria-label="Service">
-            {services.data?.data.map((s) => (
+            {enabledServices.map((s) => (
               <option key={s.id} value={s.name}>
                 {s.name}
               </option>
             ))}
-            {!services.data && <option value="urbani-app">urbani-app</option>}
+            {!services.data && <option value="main">main</option>}
           </Select>
           <Select
             value={environment}
             onChange={(e) => setEnvironment(e.target.value)}
             aria-label="Environment"
           >
-            <option>production-eb</option>
-            <option>staging-eb</option>
+            <option>qa</option>
           </Select>
         </div>
       )}

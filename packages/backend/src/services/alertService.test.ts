@@ -9,8 +9,8 @@ import { NotFoundError } from '../lib/errors';
 const sampleAlert: UrbaniIncidentAlert = {
   alertId: 'ALT-TEST-001',
   timestamp: '2026-09-23T08:00:00.000Z',
-  service: 'urbani-core-api',
-  environment: 'production-eb',
+  service: 'main',
+  environment: 'qa',
   severity: 'CRITICAL',
   anomalyType: 'DatabaseConnectionTimeout',
   summary: 'DB connection timeouts',
@@ -18,7 +18,7 @@ const sampleAlert: UrbaniIncidentAlert = {
   probableCause: 'Pool exhaustion',
   recommendedActions: ['Check RDS connections', 'Review recent deploys'],
   confidence: 0.92,
-  modelId: 'anthropic.claude-3-5-sonnet-20241022-v2:0',
+  modelId: 'global.amazon.nova-2-lite-v1:0',
 };
 
 describe('alertService', () => {
@@ -59,5 +59,31 @@ describe('alertService', () => {
     expect(res.data.acknowledgedBy).toBe('engineer@urbani.local');
     // Acknowledgement is the only lifecycle action — verify no auto-resolution.
     expect(res.data.status).not.toBe('RESOLVED');
+  });
+
+  it('a live re-sync does NOT revert an acknowledged alert to OPEN (AC7, repository level)', () => {
+    // Driven at the repository layer: syncLiveAlerts() is config-gated and would
+    // early-return in mock-mode tests, so prove the invariant on the primitive
+    // the live sync actually uses (upsertLivePreservingStatus).
+    const liveAlert: UrbaniIncidentAlert = {
+      ...sampleAlert,
+      alertId: 'ALT-LIVE-RESYNC',
+      confidence: null, // live QA alerts carry no confidence
+    };
+    alertRepository.upsertLivePreservingStatus(liveAlert); // new row -> OPEN
+    expect(alertRepository.findById('ALT-LIVE-RESYNC')!.status).toBe('OPEN');
+
+    alertRepository.acknowledge('ALT-LIVE-RESYNC', 'ops@urbani.local');
+    // Re-sync the SAME alert (as a periodic poll would).
+    alertRepository.upsertLivePreservingStatus({ ...liveAlert, summary: 'refreshed body' });
+
+    const after = alertRepository.findById('ALT-LIVE-RESYNC')!;
+    expect(after.status).toBe('ACKNOWLEDGED');
+    expect(after.acknowledgedBy).toBe('ops@urbani.local');
+    expect(after.acknowledgedAt).toBeTruthy();
+    // The body is still refreshed to the latest upstream version.
+    expect(after.summary).toBe('refreshed body');
+    // Nullable confidence passes through.
+    expect(after.confidence).toBeNull();
   });
 });

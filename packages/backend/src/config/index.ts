@@ -54,18 +54,20 @@ const schema = z.object({
   // or shipped to the browser (the backend calls this server-side).
   URBANI_API_BASE_URL: z.string().optional(),
   URBANI_API_KEY: z.string().optional(),
-  URBANI_SERVICE: z.string().default('urbani-app'),
+  // Default/primary service used where a single service is needed (e.g. chat).
+  URBANI_SERVICE: z.string().default('main'),
+  // Comma-separated list of enabled services the API serves (logs + alerts per
+  // service). The dashboard fans out across these. Falls back to URBANI_SERVICE.
+  URBANI_SERVICES: z.string().default(''),
   URBANI_REFRESH_MINUTES: z.coerce.number().default(5),
-  // Width of the logs window requested from GET /logs/latest?minutes=N.
-  // 0 (default) = DO NOT send `minutes`, so the LIVE Logs page shows only the
-  // current live collector window and clears to empty when idle (no stale
-  // historical rows accumulating). Set > 0 only to intentionally surface a
-  // wider historical window.
-  URBANI_LOGS_WINDOW_MINUTES: z.coerce.number().default(0),
-  // Live chat (Bedrock Nova Lite via API Gateway POST /chat). Model id is the
-  // label surfaced in provenance when AWS returns modelId: null (empty window).
-  URBANI_CHAT_MODEL_ID: z.string().default('apac.amazon.nova-lite-v1:0'),
-  URBANI_CHAT_TIMEOUT_MS: z.coerce.number().default(20_000),
+  // Urbani environment label (used for LogEntry/alert environment + seed/chat).
+  URBANI_ENVIRONMENT: z.string().default('qa'),
+  // How many history windows to request from GET /logs/history?limit=N.
+  URBANI_LOGS_HISTORY_LIMIT: z.coerce.number().default(20),
+  // Live chat (Amazon Bedrock Nova 2 Lite via API Gateway POST /chat). Model id
+  // is the label surfaced in provenance alongside the real model answer.
+  URBANI_CHAT_MODEL_ID: z.string().default('global.amazon.nova-2-lite-v1:0'),
+  URBANI_CHAT_TIMEOUT_MS: z.coerce.number().default(30_000),
   // How many history alerts to pull from GET /alerts/history?limit=N.
   URBANI_ALERTS_HISTORY_LIMIT: z.coerce.number().default(5),
 
@@ -75,16 +77,19 @@ const schema = z.object({
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
 
   CLOUDWATCH_REGION: z.string().optional(),
-  CLOUDWATCH_LOG_GROUP: z.string().default('/aws/elasticbeanstalk/urbani-app'),
+  CLOUDWATCH_LOG_GROUP: z.string().default('/aws/ecs/urbaniqa-qa-main/app'),
   CLOUDWATCH_MAX_LOG_LINES: z.coerce.number().default(100),
   CLOUDWATCH_QUERY_WINDOW_MINUTES: z.coerce.number().default(5),
 
   DYNAMODB_ALERTS_TABLE: z.string().default('UrbaniAlerts'),
   DYNAMODB_GSI_ANOMALY_TYPE: z.string().default('anomaly_type-index'),
 
-  BEDROCK_PRIMARY_MODEL_ID: z.string().default('anthropic.claude-3-5-sonnet-20241022-v2:0'),
-  BEDROCK_FALLBACK_MODEL_ID: z.string().default('amazon.nova-lite-v1:0'),
-  BEDROCK_GUARDRAIL_ID: z.string().default('urbani-dpi-guardrail-v1'),
+  BEDROCK_PRIMARY_MODEL_ID: z.string().default('global.amazon.nova-2-lite-v1:0'),
+  BEDROCK_FALLBACK_MODEL_ID: z.string().default('global.amazon.nova-2-lite-v1:0'),
+  BEDROCK_GUARDRAIL_ID: z.string().default('0z947gmtk58a'),
+  // Non-secret display values for the QA observability guardrail.
+  BEDROCK_GUARDRAIL_NAME: z.string().default('UrbaniQaObservabilityGuardrail'),
+  BEDROCK_GUARDRAIL_VERSION: z.string().default('1'),
   BEDROCK_TEMPERATURE: z.coerce.number().default(0.0),
   BEDROCK_MAX_TOKENS: z.coerce.number().default(1024),
   BEDROCK_TOP_P: z.coerce.number().default(1.0),
@@ -127,6 +132,19 @@ function resolveSqlitePath(): string {
 const corsOrigins = env.CORS_ORIGIN.split(',')
   .map((o) => o.trim())
   .filter(Boolean);
+
+// Enabled Urbani services (parsed from URBANI_SERVICES, else [URBANI_SERVICE]).
+const urbaniServices = (() => {
+  const list = env.URBANI_SERVICES.split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return list.length ? list : [env.URBANI_SERVICE];
+})();
+
+// The ECS CloudWatch log group for a given service (matches the two provided
+// QA groups: /aws/ecs/urbaniqa-qa-main/app and /aws/ecs/urbaniqa-qa-payments/app).
+const urbaniLogGroupFor = (service: string): string =>
+  `/aws/ecs/urbaniqa-${env.URBANI_ENVIRONMENT}-${service}/app`;
 
 export const config = {
   env: env.NODE_ENV,
@@ -171,10 +189,14 @@ export const config = {
     apiBaseUrl: env.URBANI_API_BASE_URL ?? null,
     apiKey: env.URBANI_API_KEY ?? null,
     service: env.URBANI_SERVICE,
+    /** All enabled services (parsed from URBANI_SERVICES, else [service]). */
+    services: urbaniServices,
     refreshMinutes: env.URBANI_REFRESH_MINUTES,
-    /** Minutes window requested from GET /logs/latest?minutes=N (default 24h). */
-    logsWindowMinutes: env.URBANI_LOGS_WINDOW_MINUTES,
-    /** Model label surfaced for live chat (and when AWS returns modelId: null). */
+    /** Urbani environment label applied to live logs/alerts (and seed/chat). */
+    environment: env.URBANI_ENVIRONMENT,
+    /** Windows requested from GET /logs/history?limit=N. */
+    logsHistoryLimit: env.URBANI_LOGS_HISTORY_LIMIT,
+    /** Model label surfaced for live chat alongside the real Nova 2 Lite answer. */
     chatModelId: env.URBANI_CHAT_MODEL_ID,
     /** Abort timeout for the live POST /chat call. */
     chatTimeoutMs: env.URBANI_CHAT_TIMEOUT_MS,
@@ -182,6 +204,10 @@ export const config = {
     alertsHistoryLimit: env.URBANI_ALERTS_HISTORY_LIMIT,
     /** True when the real logs API is configured (base URL + key present). */
     logsConfigured: Boolean(env.URBANI_API_BASE_URL && env.URBANI_API_KEY),
+    /** The ECS CloudWatch log group for a given service. */
+    logGroupFor: urbaniLogGroupFor,
+    /** Log groups for all enabled services (used by seed + Settings display). */
+    logGroups: urbaniServices.map(urbaniLogGroupFor),
   },
 
   cloudwatch: {
@@ -200,6 +226,8 @@ export const config = {
     primaryModelId: env.BEDROCK_PRIMARY_MODEL_ID,
     fallbackModelId: env.BEDROCK_FALLBACK_MODEL_ID,
     guardrailId: env.BEDROCK_GUARDRAIL_ID,
+    guardrailName: env.BEDROCK_GUARDRAIL_NAME,
+    guardrailVersion: env.BEDROCK_GUARDRAIL_VERSION,
     // Deterministic inference config per architecture proposal section 10.4.
     inference: {
       temperature: env.BEDROCK_TEMPERATURE,

@@ -34,13 +34,13 @@ CREATE TABLE users (
 -- ---- Services & Environments (Epic 9) --------------------------------------
 CREATE TABLE environments (
   id         TEXT PRIMARY KEY,
-  name       TEXT NOT NULL UNIQUE,           -- e.g. production-eb, staging-eb
+  name       TEXT NOT NULL UNIQUE,           -- e.g. qa
   created_at TEXT NOT NULL
 );
 
 CREATE TABLE services (
   id                TEXT PRIMARY KEY,
-  name              TEXT NOT NULL,           -- e.g. urbani-core-api
+  name              TEXT NOT NULL,           -- e.g. main, payments
   environment       TEXT NOT NULL,
   status            TEXT NOT NULL DEFAULT 'UNKNOWN', -- HEALTHY|DEGRADED|DOWN|UNKNOWN
   error_rate        REAL NOT NULL DEFAULT 0,

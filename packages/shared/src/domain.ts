@@ -18,6 +18,14 @@ export interface ServiceSummary {
   alertCount: number;
   errorRate: number;
   lastIncidentAt: string | null;
+  /**
+   * Whether this service is enabled upstream (membership in config.urbani.services).
+   * OPTIONAL + derived-at-read in the service layer — the raw SQLite row does not
+   * carry it, so declaring it optional keeps the repository mapping migration-free.
+   */
+  enabled?: boolean;
+  /** The CloudWatch/ECS log group for this service (derived-at-read). */
+  logGroup?: string;
 }
 
 export interface LogEntry {

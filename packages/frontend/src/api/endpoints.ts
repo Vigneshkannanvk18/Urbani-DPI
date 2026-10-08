@@ -151,18 +151,33 @@ export const auditApi = {
 export interface SettingsView {
   general: { appName: string; environment: string; integrationMode: string };
   aws: { region: string; accountId: string | null; hasStaticCredentials: boolean };
-  cloudwatch: { logGroup: string; maxLogLines: number; queryWindowMinutes: number };
+  cloudwatch: { logGroup: string; logGroups: string[]; maxLogLines: number; queryWindowMinutes: number };
   dynamodb: { alertsTable: string; anomalyTypeGsi: string };
   ai: {
     primaryModelId: string;
     fallbackModelId: string;
     guardrailId: string;
+    guardrailName: string;
+    guardrailVersion: string;
     temperature: number;
     maxTokens: number;
     topP: number;
   };
   cost: { dailyBudgetUsd: number; monthlyBudgetUsd: number; softAlertUsd: number; hardAlertUsd: number };
   scheduler: { collectorMinutes: number };
+  pipeline: {
+    region: string;
+    flow: string;
+    collectorLambda: string;
+    eventBridgeRule: string;
+    collectorScheduleMinutes: number;
+    alertWriterLambda: string;
+    duplicateSuppressionMinutes: number;
+    logsApiLambda: string;
+    alertsApiLambda: string;
+    chatLambda: string;
+    registeredServices: Array<{ name: string; enabled: boolean }>;
+  };
   integrations: Array<{ kind: string; displayName: string; mode: string; status: string }>;
 }
 

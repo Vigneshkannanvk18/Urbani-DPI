@@ -71,11 +71,13 @@ function buildLive(): Integrations {
   const base = buildMock();
 
   if (config.urbani.logsConfigured) {
-    logger.info('Wiring LIVE Urbani chat + alerts integration', {
+    logger.info('Wiring LIVE Urbani logs + alerts + chat via POST /chat (Nova 2 Lite)', {
       integrationMode: 'live',
-      service: config.urbani.service,
+      services: config.urbani.services,
+      environment: config.urbani.environment,
       refreshMinutes: config.urbani.refreshMinutes,
       chatModelId: config.urbani.chatModelId,
+      logsHistoryLimit: config.urbani.logsHistoryLimit,
       alertsHistoryLimit: config.urbani.alertsHistoryLimit,
       // NOTE: the API key is intentionally never logged.
     });
@@ -84,24 +86,28 @@ function buildLive(): Integrations {
       config.urbani.apiKey!,
       config.urbani.service,
       config.urbani.refreshMinutes,
-      config.urbani.logsWindowMinutes,
+      config.urbani.logsHistoryLimit,
+      config.urbani.services,
+      config.urbani.environment,
     );
-    // Real AI chat (Bedrock Nova Lite via POST /chat); Mock stays as fallback
-    // inside the provider for analyze + any live failure.
+    // Real AI chat via POST /chat (Amazon Bedrock Nova 2 Lite). Reads the
+    // per-request service from input.service; the internal Mock is used ONLY for
+    // analyzeTelemetry delegation (there is no live analyze endpoint).
     base.aiProvider = new HttpUrbaniChatProvider(
       config.urbani.apiBaseUrl!,
       config.urbani.apiKey!,
       config.urbani.service,
       config.urbani.chatModelId,
       config.urbani.chatTimeoutMs,
-      config.urbani.logsWindowMinutes,
     );
-    // Real AI-generated incident alerts.
+    // Real AI-generated incident alerts (both services).
     base.urbaniAlerts = new HttpUrbaniAlertsAdapter(
       config.urbani.apiBaseUrl!,
       config.urbani.apiKey!,
       config.urbani.service,
       config.urbani.refreshMinutes,
+      config.urbani.services,
+      config.urbani.environment,
     );
   } else {
     logger.warn('INTEGRATION_MODE=live but Urbani logs API is not configured; using mock logs', {

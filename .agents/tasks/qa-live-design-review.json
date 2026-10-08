@@ -1,0 +1,58 @@
+{
+  "verdict": "CHANGES_REQUESTED",
+  "reviewDoc": "c:\\Antigravity\\Urbani DPI\\.agents\\tasks\\qa-live-design-review.md",
+  "summary": "Iteration-3 fresh review. The design honors every non-negotiable task fact (live POST /chat with the mock-answer fallback removed in live mode and an honest 503 on failure; both services with auth/support disabled-and-never-called; flat snake_case alerts gated on alert_id with recommendation->single-element array, confidence null, evidence []; logs latest+history merge/dedup with inferred level; secret hygiene with no key in the design; no new runtime deps/SDK/RAG; single POST /api/chat; old-account wiring targeted for removal) and all four iteration-2 findings are resolved. Its claims about current code are accurate (verified against source; backend tsc clean exit 0; canonical npm run test shows exactly the 2 claimed failing logs tests, 36 passing). Two NEW blocking issues remain: (1) the seed-row id 'int-urbani-app' is left intact by the planned display-only rename, so the AC17 grep still matches urbani-app; (2) the two newly-specified non-backend tests (shared schema test, frontend markdown test) have no runner and are not covered by the backend-only gate, leaving the security-relevant markdown renderer unverifiable as planned. No HIGH findings.",
+  "gatesRun": {
+    "npm run test (backend workspace)": "2 failed / 36 passed; both failures in HttpUrbaniLogsAdapter.test.ts (maps varied upstream log shapes; surfaces an IntegrationError on non-200) — matches the design",
+    "npx tsc -p tsconfig.json --noEmit (backend)": "clean (exit 0)",
+    "npm run build (shared+backend+frontend)": "not re-run this pass; backend tsc + full test transpile both succeeded, so the baseline compiles"
+  },
+  "priorFindingsResolved": [
+    "iter2-1 MockAIProvider CRITICAL assertion -> resolved in B.23 (assert HIGH for qa + add bare-'production' CRITICAL re-run; 'assertions unchanged' claim withdrawn)",
+    "iter2-2 frozen config singleton -> resolved in B.22 (vi.resetModules()+dynamic import for live-mode factory; repository-level acknowledge test)",
+    "iter2-3 gate wording -> resolved in NFR4/AC18 (gate = npm run test, backend workspace)",
+    "iter2-4 ServiceSummary required-field ripple -> resolved in B.12 (fields optional, derived-at-read in services() and service(id))"
+  ],
+  "findings": [
+    {
+      "id": 1,
+      "severity": "MEDIUM",
+      "title": "Old-wiring removal leaves the 'int-urbani-app' seed-row id, so the AC17 grep gate still matches 'urbani-app'",
+      "location": "qa-live-design.md \u00a7B.17 (seed integration rows) and \u00a7B.23 (seed.ts entry); packages/backend/src/db/seed.ts (integrations array, id 'int-urbani-app'); AC17",
+      "problem": "AC17 requires zero 'urbani-app' matches across packages/**/*.{ts,tsx,sql}. \u00a7B.17 renames only the DISPLAY string of the int-urbani-app row ('Urbani Application (Elastic Beanstalk)' -> 'Urbani QA ECS services (main, payments)') and \u00a7B.23 says 'integration display names' only; both keep the id literal 'int-urbani-app', which contains the forbidden substring 'urbani-app' (word boundaries do not help: the '-' chars create boundaries). seed.ts is in AC17 scope and not excluded, so the grep still returns a match -> AC17 (and the AC18 bundle that incorporates grep-clean) fails. The iteration-2 'matches only in listed files' note conflated 'file is in the inventory' with 'the edit removes the token'.",
+      "fix": "Also change the row id to a token-free value and state it in \u00a7B.17/\u00a7B.23, e.g. ['int-urbani-ecs','URBANI_APP','Urbani QA ECS services (main, payments)']. Caveat: integrations.kind is NOT UNIQUE (only id is PK per 001_initial_schema.sql), so re-seeding an already-seeded DB with a new id leaves the stale int-urbani-app row (duplicate URBANI_APP on Settings) -> seed into a fresh/reset DB (normal demo flow) or add a one-time DELETE FROM integrations WHERE id='int-urbani-app'. Keep kind='URBANI_APP' (it does not match 'urbani-app')."
+    },
+    {
+      "id": 2,
+      "severity": "MEDIUM",
+      "title": "New shared test and frontend markdown test (\u00a7B.22) have no runner and are not covered by the backend-only gate",
+      "location": "qa-live-design.md \u00a7B.22 (New shared test; New frontend markdown.test.ts(x)) and NFR4/AC18; packages/shared/package.json; packages/frontend/package.json; packages/backend/vitest.config.ts",
+      "problem": "The only vitest config is packages/backend/vitest.config.ts (include ['src/**/*.test.ts'], cwd=backend) and the canonical gate npm run test runs only @urbani/backend. packages/shared and packages/frontend have no test script, no vitest, and (frontend) no jsdom/testing-library; there are no *.test.* files in either package. So the two tests \u00a7B.22 adds cannot run under any configured runner. The frontend markdown.test.tsx is material: markdown.tsx (\u00a7B.14.1) renders untrusted model output and must neutralize javascript:/data: URLs, and the design commits to a unit test proving that, yet there is no way to run it; standing up a React-component runner needs new dev deps (vitest+jsdom/happy-dom+testing-library) + config the design does not enumerate (and should reconcile with NFR2). \u00a7B.22 and the 'full suite planned green' claim (NFR4) are thus internally inconsistent for these two items.",
+      "fix": "Shared/nullable-confidence: move the assertion into the backend suite (it runs there and is largely covered already \u2014 HttpUrbaniAlertsAdapter.mapMany does urbaniIncidentAlertSchema.safeParse, so the rewritten alerts-adapter test asserting a live alert with confidence:null will fail if the schema stays non-nullable); drop the un-runnable standalone shared test or state shared's only gate is tsc/build. Frontend markdown: either (a) factor the URL-sanitization + tokenization into a pure DOM-free helper unit-tested by the backend vitest (javascript:/data: -> neutralized, scheme allowlist), with the React wrapper verified by tsc -b + vite build; or (b) explicitly add a frontend test runner (vitest+jsdom/happy-dom+@testing-library/react as DEV deps)+test script+config, call it out vs NFR2, and wire it into the gate. State the choice in \u00a7B.22 and align NFR4/AC18 to name exactly what runs."
+    },
+    {
+      "id": 3,
+      "severity": "NIT",
+      "title": "\u00a7B.9.2 're-throw any error' can surface an HTTP 500, which AC10 forbids",
+      "location": "qa-live-design.md \u00a7B.9.2; packages/backend/src/middleware/errorHandler.ts; packages/backend/src/services/chatService.ts",
+      "problem": "The error handler returns 503 only for a 503-mapped AppError; any non-AppError reaching it becomes a generic 500 INTERNAL_ERROR. \u00a7B.9.2 says on a thrown error 'or any error ... re-throw so the handler returns the controlled 503' \u2014 a verbatim re-throw of a non-ServiceUnavailableError would yield a 500, contradicting AC10's 'never a 500'. Latent (askLogs is specified to only throw ServiceUnavailableError) but the wording invites a literal implementation.",
+      "fix": "Specify that chatService wraps anything caught around askLogs that is not already a 503-mapped AppError into a ServiceUnavailableError before re-throwing (e.g. throw e instanceof ServiceUnavailableError ? e : new ServiceUnavailableError()), making AC10's 'never a 500' airtight."
+    },
+    {
+      "id": 4,
+      "severity": "NIT",
+      "title": "Residual 'Nova Lite' code comments not in the relabel inventory",
+      "location": "packages/backend/src/config/index.ts (comment above URBANI_CHAT_MODEL_ID); packages/backend/src/services/settingsService.ts (doc comment); qa-live-design.md \u00a7B.4/\u00a7B.16/\u00a7B.23",
+      "problem": "The design relabels every user-facing surface plus LIVE_NOTE and the boot log to 'Nova 2 Lite', but these two code comments still say 'Nova Lite' and are not in the edit list. Not AC17-forbidden (non-gating), but inconsistent given the 'don't miss anything' directive.",
+      "fix": "Update both comments to 'Nova 2 Lite' when editing those files (both are already in the change set for other reasons)."
+    },
+    {
+      "id": 5,
+      "severity": "NIT",
+      "title": "\u00a7B.17 says mock logs/metrics 'reference main/payments' but they are generated over the full 4-entry roster (incl. disabled auth/support)",
+      "location": "qa-live-design.md \u00a7B.17; packages/backend/src/integrations/mock/mockData.ts (mockLogs, mockMetrics iterate mockServices)",
+      "problem": "\u00a7B.17 expands mockServices to the 4-entry QA roster (main, payments, disabled auth, support) and says mockLogs/mockMetrics should reference main/payments, but mockLogs uses mockServices[i % length] and mockMetrics is mockServices.flatMap(...), so they would also emit auth/support rows. In live mode metrics stay MOCK, so the Metrics page would then show telemetry for roster-disabled services (still MOCK-labeled, so not a provenance violation, but a consistency wrinkle).",
+      "fix": "Generate mockLogs/mockMetrics from the enabled subset only (e.g. filter to main/payments), or state in \u00a7B.17 that disabled services intentionally carry seeded telemetry."
+    }
+  ]
+}

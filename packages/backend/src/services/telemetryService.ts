@@ -7,6 +7,7 @@ import {
 } from '../repositories/telemetryRepository';
 import { NotFoundError } from '../lib/errors';
 import { MOCK_NOTE } from '../integrations/mock/mockData';
+import { config } from '../config';
 
 /**
  * Telemetry service (Epics 6, 7, 9). Reads logs/metrics/services.
@@ -55,13 +56,17 @@ export const telemetryService = {
   },
 
   services(): Sourced<ServiceSummary[]> {
-    return { source: 'MOCK', sourceNote: MOCK_NOTE, data: serviceRepository.all() };
+    // QA exposes no /services endpoint, so the roster is config-authoritative:
+    // derive `enabled` (membership in config.urbani.services) + `logGroup`
+    // at read time (the SQLite row does not carry them).
+    const data = serviceRepository.all().map((s) => withRoster(s));
+    return { source: 'MOCK', sourceNote: MOCK_NOTE, data };
   },
 
   service(id: string): Sourced<ServiceSummary> {
     const svc = serviceRepository.findById(id);
     if (!svc) throw new NotFoundError(`Service not found: ${id}`);
-    return { source: 'MOCK', sourceNote: MOCK_NOTE, data: svc };
+    return { source: 'MOCK', sourceNote: MOCK_NOTE, data: withRoster(svc) };
   },
 
   /**
@@ -74,3 +79,12 @@ export const telemetryService = {
     return { source: res.meta.source, sourceNote: res.meta.note, data: res.value };
   },
 };
+
+/** Augment a roster row with the derived-at-read `enabled` + `logGroup` fields. */
+function withRoster(s: ServiceSummary): ServiceSummary {
+  return {
+    ...s,
+    enabled: config.urbani.services.includes(s.name),
+    logGroup: config.urbani.logGroupFor(s.name),
+  };
+}

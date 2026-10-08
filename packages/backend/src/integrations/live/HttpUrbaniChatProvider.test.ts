@@ -1,20 +1,21 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { HttpUrbaniChatProvider } from './HttpUrbaniChatProvider';
+import { ServiceUnavailableError } from '../../lib/errors';
 import type { AskLogsInput } from '../ai/AIProvider';
 
-const BASE = 'https://example.test/prod';
+const BASE = 'https://example.test/qa';
 const KEY = 'test-chat-key';
-const MODEL = 'apac.amazon.nova-lite-v1:0';
+const MODEL = 'global.amazon.nova-2-lite-v1:0';
 
 function provider() {
-  return new HttpUrbaniChatProvider(BASE, KEY, 'urbani-app', MODEL, 20_000);
+  return new HttpUrbaniChatProvider(BASE, KEY, 'main', MODEL, 30_000);
 }
 
 const input: AskLogsInput = {
   question: 'Are there any errors right now?',
   logs: [],
-  service: 'urbani-app',
-  environment: 'production-eb',
+  service: 'main',
+  environment: 'qa',
 };
 
 function mockFetch(body: unknown, ok = true, status = 200) {
@@ -28,53 +29,37 @@ function mockFetch(body: unknown, ok = true, status = 200) {
 describe('HttpUrbaniChatProvider', () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it('maps the empty-window response faithfully (no fabrication)', async () => {
+  it('maps a LIVE /chat 200 (markdown answer, counts->note, citations [], model_id)', async () => {
     const f = mockFetch({
-      service_id: 'urbani-app',
-      window_start: '2026-10-05T10:40:00+00:00',
-      window_end: '2026-10-05T10:45:00+00:00',
-      log_count: 0,
-      answer: 'No log evidence was found in the current log window.',
-      evidence: [],
-      confidence: 1.0,
-      advisory: true,
-      modelId: null,
+      service_id: 'main',
+      question: input.question,
+      answer: '## Findings\n\nThere is **one** error right now.',
+      evidence: { log_windows: 3, alerts: 1 },
+      model_id: 'global.amazon.nova-2-lite-v1:0',
     });
     vi.stubGlobal('fetch', f);
 
     const res = await provider().askLogs(input);
 
-    expect(res.answer).toBe('No log evidence was found in the current log window.');
+    expect(res.answer).toBe('## Findings\n\nThere is **one** error right now.');
     expect(res.citations).toEqual([]);
-    // null modelId falls back to the configured Nova Lite label.
-    expect(res.modelId).toBe(MODEL);
+    expect(res.modelId).toBe('global.amazon.nova-2-lite-v1:0');
     expect(res.provider).toBe('HttpUrbaniChatProvider');
     expect(res.meta.source).toBe('LIVE');
+    expect(res.meta.note).toContain('3 recent log window(s)');
+    expect(res.meta.note).toContain('1 alert(s)');
   });
 
-  it('maps an evidence response (log_count NUMBER) into citations', async () => {
-    const evidence = ['2026-10-05 10:47 ERROR DatabaseConnectionTimeout connection pool exhausted'];
-    const f = mockFetch({
-      service_id: 'urbani-app',
-      log_count: 1,
-      answer: 'Yes, there is an error right now.',
-      evidence,
-      confidence: 0.95,
-      advisory: true,
-      modelId: 'apac.amazon.nova-lite-v1:0',
-    });
-    vi.stubGlobal('fetch', f);
-
+  it('falls back to the configured model label when model_id is absent', async () => {
+    vi.stubGlobal('fetch', mockFetch({ answer: 'ok', evidence: { log_windows: 0, alerts: 0 } }));
     const res = await provider().askLogs(input);
-
-    expect(res.answer).toBe('Yes, there is an error right now.');
-    expect(res.citations).toEqual(evidence);
-    expect(res.modelId).toBe('apac.amazon.nova-lite-v1:0');
-    expect(res.meta.source).toBe('LIVE');
+    expect(res.modelId).toBe(MODEL);
+    // Missing evidence counts render 0/0, not an error.
+    expect(res.meta.note).toContain('0 recent log window(s)');
   });
 
-  it('sends the x-api-key header + question body and never leaks the key', async () => {
-    const f = mockFetch({ answer: 'ok', evidence: [], modelId: null, log_count: 0 });
+  it('sends the x-api-key header + {service,question} body (no minutes) and never leaks the key', async () => {
+    const f = mockFetch({ answer: 'ok', evidence: { log_windows: 0, alerts: 0 }, model_id: MODEL });
     vi.stubGlobal('fetch', f);
 
     const res = await provider().askLogs(input);
@@ -84,100 +69,52 @@ describe('HttpUrbaniChatProvider', () => {
     expect(init.method).toBe('POST');
     expect((init.headers as Record<string, string>)['x-api-key']).toBe(KEY);
     const sent = JSON.parse(init.body as string);
-    expect(sent).toEqual({ service: 'urbani-app', question: input.question });
-    // The key never appears in the mapped result.
+    expect(sent).toEqual({ service: 'main', question: input.question });
     expect(JSON.stringify(res)).not.toContain(KEY);
   });
 
-  it('sends the configured minutes window so chat matches the Logs page', async () => {
-    const f = mockFetch({ answer: 'ok', evidence: [], modelId: null, log_count: 0 });
+  it('sends the SELECTED service (payments), not the constructor default', async () => {
+    const f = mockFetch({ answer: 'ok', evidence: { log_windows: 0, alerts: 0 }, model_id: MODEL });
     vi.stubGlobal('fetch', f);
 
-    const windowed = new HttpUrbaniChatProvider(BASE, KEY, 'urbani-app', MODEL, 20_000, 1440);
-    await windowed.askLogs(input);
+    await provider().askLogs({ ...input, service: 'payments' });
 
     const [, init] = (f as unknown as vi.Mock).mock.calls[0];
     const sent = JSON.parse(init.body as string);
-    expect(sent).toEqual({ service: 'urbani-app', question: input.question, minutes: 1440 });
+    expect(sent).toEqual({ service: 'payments', question: input.question });
   });
 
-  it('unwraps nested-JSON evidence into clean "LEVEL: message" citations', async () => {
-    const nested = JSON.stringify({
-      timestamp: '2026-10-06T06:48:12+00:00',
-      level: 'ERROR',
-      service: 'urbani-app',
-      message: 'DatabaseConnectionTimeout connection pool exhausted',
-      error_code: 'DB_CONNECTION_TIMEOUT',
-    });
-    vi.stubGlobal('fetch', mockFetch({
-      service_id: 'urbani-app',
-      log_count: 1,
-      answer: 'Yes, there are errors right now.',
-      evidence: [nested],
-      confidence: 1.0,
-      advisory: true,
-      modelId: 'apac.amazon.nova-lite-v1:0',
-    }));
-
-    const res = await new HttpUrbaniChatProvider(BASE, KEY, 'urbani-app', MODEL, 20_000, 1440).askLogs(input);
-    expect(res.citations).toEqual(['ERROR: DatabaseConnectionTimeout connection pool exhausted']);
-  });
-
-  it('cleans a JSON FRAGMENT evidence string (no leading brace) into a citation', async () => {
-    // Observed live: some evidence arrives as a bare fragment, not a full object.
-    const fragment =
-      '"message":"DatabaseConnectionTimeout connection pool exhausted","component":"database","error_code":"DB_CONNECTION_TIMEOUT"';
-    vi.stubGlobal('fetch', mockFetch({
-      service_id: 'urbani-app',
-      log_count: 1,
-      answer: 'Here is how to fix it.',
-      evidence: [fragment],
-      confidence: 1.0,
-      advisory: true,
-      modelId: 'apac.amazon.nova-lite-v1:0',
-    }));
-
-    const res = await new HttpUrbaniChatProvider(BASE, KEY, 'urbani-app', MODEL, 20_000, 1440).askLogs(input);
-    // Clean message extracted, no raw JSON fragment leaked.
-    expect(res.citations).toEqual(['DatabaseConnectionTimeout connection pool exhausted']);
-    expect(res.citations[0]).not.toContain('"error_code"');
-  });
-
-  it('falls back to the Mock provider on a non-200 (no throw, no key leak)', async () => {
+  it('throws ServiceUnavailableError on a non-2xx (no fabricated answer, no key leak)', async () => {
     vi.stubGlobal('fetch', mockFetch({}, false, 403));
-
-    const res = await provider().askLogs(input);
-
-    // Graceful fallback: answer still produced, labelled MOCK.
-    expect(res.provider).toBe('MockAIProvider');
-    expect(res.meta.source).toBe('MOCK');
-    expect(JSON.stringify(res)).not.toContain(KEY);
+    const p = provider();
+    await expect(p.askLogs(input)).rejects.toBeInstanceOf(ServiceUnavailableError);
+    await expect(p.askLogs(input)).rejects.not.toThrowError(new RegExp(KEY));
   });
 
-  it('falls back to the Mock provider when fetch rejects (network error)', async () => {
+  it('throws ServiceUnavailableError when fetch rejects (network error)', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => {
         throw new Error('ECONNRESET');
       }) as unknown as typeof fetch,
     );
+    await expect(provider().askLogs(input)).rejects.toBeInstanceOf(ServiceUnavailableError);
+  });
 
-    const res = await provider().askLogs(input);
-
-    expect(res.provider).toBe('MockAIProvider');
-    expect(res.meta.source).toBe('MOCK');
+  it('throws ServiceUnavailableError on a 2xx body with no recognizable answer field', async () => {
+    vi.stubGlobal('fetch', mockFetch({ service_id: 'main', evidence: { log_windows: 0, alerts: 0 } }));
+    await expect(provider().askLogs(input)).rejects.toBeInstanceOf(ServiceUnavailableError);
   });
 
   it('delegates analyzeTelemetry to the Mock provider (no live analyze endpoint)', async () => {
     const res = await provider().analyzeTelemetry({
       logs: [],
       metrics: [],
-      service: 'urbani-app',
-      environment: 'production-eb',
+      service: 'main',
+      environment: 'qa',
     });
     expect(res.provider).toBe('MockAIProvider');
     expect(res.meta.source).toBe('MOCK');
-    // No error evidence -> no fabricated alert.
     expect(res.alert).toBeNull();
   });
 });

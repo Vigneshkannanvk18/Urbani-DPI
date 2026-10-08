@@ -3,9 +3,9 @@ import type { ServiceSummary } from '@urbani/shared';
 import { mockServices, MOCK_NOTE } from './mockData';
 
 /**
- * MockUrbaniApplicationAdapter (Phase 1). Returns seeded services/environments.
- * Replaced in Phase 2 by a real adapter that discovers Elastic Beanstalk
- * environments once the client provides the application + AWS details.
+ * MockUrbaniApplicationAdapter (Phase 1). Returns the seeded QA service roster.
+ * QA exposes no service-discovery endpoint, so the roster stays config-sourced
+ * and MOCK-labelled; the service layer derives enabled/logGroup at read time.
  */
 export class MockUrbaniApplicationAdapter implements UrbaniApplicationAdapter {
   readonly kind = 'URBANI_APP' as const;

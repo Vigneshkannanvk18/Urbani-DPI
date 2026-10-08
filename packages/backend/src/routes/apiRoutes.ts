@@ -129,7 +129,8 @@ apiRoutes.post(
 // Natural-language Q&A grounded in the current log window. Advisory only.
 // Rate limited to protect the model from runaway cost/abuse.
 const chatSchema = z.object({
-  question: z.string().min(1).max(1000),
+  // Trim so a whitespace-only question is rejected (400) BEFORE a billed /chat call.
+  question: z.string().trim().min(1).max(1000),
   service: z.string().optional(),
   environment: z.string().optional(),
   history: z

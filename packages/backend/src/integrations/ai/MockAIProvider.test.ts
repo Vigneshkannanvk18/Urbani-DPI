@@ -2,15 +2,15 @@ import { describe, it, expect } from 'vitest';
 import type { LogEntry, MetricSnapshot } from '@urbani/shared';
 import { MockAIProvider } from './MockAIProvider';
 
-const MODEL = 'anthropic.claude-3-5-sonnet-20241022-v2:0';
+const MODEL = 'global.amazon.nova-2-lite-v1:0';
 
-function log(level: LogEntry['level'], message: string): LogEntry {
+function log(level: LogEntry['level'], message: string, environment = 'qa'): LogEntry {
   return {
     id: `l-${Math.random()}`,
     timestamp: '2026-09-23T08:00:00.000Z',
     level,
-    service: 'urbani-core-api',
-    environment: 'production-eb',
+    service: 'main',
+    environment,
     message,
   };
 }
@@ -24,8 +24,8 @@ describe('MockAIProvider', () => {
     const res = await provider.analyzeTelemetry({
       logs: [log('INFO', 'GET /health 200'), log('DEBUG', 'cache hit')],
       metrics: noMetrics,
-      service: 'urbani-core-api',
-      environment: 'production-eb',
+      service: 'main',
+      environment: 'qa',
     });
     expect(res.alert).toBeNull();
     expect(res.provider).toBe('MockAIProvider');
@@ -36,13 +36,29 @@ describe('MockAIProvider', () => {
     const res = await provider.analyzeTelemetry({
       logs: [log('ERROR', errorMsg), log('ERROR', errorMsg), log('ERROR', errorMsg)],
       metrics: noMetrics,
-      service: 'urbani-core-api',
-      environment: 'production-eb',
+      service: 'main',
+      environment: 'qa',
     });
     expect(res.alert).not.toBeNull();
     expect(res.alert!.anomalyType).toBe('DatabaseConnectionTimeout');
-    // CRITICAL because production + DB timeout.
-    expect(res.alert!.severity).toBe('CRITICAL');
+    // QA is NOT a production environment, so 3 ERROR lines escalate to HIGH
+    // (CRITICAL only applies to a DB timeout in a `production` environment).
+    expect(res.alert!.severity).toBe('HIGH');
+    // CRITICAL-branch coverage: the SAME input in a bare `production` environment
+    // escalates to CRITICAL. (A bare `production` label is not an AC17-forbidden
+    // token — only the old EB-suffixed environment names are — so this stays
+    // grep-clean.)
+    const prod = await provider.analyzeTelemetry({
+      logs: [
+        log('ERROR', errorMsg, 'production'),
+        log('ERROR', errorMsg, 'production'),
+        log('ERROR', errorMsg, 'production'),
+      ],
+      metrics: noMetrics,
+      service: 'main',
+      environment: 'production',
+    });
+    expect(prod.alert!.severity).toBe('CRITICAL');
     // Every evidence line must trace back to an input log message.
     for (const line of res.alert!.evidence) {
       expect(line).toContain(errorMsg);
@@ -54,23 +70,23 @@ describe('MockAIProvider', () => {
   });
 
   it('uses the configured model id (never hardcoded in logic)', async () => {
-    const custom = new MockAIProvider('amazon.nova-lite-v1:0');
+    const custom = new MockAIProvider('global.amazon.nova-2-lite-v1:0');
     const res = await custom.analyzeTelemetry({
       logs: [log('ERROR', 'unhandled NullReferenceException')],
       metrics: noMetrics,
-      service: 'urbani-web',
-      environment: 'staging-eb',
+      service: 'payments',
+      environment: 'qa',
     });
-    expect(res.modelId).toBe('amazon.nova-lite-v1:0');
-    expect(res.alert?.modelId).toBe('amazon.nova-lite-v1:0');
+    expect(res.modelId).toBe('global.amazon.nova-2-lite-v1:0');
+    expect(res.alert?.modelId).toBe('global.amazon.nova-2-lite-v1:0');
   });
 
   it('is deterministic for the same input', async () => {
     const input = {
       logs: [log('ERROR', 'ConnectionPool: Timeout acquiring connection')],
       metrics: noMetrics,
-      service: 'urbani-core-api',
-      environment: 'production-eb',
+      service: 'main',
+      environment: 'qa',
     };
     const a = await provider.analyzeTelemetry(input);
     const b = await provider.analyzeTelemetry(input);

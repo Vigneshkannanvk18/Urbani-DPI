@@ -22,7 +22,7 @@ import { logger } from '../lib/logger';
  * re-sync never un-acknowledges an alert. No schema migration is required.
  */
 
-const LIVE_NOTE = 'Live AI-generated incidents (Amazon Bedrock Nova Lite).';
+const LIVE_NOTE = 'Live AI-generated incidents (Amazon Bedrock Nova 2 Lite).';
 
 function liveConfigured(): boolean {
   return config.integrationMode === 'live' && config.urbani.logsConfigured;

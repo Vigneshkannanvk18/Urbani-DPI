@@ -79,7 +79,7 @@ function rowToAlert(row: AlertRow): PersistedAlert {
     evidence,
     probableCause: row.probable_cause,
     recommendedActions: actions,
-    confidence: row.confidence ?? 0,
+    confidence: row.confidence,
     modelId: row.model_id,
     status: row.status as AlertStatus,
     acknowledgedBy: row.acknowledged_by,

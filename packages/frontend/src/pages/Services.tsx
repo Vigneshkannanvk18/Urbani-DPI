@@ -10,7 +10,7 @@ export function Services() {
     <div className="stack">
       <PageHeader
         title="Services / Applications"
-        subtitle="Monitored services. Seeded until the AWS services endpoint is provided."
+        subtitle="QA service roster (config-authoritative). main and payments are enabled; auth and support are registered but disabled upstream. Health/error-rate stay seeded (QA exposes no services endpoint)."
         source={(services.data?.source ?? 'MOCK') as 'LIVE' | 'MOCK' | 'WAITING_FOR_INTEGRATION'}
       />
       <Card>
@@ -22,7 +22,7 @@ export function Services() {
               <table className="data">
                 <thead>
                   <tr>
-                    <th>Service</th><th>Environment</th><th>Status</th>
+                    <th>Service</th><th>Enabled</th><th>Log group</th><th>Environment</th><th>Status</th>
                     <th>Error rate</th><th>Alerts</th><th>Last activity</th><th>Last incident</th>
                   </tr>
                 </thead>
@@ -30,6 +30,8 @@ export function Services() {
                   {s.data.map((svc) => (
                     <tr key={svc.id}>
                       <td style={{ fontWeight: 600 }}>{svc.name}</td>
+                      <td>{svc.enabled ? 'Enabled' : 'Disabled'}</td>
+                      <td className="cell-mono">{svc.logGroup ?? '—'}</td>
                       <td>{svc.environment}</td>
                       <td><StatusBadge status={svc.status} /></td>
                       <td>{svc.errorRate.toFixed(1)}%</td>

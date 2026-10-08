@@ -36,9 +36,9 @@ export function SearchInput(props: InputHTMLAttributes<HTMLInputElement>) {
   );
 }
 
-export function Select({ children, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {
+export function Select({ children, className, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <select className="select" {...rest}>
+    <select className={className ? `select ${className}` : 'select'} {...rest}>
       {children}
     </select>
   );
