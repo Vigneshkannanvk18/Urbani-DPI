@@ -157,14 +157,48 @@ describe('HttpUrbaniLogsAdapter', () => {
     expect(value[0].message).toBe('boom ERROR failure');
   });
 
-  it('degrades to [] (never throws) on a non-200 and still labels LIVE', async () => {
+  it('degrades to WAITING_FOR_INTEGRATION (never throws) when all fetches fail with no lines', async () => {
     vi.stubGlobal('fetch', routedFetch({ ok: false, status: 403 }));
     const a = adapter();
     const res = await a.getLogs({});
-    expect(res.meta.source).toBe('LIVE');
+    // A fully-failed, empty fetch is degraded, distinguishable from empty-success.
+    expect(res.meta.source).toBe('WAITING_FOR_INTEGRATION');
     expect(res.value).toEqual([]);
     // The key is never leaked in the degraded result.
     expect(JSON.stringify(res)).not.toContain(KEY);
+  });
+
+  it('a successful-but-empty window stays LIVE (not degraded)', async () => {
+    const f = routedFetch({ latest: { service_id: 'main', logs: [] }, history: { windows: [] } });
+    vi.stubGlobal('fetch', f);
+    const res = await adapter().getLogs({});
+    expect(res.meta.source).toBe('LIVE');
+    expect(res.value).toEqual([]);
+  });
+
+  it('a partial success (one service returns lines, another fails) stays LIVE', async () => {
+    // Two enabled services; main returns a line, payments 500s. Route by both
+    // path AND service so the two services get different outcomes.
+    const f = vi.fn(async (url: string) => {
+      const isPayments = url.includes('service=payments');
+      if (isPayments) return { ok: false, status: 500, json: async () => ({}) };
+      return {
+        ok: true,
+        status: 200,
+        json: async () =>
+          url.includes('/logs/history')
+            ? { windows: [] }
+            : {
+                service_id: 'main',
+                logs: [{ timestamp: '2026-09-28T04:00:00Z', message: 'main log line' }],
+              },
+      };
+    }) as unknown as typeof fetch;
+    vi.stubGlobal('fetch', f);
+    const a = new HttpUrbaniLogsAdapter(BASE, KEY, 'main', 5, 20, ['main', 'payments'], 'qa');
+    const res = await a.getLogs({});
+    expect(res.meta.source).toBe('LIVE');
+    expect(res.value).toHaveLength(1);
   });
 
   it('serves metrics as MOCK (metrics endpoint not available on QA)', async () => {

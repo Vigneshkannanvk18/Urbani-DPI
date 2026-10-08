@@ -33,7 +33,7 @@ export function AlertDetail() {
               <PageHeader
                 title={a.anomalyType}
                 subtitle={<span className="cell-mono">{a.alertId}</span>}
-                source="MOCK"
+                source={res.source}
                 actions={
                   a.status === 'OPEN' ? (
                     <Button onClick={acknowledge}>Acknowledge (human review)</Button>
@@ -47,7 +47,7 @@ export function AlertDetail() {
               <div className="grid three">
                 <Card><div className="metric-label">Severity</div><div className="mt-2"><SeverityBadge severity={a.severity} /></div></Card>
                 <Card><div className="metric-label">Status</div><div className="mt-2"><StatusBadge status={a.status} /></div></Card>
-                <Card><div className="metric-label">AI Confidence</div><div className="metric-value mt-2"><Confidence value={a.confidence} /></div></Card>
+                <Card><div className="metric-label">AI Confidence</div><div className="metric-value mt-2"><Confidence value={a.confidence} derived={a.confidence != null && res.source === 'LIVE'} /></div></Card>
               </div>
 
               <div className="grid two">
@@ -76,7 +76,11 @@ export function AlertDetail() {
               </div>
 
               <Card title="Evidence" titleSub="Cited log lines">
-                {a.evidence.map((line, i) => <div className="evidence-line" key={i}>{line}</div>)}
+                {a.evidence.length === 0 ? (
+                  <p className="text-secondary">No log evidence correlated for this incident.</p>
+                ) : (
+                  a.evidence.map((line, i) => <div className="evidence-line" key={i}>{line}</div>)
+                )}
               </Card>
 
               <div className="grid two">

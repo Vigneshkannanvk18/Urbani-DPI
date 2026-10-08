@@ -1,0 +1,30 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "label": "Stale \"refines confidence\" comment",
+      "severity": "non-blocking",
+      "confidence": "confirmed",
+      "detail": "The mapOne block comment and deriveConfidence JSDoc in HttpUrbaniAlertsAdapter claim alertService nudges/refines confidence after correlation, but no such code exists (grep of 'confidence' in alertService.ts returns nothing; the plan explicitly rejected an evidence-count nudge). The ui.tsx tooltip ('Derived from severity and matched log evidence') inherits the same overstatement. Trim the comments/tooltip to severity-only derivation."
+    },
+    {
+      "label": "Doubled upstream log calls on the alerts path",
+      "severity": "non-blocking",
+      "confidence": "confirmed",
+      "detail": "correlateLiveAlerts re-fetches cloudwatch.getLogs per distinct service on every alert list/get/acknowledge, in addition to the Logs page's own fetches. Acceptable given the adapter's TTL cache, but worth noting."
+    },
+    {
+      "label": "CRITICAL confidence renders green",
+      "severity": "non-blocking",
+      "confidence": "confirmed",
+      "detail": "Derived CRITICAL = 0.9 -> 90% -> success/green in Confidence, which can read oddly next to a CRITICAL severity badge. Cosmetic; confidence color is independent of severity by design."
+    },
+    {
+      "label": "Logs degraded note wording vs empty cache",
+      "severity": "non-blocking",
+      "confidence": "confirmed",
+      "detail": "The degraded note says 'showing the last available window,' but the branch only fires when items.length === 0, so there is no window to show. Consider 'no recent window available.' Copy nit."
+    }
+  ],
+  "reviewDoc": "c:\\Antigravity\\Urbani DPI\\.agents\\tasks\\data-consistency-review.md"
+}

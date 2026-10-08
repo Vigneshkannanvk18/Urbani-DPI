@@ -25,6 +25,12 @@ export interface ChatAnswer {
   service: string;
   environment: string;
   logsSource: string; // LIVE | MOCK | WAITING_FOR_INTEGRATION
+  /**
+   * Honest one-line grounding note from the provider (e.g. "grounded server-side
+   * in N recent log window(s) and M alert(s)"). Clarifies that the answer may
+   * draw on ALERTS, not just the filtered log window the Logs page shows.
+   */
+  groundingNote: string;
   inputTokens: number;
   outputTokens: number;
 }
@@ -114,6 +120,7 @@ export const chatService = {
         service,
         environment,
         logsSource: logsRes.meta.source,
+        groundingNote: result.meta.note ?? '',
         inputTokens: result.inputTokens,
         outputTokens: result.outputTokens,
       },

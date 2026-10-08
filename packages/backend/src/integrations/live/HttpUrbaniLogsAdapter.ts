@@ -74,6 +74,17 @@ interface LogTuple {
   sortKeyMs: number;
 }
 
+/**
+ * Result of a per-service fetch. `failed` is true ONLY when an upstream call
+ * errored (non-200 / timeout / network) with NO cache to fall back on — i.e. a
+ * genuinely-degraded fetch, distinguishable from a successful-but-empty window.
+ * Serving stale cache counts as a success (failed=false).
+ */
+interface ServiceFetch {
+  tuples: LogTuple[];
+  failed: boolean;
+}
+
 interface CacheEntry {
   at: number;
   value: LogTuple[];
@@ -117,7 +128,11 @@ export class HttpUrbaniLogsAdapter implements CloudWatchAdapter {
       query.service && this.services.includes(query.service) ? [query.service] : this.services;
 
     const perService = await Promise.all(target.map((svc) => this.fetchService(svc)));
-    const merged = perService.flat();
+    const merged = perService.flatMap((p) => p.tuples);
+    // Degraded ONLY when EVERY targeted service failed upstream AND nothing came
+    // back — so a partial success or any lines keep the honest LIVE label, and a
+    // successful-but-empty window stays LIVE too.
+    const allFailed = perService.length > 0 && perService.every((p) => p.failed);
 
     // Filter on the mapped entry.
     let tuples = merged;
@@ -134,6 +149,19 @@ export class HttpUrbaniLogsAdapter implements CloudWatchAdapter {
     const sorted = this.stableSortDesc(tuples);
     const limit = Math.min(query.limit ?? 100, 100);
     const items = sorted.slice(0, limit).map((t) => t.entry);
+
+    // A fully-failed, empty fetch is degraded: label WAITING_FOR_INTEGRATION so
+    // the Logs page can show "temporarily unavailable" instead of a bare empty
+    // state. Any lines (even stale cache) keep the honest LIVE label.
+    if (allFailed && items.length === 0) {
+      return {
+        meta: {
+          source: 'WAITING_FOR_INTEGRATION',
+          note: 'Live Urbani logs temporarily unavailable (upstream fetch failed).',
+        },
+        value: items,
+      };
+    }
 
     return {
       meta: {
@@ -159,8 +187,12 @@ export class HttpUrbaniLogsAdapter implements CloudWatchAdapter {
     };
   }
 
-  /** Fetch latest ∪ history for one service, merged + de-duplicated. */
-  private async fetchService(service: string): Promise<LogTuple[]> {
+  /**
+   * Fetch latest ∪ history for one service, merged + de-duplicated. The service
+   * fetch is considered failed only when BOTH halves failed upstream (and had no
+   * cache) — a partial success is still a success.
+   */
+  private async fetchService(service: string): Promise<ServiceFetch> {
     const [latest, history] = await Promise.all([
       this.fetchLatest(service),
       this.fetchHistory(service),
@@ -168,17 +200,17 @@ export class HttpUrbaniLogsAdapter implements CloudWatchAdapter {
     // De-dup on the natural key (same key used for the id hash) so id/dedup stay
     // consistent. Latest wins on a tie (fetched first below).
     const byKey = new Map<string, LogTuple>();
-    for (const t of [...latest, ...history]) {
+    for (const t of [...latest.tuples, ...history.tuples]) {
       const key = this.naturalKey(t.entry.service, t.sortKeyMs, t.entry.message);
       if (!byKey.has(key)) byKey.set(key, t);
     }
-    return [...byKey.values()];
+    return { tuples: [...byKey.values()], failed: latest.failed && history.failed };
   }
 
-  private async fetchLatest(service: string): Promise<LogTuple[]> {
+  private async fetchLatest(service: string): Promise<ServiceFetch> {
     const now = Date.now();
     const cached = this.latestCache.get(service);
-    if (cached && now - cached.at < this.ttlMs) return cached.value;
+    if (cached && now - cached.at < this.ttlMs) return { tuples: cached.value, failed: false };
     try {
       const body = await this.get<UrbaniLatestResponse>(
         `/logs/latest?service=${encodeURIComponent(service)}`,
@@ -189,17 +221,17 @@ export class HttpUrbaniLogsAdapter implements CloudWatchAdapter {
       const tuples = raw.map((entry) => this.mapLine(svc, entry, windowEndMs));
       this.latestCache.set(service, { at: now, value: tuples });
       logger.info('Fetched live Urbani logs (latest)', { service, count: tuples.length });
-      return tuples;
+      return { tuples, failed: false };
     } catch (err) {
       return this.onFailure('logs/latest', service, err, this.latestCache.get(service) ?? null);
     }
   }
 
-  private async fetchHistory(service: string): Promise<LogTuple[]> {
+  private async fetchHistory(service: string): Promise<ServiceFetch> {
     const now = Date.now();
     const key = `${service}:${this.historyLimit}`;
     const cached = this.historyCache.get(key);
-    if (cached && now - cached.at < this.ttlMs) return cached.value;
+    if (cached && now - cached.at < this.ttlMs) return { tuples: cached.value, failed: false };
     try {
       const body = await this.get<UrbaniHistoryResponse>(
         `/logs/history?service=${encodeURIComponent(service)}&limit=${this.historyLimit}`,
@@ -218,7 +250,7 @@ export class HttpUrbaniLogsAdapter implements CloudWatchAdapter {
       }
       this.historyCache.set(key, { at: now, value: tuples });
       logger.info('Fetched live Urbani logs (history)', { service, count: tuples.length });
-      return tuples;
+      return { tuples, failed: false };
     } catch (err) {
       return this.onFailure('logs/history', service, err, this.historyCache.get(key) ?? null);
     }
@@ -244,20 +276,23 @@ export class HttpUrbaniLogsAdapter implements CloudWatchAdapter {
     }
   }
 
-  /** Serve stale cache on failure if present, else []. Never throws, never leaks key. */
+  /**
+   * Serve stale cache on failure if present (a success, failed=false), else an
+   * empty degraded result (failed=true). Never throws, never leaks the key.
+   */
   private onFailure(
     which: string,
     service: string,
     err: unknown,
     cache: CacheEntry | null,
-  ): LogTuple[] {
+  ): ServiceFetch {
     const message = err instanceof Error ? err.message : 'unknown error';
     if (cache) {
       logger.warn(`Urbani ${which} fetch failed; serving cached window`, { service, message });
-      return cache.value;
+      return { tuples: cache.value, failed: false };
     }
     logger.warn(`Urbani ${which} fetch failed; serving empty window`, { service, message });
-    return [];
+    return { tuples: [], failed: true };
   }
 
   /**

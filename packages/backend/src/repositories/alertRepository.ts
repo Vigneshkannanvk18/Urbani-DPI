@@ -235,6 +235,34 @@ export const alertRepository = {
     return { items: rows.map(rowToAlert), total };
   },
 
+  /**
+   * Replace the DERIVED log-evidence lines for an alert idempotently. Clears any
+   * prior alert_evidence rows for this alert then inserts the (capped) lines with
+   * sequential ordinals, mirroring the evidence-write pattern in insert/upsert.
+   * An empty array therefore clears evidence without fabricating lines.
+   */
+  replaceDerivedEvidence(alertId: string, lines: string[]): void {
+    const tx = db().transaction(() => {
+      db().prepare('DELETE FROM alert_evidence WHERE alert_id = ?').run(alertId);
+      const evStmt = db().prepare(
+        'INSERT INTO alert_evidence (id, alert_id, ordinal, line) VALUES (?, ?, ?, ?)',
+      );
+      lines.forEach((line, i) => evStmt.run(randomUUID(), alertId, i, line));
+    });
+    tx();
+  },
+
+  /**
+   * Delete every alert with the given data_source and return the number removed.
+   * Child rows cascade (alert_evidence / alert_recommended_actions via
+   * ON DELETE CASCADE; log_references.alert_id via ON DELETE SET NULL). Used by
+   * the live sync to clear stale seeded MOCK alerts so live mode shows only LIVE.
+   */
+  deleteByDataSource(source: DataSource): number {
+    const res = db().prepare('DELETE FROM alerts WHERE data_source = ?').run(source);
+    return res.changes;
+  },
+
   acknowledge(alertId: string, actor: string): PersistedAlert | null {
     const res = db()
       .prepare(

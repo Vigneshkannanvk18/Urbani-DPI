@@ -11,7 +11,7 @@ import copilotIcon from '../../assets/copilot-icon.png';
  * (NO EVIDENCE / NO_ANOMALY_DETECTED text is preserved exactly as returned).
  */
 export function AssistantMessage({ message }: { message: AssistantMessageData }) {
-  const { role, content, citations, meta, source, isError } = message;
+  const { role, content, citations, meta, groundingNote, source, isError } = message;
   // Render markdown ONLY for assistant, non-error bubbles (the real Nova 2 Lite
   // answer is markdown). User + error bubbles stay plain text. The renderer is
   // XSS-safe (no dangerouslySetInnerHTML; disallowed URL schemes neutralized).
@@ -31,6 +31,9 @@ export function AssistantMessage({ message }: { message: AssistantMessageData })
               <div className="cite" key={j}>{c}</div>
             ))}
           </div>
+        )}
+        {groundingNote && !isError && (
+          <div className="chat-meta">{groundingNote}</div>
         )}
         {meta && (
           <div className="chat-meta">

@@ -7,6 +7,8 @@ export interface AssistantMessageData {
   content: string;
   citations?: string[];
   meta?: string;
+  /** Honest grounding note under the answer (may draw on alerts, not just logs). */
+  groundingNote?: string;
   source?: string;
   isError?: boolean;
 }
@@ -83,6 +85,7 @@ export function AssistantChatProvider({ children }: { children: ReactNode }) {
           // never shown with a LIVE badge.
           source: res.source,
           meta: `${res.data.provider} · ${res.data.modelId}`,
+          groundingNote: res.data.groundingNote,
         },
       ]);
     } catch {

@@ -251,9 +251,33 @@ export function fmtTime(iso: string | null | undefined): string {
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString();
 }
 
-export function Confidence({ value }: { value: number | null | undefined }) {
+export function Confidence({
+  value,
+  derived = false,
+}: {
+  value: number | null | undefined;
+  /**
+   * When true, the value is a DERIVED heuristic (not a model-reported score) and
+   * is labelled accordingly. Genuinely-null values still render '—'.
+   */
+  derived?: boolean;
+}) {
   if (value == null) return <>—</>;
   const pct = Math.round(value * 100);
   const color = pct >= 85 ? 'var(--color-success)' : pct >= 60 ? 'var(--color-warning)' : 'var(--color-danger)';
-  return <span style={{ color, fontWeight: 600 }}>{pct}%</span>;
+  const title = derived
+    ? 'Derived from incident severity; the live incident source does not report a model confidence score.'
+    : undefined;
+  return (
+    <span style={{ color, fontWeight: 600 }} title={title}>
+      {pct}%
+      {derived && (
+        <span
+          style={{ color: 'var(--color-text-muted)', fontWeight: 400, fontSize: '0.85em', marginLeft: 4 }}
+        >
+          (derived)
+        </span>
+      )}
+    </span>
+  );
 }

@@ -82,7 +82,7 @@ export function Alerts() {
                           <td>{al.environment}</td>
                           <td><SeverityBadge severity={al.severity} /></td>
                           <td>{al.anomalyType}</td>
-                          <td><Confidence value={al.confidence} /></td>
+                          <td><Confidence value={al.confidence} derived={al.confidence != null && a.source === 'LIVE'} /></td>
                           <td><StatusBadge status={al.status} /></td>
                         </tr>
                       ))}

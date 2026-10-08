@@ -123,6 +123,8 @@ export interface ChatAnswer {
   service: string;
   environment: string;
   logsSource: string;
+  /** Honest grounding note (may draw on alerts, not just the filtered log window). */
+  groundingNote: string;
   inputTokens: number;
   outputTokens: number;
 }

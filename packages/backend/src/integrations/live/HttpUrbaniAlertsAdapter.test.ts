@@ -31,7 +31,7 @@ function adapter() {
 describe('HttpUrbaniAlertsAdapter', () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it('maps the flat latest alert (recommendation->single array, confidence null, evidence [])', async () => {
+  it('maps the flat latest alert (recommendation->single array, derived confidence, evidence [])', async () => {
     const f = mockFetch(flatAlert);
     vi.stubGlobal('fetch', f);
 
@@ -48,10 +48,11 @@ describe('HttpUrbaniAlertsAdapter', () => {
     });
     // recommendation (string) -> single-element recommendedActions array.
     expect(res[0].recommendedActions).toEqual(['Check pool size and review recent deploys']);
-    // QA returns no evidence/confidence; honest defaults (confidence null passes
-    // the schema only because urbaniIncidentAlertSchema is nullable).
+    // QA returns no evidence lines — never fabricated at mapping time.
     expect(res[0].evidence).toEqual([]);
-    expect(res[0].confidence).toBeNull();
+    // QA returns no model confidence; we populate a DERIVED heuristic from
+    // severity (MEDIUM -> 0.7). "LIVE alert + non-null confidence" ⇒ derived.
+    expect(res[0].confidence).toBe(0.7);
     expect(res[0].modelId).toBe('global.amazon.nova-2-lite-v1:0');
     expect(Number.isNaN(Date.parse(res[0].timestamp))).toBe(false);
 
@@ -79,6 +80,9 @@ describe('HttpUrbaniAlertsAdapter', () => {
     expect(res).toHaveLength(2);
     expect(res.map((a) => a.alertId)).toEqual(['ALT-789A3CCEB56F', 'ALT-SECOND']);
     expect(res[1].severity).toBe('HIGH');
+    // Derived confidence tracks the severity table: MEDIUM -> 0.7, HIGH -> 0.8.
+    expect(res[0].confidence).toBe(0.7);
+    expect(res[1].confidence).toBe(0.8);
     const [url] = (f as unknown as vi.Mock).mock.calls[0];
     expect(url).toContain('/alerts/history?service=main&limit=5');
   });

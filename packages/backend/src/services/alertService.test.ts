@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type Database from 'better-sqlite3';
 import type { UrbaniIncidentAlert } from '@urbani/shared';
+import type { LogEntry } from '@urbani/shared';
 import { freshTestDb } from '../test/testDb';
 import { alertRepository } from '../repositories/alertRepository';
-import { alertService } from './alertService';
+import { alertService, matchEvidence } from './alertService';
 import { NotFoundError } from '../lib/errors';
 
 const sampleAlert: UrbaniIncidentAlert = {
@@ -85,5 +86,70 @@ describe('alertService', () => {
     expect(after.summary).toBe('refreshed body');
     // Nullable confidence passes through.
     expect(after.confidence).toBeNull();
+  });
+});
+
+describe('matchEvidence (live alert ↔ log correlation heuristic)', () => {
+  const alert: UrbaniIncidentAlert = {
+    ...sampleAlert,
+    service: 'main',
+    timestamp: '2026-10-05T10:00:00.000Z',
+    anomalyType: 'DatabaseConnectionTimeout',
+    summary: 'HTTP_403 forbidden on /orders; database connection slowdown',
+  };
+
+  function log(partial: Partial<LogEntry>): LogEntry {
+    return {
+      id: partial.id ?? 'log-x',
+      timestamp: partial.timestamp ?? '2026-10-05T10:01:00.000Z',
+      level: partial.level ?? 'ERROR',
+      service: partial.service ?? 'main',
+      environment: 'qa',
+      message: partial.message ?? '',
+    };
+  }
+
+  it('matches same-service lines in the window on an HTTP status token', () => {
+    const logs = [
+      log({ id: 'a', message: 'GET /orders returned 403 Forbidden' }),
+      log({ id: 'b', message: 'all healthy 200 OK', service: 'main' }),
+    ];
+    const matched = matchEvidence(alert, logs);
+    expect(matched.map((l) => l.id)).toEqual(['a']);
+  });
+
+  it('matches on an anomaly keyword (database/connection/timeout)', () => {
+    const logs = [log({ id: 'c', message: 'ERROR database connection timeout acquiring pool' })];
+    expect(matchEvidence(alert, logs).map((l) => l.id)).toEqual(['c']);
+  });
+
+  it('rejects a different service', () => {
+    const logs = [log({ id: 'd', service: 'payments', message: 'database connection timeout' })];
+    expect(matchEvidence(alert, logs)).toEqual([]);
+  });
+
+  it('rejects a line far outside the timestamp window', () => {
+    const logs = [log({ id: 'e', timestamp: '2026-10-05T14:00:00.000Z', message: '403 forbidden' })];
+    expect(matchEvidence(alert, logs)).toEqual([]);
+  });
+
+  it('returns [] (never fabricates) when nothing matches', () => {
+    const logs = [log({ id: 'f', message: 'nothing relevant here' })];
+    expect(matchEvidence(alert, logs)).toEqual([]);
+  });
+
+  it('caps at 10 matched lines, newest-first', () => {
+    const logs: LogEntry[] = Array.from({ length: 15 }, (_, i) =>
+      log({
+        id: `m${i}`,
+        // Stagger timestamps within the window; i=0 oldest, i=14 newest.
+        timestamp: new Date(Date.parse('2026-10-05T10:00:00.000Z') + i * 1000).toISOString(),
+        message: 'database connection timeout',
+      }),
+    );
+    const matched = matchEvidence(alert, logs);
+    expect(matched).toHaveLength(10);
+    // Newest first.
+    expect(matched[0].id).toBe('m14');
   });
 });

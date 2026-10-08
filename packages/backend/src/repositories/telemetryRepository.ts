@@ -107,6 +107,29 @@ export const logRepository = {
       message: r.message,
     }));
   },
+
+  /**
+   * Clear every related-logs link for an alert (set alert_id = NULL). Used before
+   * re-linking during a live correlation pass so repeated syncs stay idempotent.
+   */
+  clearAlertLinks(alertId: string): void {
+    db().prepare('UPDATE log_references SET alert_id = NULL WHERE alert_id = ?').run(alertId);
+  },
+
+  /**
+   * Stamp log_references.alert_id for the given log ids so byAlert(alertId)
+   * returns them as related logs. Only ids that already exist in log_references
+   * are affected — LIVE adapter logs are NOT persisted here, so this is a no-op
+   * for them; alert_evidence (message strings) carries the matched LIVE lines.
+   */
+  linkLogsToAlert(alertId: string, logIds: string[]): void {
+    if (logIds.length === 0) return;
+    const stmt = db().prepare('UPDATE log_references SET alert_id = ? WHERE id = ?');
+    const tx = db().transaction(() => {
+      for (const id of logIds) stmt.run(alertId, id);
+    });
+    tx();
+  },
 };
 
 export const metricRepository = {

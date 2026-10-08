@@ -200,10 +200,32 @@ export class HttpUrbaniAlertsAdapter {
       probableCause: this.str(o.probable_cause) ?? '',
       // recommendation is a SINGULAR STRING -> single-element array (never split).
       recommendedActions: recommendation ? [recommendation] : [],
-      // QA returns no confidence score — honest "unknown" (rendered '—').
-      confidence: null,
+      // QA returns no model confidence score. Rather than leave this null (which
+      // reads as "data missing"), we populate a DERIVED heuristic from severity.
+      // This is NOT a model-reported score. Provenance makes the label
+      // unambiguous: the UI treats "a LIVE alert with a non-null confidence" as
+      // implicitly derived and labels it accordingly (no shared-schema flag is
+      // required). The confidence stays nullable end-to-end.
+      confidence: this.deriveConfidence(this.severity(o.severity)),
       modelId: config.urbani.chatModelId,
     };
+  }
+
+  /**
+   * Derive a confidence score from severity alone. Clamped to [0,1], rounded to
+   * 2 decimals. DERIVED, not model-reported — the live QA source returns no
+   * confidence score, so this is a severity-based heuristic surfaced with a
+   * "(derived)" label in the UI.
+   */
+  private deriveConfidence(severity: Severity): number {
+    const bySeverity: Record<Severity, number> = {
+      CRITICAL: 0.9,
+      HIGH: 0.8,
+      MEDIUM: 0.7,
+      LOW: 0.6,
+    };
+    const raw = bySeverity[severity] ?? 0.7;
+    return Math.round(Math.min(Math.max(raw, 0), 1) * 100) / 100;
   }
 
   private str(v: unknown): string | undefined {

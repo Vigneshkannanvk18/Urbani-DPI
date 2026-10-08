@@ -48,7 +48,13 @@ export function Logs() {
         {logs.loading && !logs.data ? <SkeletonTable rows={10} cols={4} /> : (
           <AsyncView state={logs}>
             {(l) => l.data.items.length === 0 ? (
-              <p className="text-secondary" style={{ padding: 'var(--space-4)' }}>No log entries match these filters.</p>
+              l.source === 'WAITING_FOR_INTEGRATION' ? (
+                <p className="text-secondary" style={{ padding: 'var(--space-4)' }}>
+                  Live logs temporarily unavailable — no recent window available. Try again shortly.
+                </p>
+              ) : (
+                <p className="text-secondary" style={{ padding: 'var(--space-4)' }}>No log entries match these filters.</p>
+              )
             ) : (
               <>
                 <div className="table-wrap">
