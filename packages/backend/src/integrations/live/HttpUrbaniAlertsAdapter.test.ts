@@ -31,7 +31,7 @@ function adapter() {
 describe('HttpUrbaniAlertsAdapter', () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it('maps the flat latest alert (recommendation->single array, derived confidence, evidence [])', async () => {
+  it('maps the flat latest alert (recommendation->single array, derived confidence, no evidence)', async () => {
     const f = mockFetch(flatAlert);
     vi.stubGlobal('fetch', f);
 
@@ -48,7 +48,7 @@ describe('HttpUrbaniAlertsAdapter', () => {
     });
     // recommendation (string) -> single-element recommendedActions array.
     expect(res[0].recommendedActions).toEqual(['Check pool size and review recent deploys']);
-    // QA returns no evidence lines — never fabricated at mapping time.
+    // This fixture carries no evidence array — mapped to [], never fabricated.
     expect(res[0].evidence).toEqual([]);
     // QA returns no model confidence; we populate a DERIVED heuristic from
     // severity (MEDIUM -> 0.7). "LIVE alert + non-null confidence" ⇒ derived.
@@ -60,6 +60,33 @@ describe('HttpUrbaniAlertsAdapter', () => {
     expect(url).toContain('/alerts/latest?service=main');
     expect((init.headers as Record<string, string>)['x-api-key']).toBe(KEY);
     expect(JSON.stringify(res)).not.toContain(KEY);
+  });
+
+  it('maps upstream evidence: JSON-stringified entries -> .message, plain strings verbatim', async () => {
+    const evidence = [
+      JSON.stringify({
+        timestamp: '2026-10-08T09:26:10.209Z',
+        level: 'error',
+        message: '[wallet:getPendingReward] X-Internal-Auth-Urbani no está configurado',
+      }),
+      'Error user balances  ApiError: No se pudo completar la operación en Wallet',
+      '', // empty string is skipped
+      123, // non-string is skipped
+    ];
+    vi.stubGlobal('fetch', mockFetch({ ...flatAlert, evidence }));
+
+    const res = await adapter().getLatest();
+
+    expect(res[0].evidence).toEqual([
+      '[wallet:getPendingReward] X-Internal-Auth-Urbani no está configurado',
+      'Error user balances  ApiError: No se pudo completar la operación en Wallet',
+    ]);
+  });
+
+  it('maps an absent/empty evidence array to [] (never fabricated)', async () => {
+    vi.stubGlobal('fetch', mockFetch({ ...flatAlert, evidence: [] }));
+    const res = await adapter().getLatest();
+    expect(res[0].evidence).toEqual([]);
   });
 
   it('returns [] when /alerts/latest has no alert_id (no current alert)', async () => {

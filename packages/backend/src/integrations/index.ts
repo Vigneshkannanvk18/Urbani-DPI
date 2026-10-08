@@ -81,7 +81,7 @@ function buildLive(): Integrations {
       alertsHistoryLimit: config.urbani.alertsHistoryLimit,
       // NOTE: the API key is intentionally never logged.
     });
-    base.cloudwatch = new HttpUrbaniLogsAdapter(
+    const liveLogs = new HttpUrbaniLogsAdapter(
       config.urbani.apiBaseUrl!,
       config.urbani.apiKey!,
       config.urbani.service,
@@ -89,7 +89,9 @@ function buildLive(): Integrations {
       config.urbani.logsHistoryLimit,
       config.urbani.services,
       config.urbani.environment,
+      config.urbani.alertsHistoryLimit,
     );
+    base.cloudwatch = liveLogs;
     // Real AI chat via POST /chat (Amazon Bedrock Nova 2 Lite). Reads the
     // per-request service from input.service; the internal Mock is used ONLY for
     // analyzeTelemetry delegation (there is no live analyze endpoint).
@@ -109,6 +111,11 @@ function buildLive(): Integrations {
       config.urbani.services,
       config.urbani.environment,
     );
+    // Wire alert evidence into the logs adapter so the Logs page surfaces the
+    // real log lines that live inside alert evidence when the /logs/* windows
+    // expose none. The alerts adapter already caches per its refresh window, so
+    // this adds no extra upstream pressure beyond the existing alert sync.
+    liveLogs.setAlertEvidenceSource(base.urbaniAlerts);
   } else {
     logger.warn('INTEGRATION_MODE=live but Urbani logs API is not configured; using mock logs', {
       hint: 'Set URBANI_API_BASE_URL and URBANI_API_KEY to enable live logs.',

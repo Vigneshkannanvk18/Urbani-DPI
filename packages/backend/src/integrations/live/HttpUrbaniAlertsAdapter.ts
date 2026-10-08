@@ -2,6 +2,7 @@ import type { Severity, UrbaniIncidentAlert } from '@urbani/shared';
 import { SEVERITIES, urbaniIncidentAlertSchema } from '@urbani/shared';
 import { config } from '../../config';
 import { logger } from '../../lib/logger';
+import { tryParseJson, str as strOrUndef } from './logLineParser';
 
 /**
  * HttpUrbaniAlertsAdapter (Phase 3 — real AI-generated QA incidents).
@@ -31,6 +32,12 @@ interface UrbaniAlertObject {
   summary?: string;
   probable_cause?: string;
   recommendation?: string;
+  /**
+   * Real log lines that justify the alert. The QA API carries these as an array
+   * whose entries are EITHER a JSON-stringified log entry ({timestamp,level,
+   * message}) OR a plain message string.
+   */
+  evidence?: unknown[];
 }
 
 interface HistoryResponse {
@@ -195,8 +202,9 @@ export class HttpUrbaniAlertsAdapter {
       severity: this.severity(o.severity),
       anomalyType: this.str(o.anomaly_type) ?? 'UnknownAnomaly',
       summary: this.str(o.summary) ?? '',
-      // QA does not return evidence lines — never fabricate.
-      evidence: [],
+      // Real upstream evidence lines, mapped to human-readable messages. Never
+      // fabricated: an absent/empty evidence array yields [].
+      evidence: this.mapEvidence(o.evidence),
       probableCause: this.str(o.probable_cause) ?? '',
       // recommendation is a SINGULAR STRING -> single-element array (never split).
       recommendedActions: recommendation ? [recommendation] : [],
@@ -226,6 +234,26 @@ export class HttpUrbaniAlertsAdapter {
     };
     const raw = bySeverity[severity] ?? 0.7;
     return Math.round(Math.min(Math.max(raw, 0), 1) * 100) / 100;
+  }
+
+  /**
+   * Map the raw upstream evidence array onto human-readable message strings for
+   * the shared UrbaniIncidentAlert.evidence: string[] field. Each entry is
+   * either a JSON-stringified log entry (take its .message) or a plain string
+   * (use verbatim — Spanish text is preserved as-is). Non-string entries are
+   * skipped. An absent/empty array yields [] — never fabricate.
+   */
+  private mapEvidence(raw: unknown): string[] {
+    if (!Array.isArray(raw)) return [];
+    const out: string[] = [];
+    for (const item of raw) {
+      const s = strOrUndef(item);
+      if (!s) continue;
+      const inner = tryParseJson(s);
+      const message = inner ? (strOrUndef(inner.message) ?? strOrUndef(inner.msg) ?? s) : s;
+      out.push(message);
+    }
+    return out;
   }
 
   private str(v: unknown): string | undefined {

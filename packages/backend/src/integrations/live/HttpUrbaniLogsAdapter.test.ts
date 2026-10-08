@@ -205,4 +205,98 @@ describe('HttpUrbaniLogsAdapter', () => {
     const res = await adapter().getMetrics({});
     expect(res.meta.source).toBe('MOCK');
   });
+
+  it('surfaces alert-evidence lines as LogEntry rows when /logs/* is empty', async () => {
+    // /logs/* exposes an empty window (relevant_log_count=0), exactly like QA.
+    const f = routedFetch({ latest: { service_id: 'main', logs: [], log_count: 10 }, history: { windows: [] } });
+    vi.stubGlobal('fetch', f);
+
+    const a = adapter();
+    a.setAlertEvidenceSource({
+      getLatest: async () => [makeAlert('main', [
+        JSON.stringify({
+          timestamp: '2026-10-08T09:26:10.209Z',
+          level: 'error',
+          message: '[wallet:getPendingReward] X-Internal-Auth-Urbani no está configurado',
+        }),
+        'Error user balances  ApiError: No se pudo completar la operación en Wallet',
+      ])],
+      getHistory: async () => [],
+    });
+
+    const res = await a.getLogs({ service: 'main', limit: 100 });
+
+    expect(res.meta.source).toBe('LIVE');
+    expect(res.meta.note).toContain('incident evidence');
+    expect(res.value).toHaveLength(2);
+
+    const [first, second] = res.value;
+    // JSON-stringified evidence: real timestamp + embedded level + verbatim message.
+    expect(first.message).toBe('[wallet:getPendingReward] X-Internal-Auth-Urbani no está configurado');
+    expect(first.level).toBe('ERROR');
+    expect(first.timestamp).toBe('2026-10-08T09:26:10.209Z');
+    expect(first.service).toBe('main');
+    expect(first.environment).toBe('qa');
+    expect(first.id).toBeTruthy();
+    // Plain-string evidence: level inferred from text ("Error"/"No se pudo") and
+    // timestamp falls back to the alert's own timestamp.
+    expect(second.message).toBe('Error user balances  ApiError: No se pudo completar la operación en Wallet');
+    expect(second.level).toBe('ERROR');
+    expect(second.timestamp).toBe('2026-10-08T09:00:00.000Z');
+  });
+
+  it('alert-evidence lines are filterable by level/search and scoped to the service', async () => {
+    const f = routedFetch({ latest: { service_id: 'main', logs: [] }, history: { windows: [] } });
+    vi.stubGlobal('fetch', f);
+    const a = new HttpUrbaniLogsAdapter(BASE, KEY, 'main', 5, 20, ['main', 'payments'], 'qa');
+    a.setAlertEvidenceSource({
+      getLatest: async () => [
+        makeAlert('main', ['boom ERROR in main']),
+        makeAlert('payments', ['payments 403 forbidden']),
+      ],
+      getHistory: async () => [],
+    });
+
+    // Service filter keeps only the main alert's evidence.
+    const onlyMain = await a.getLogs({ service: 'main', limit: 100 });
+    expect(onlyMain.value.map((e) => e.service)).toEqual(['main']);
+
+    // Search filter applies across the merged (evidence) window.
+    const searched = await a.getLogs({ search: '403', limit: 100 });
+    expect(searched.value).toHaveLength(1);
+    expect(searched.value[0].message).toContain('403');
+  });
+
+  it('yields NO fabricated lines when alerts have empty/absent evidence', async () => {
+    const f = routedFetch({ latest: { service_id: 'main', logs: [] }, history: { windows: [] } });
+    vi.stubGlobal('fetch', f);
+    const a = adapter();
+    a.setAlertEvidenceSource({
+      getLatest: async () => [makeAlert('main', [])],
+      getHistory: async () => [],
+    });
+    const res = await a.getLogs({ service: 'main', limit: 100 });
+    expect(res.meta.source).toBe('LIVE');
+    expect(res.value).toEqual([]);
+    // No evidence lines were produced, so the note stays the plain live-logs note.
+    expect(res.meta.note).not.toContain('incident evidence');
+  });
 });
+
+/** Minimal UrbaniIncidentAlert fixture for alert-evidence backfill tests. */
+function makeAlert(service: string, evidence: string[]) {
+  return {
+    alertId: `ALT-${service}`,
+    timestamp: '2026-10-08T09:00:00.000Z',
+    service,
+    environment: 'qa',
+    severity: 'MEDIUM' as const,
+    anomalyType: 'Test',
+    summary: 'test',
+    evidence,
+    probableCause: '',
+    recommendedActions: [],
+    confidence: 0.7,
+    modelId: 'test-model',
+  };
+}
