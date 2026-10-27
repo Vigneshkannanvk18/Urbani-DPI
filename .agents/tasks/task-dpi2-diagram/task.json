@@ -1,0 +1,7 @@
+{
+  "task_id": "task-dpi2-diagram",
+  "task_description": "Produce a DPI 2 ('Radar UrbiNexus') AWS architecture diagram (new OUTPUT/Urbani_AWS_Architecture_Diagram_DPI2.svg/.png via a new scripts/gen-diagram-dpi2.js that copies and generalizes the existing collision-asserted engine) and extend docs/AWS_DEPLOYMENT_GUIDE.md with a clearly-marked, honestly-labelled DPI 2 additions section. Documentation/diagram only: no changes to packages/ source, no dev-server restarts, no .env secret-value edits; DPI 1 diagram outputs and gen-diagram.test.js must stay unchanged.",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}
