@@ -18,6 +18,7 @@
     "dev:frontend": "npm run dev --workspace @urbani/frontend",
     "test": "npm run test --workspace @urbani/backend",
     "gen:diagram": "node scripts/gen-diagram.js",
+    "gen:docs": "node scripts/gen-docs.js",
     "migrate": "npm run migrate --workspace @urbani/backend",
     "seed": "npm run seed --workspace @urbani/backend",
     "migrate:prod": "node packages/backend/dist/db/migrate.js",
@@ -29,6 +30,8 @@
   },
   "devDependencies": {
     "docx": "^9.8.1",
+    "pdf-to-png-converter": "^3.6.4",
+    "pdfkit": "^0.15.1",
     "pptxgenjs": "^4.0.1",
     "sharp": "^0.35.5"
   }
