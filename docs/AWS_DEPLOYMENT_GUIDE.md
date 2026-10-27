@@ -14,6 +14,12 @@ secrets, and the deploy sequence.
 > **customer's existing application** that Urbani *monitors* (the CloudWatch log
 > source). It is read-only input, not something we deploy or change.
 
+> **DPI 2 ("Radar UrbiNexus"):** proposed target additions are in §11 and in
+> `docs/DPI2_PLAN_AND_GAP_ANALYSIS.md`; the DPI 2 architecture diagram is
+> `OUTPUT/Urbani_AWS_Architecture_Diagram_DPI2.svg` (`.png`). Those services are
+> a **proposed target**, not yet deployed — sections 1–10 below describe the
+> **delivered DPI 1** runtime.
+
 ---
 
 ## 1. What gets deployed
@@ -199,3 +205,132 @@ CDK outputs include **`DashboardUrl`** (the ALB URL) and **`DashboardRuntime`**
 - [ ] `INTEGRATION_MODE=live` set (so logs/Copilot use real data)
 - [ ] IAM task/execution roles reviewed for least privilege (§7)
 - [ ] `cdk synth` reviewed and approved before `cdk deploy`
+
+---
+
+## 11. DPI 2 additions (PROPOSED — "Radar UrbiNexus")
+
+> **Honesty banner — read first.** Everything in this section is a **PROPOSED
+> target** for DPI 2, validated with the client at kickoff. It is **not yet
+> built or deployed**. The delivered **DPI 1** runtime (sections 1–10 above) is
+> still **SQLite** persistence plus **un-deployed CDK scaffolding** for the
+> incident/alert pipeline; the running app does not use it. Monitoring today
+> covers **QA only** — expanding to **Main** and **Payment** is **subject to
+> client access**, so those surfaces stay **MOCK / WAITING_FOR_INTEGRATION**
+> until access is granted, never LIVE. Nothing below implies Cognito, DynamoDB
+> persistence, the notifier pipeline, or Synthetics are already running.
+>
+> Full scope, gap analysis, per-item blockers, and the exact client inputs
+> required are in **`docs/DPI2_PLAN_AND_GAP_ANALYSIS.md`**. The DPI 2
+> architecture diagram is **`OUTPUT/Urbani_AWS_Architecture_Diagram_DPI2.svg`**
+> (and `.png`), where orange marks the proposed additions.
+
+These additions layer on top of the DPI 1 runtime; the sections they relate to
+are cross-referenced so sizing, networking, secrets, and IAM stay coherent.
+
+### 11.1 Identity — Amazon Cognito (+ Google Workspace SSO/MFA) — PROPOSED
+
+- Stand up **Amazon Cognito** federated with **Google Workspace** via
+  **SAML/OIDC** for **SSO + MFA**. The backend validates the Cognito token and
+  enforces permissions server-side.
+- **4 RBAC roles** replace today's single access level, mapped from IdP groups:
+  **Super Admin**, **Infrastructure Administrator**, **QA Operator**, and
+  **Reader / Auditor** (the Reader/Auditor must not be able to mutate
+  configuration). Authorization is enforced in the API, not just hidden in the
+  UI.
+- **Documented fallback:** if IdP admin access is not available in time, keep
+  the existing **JWT** login and add **TOTP MFA** — lighter, no IdP dependency —
+  to still meet the MFA success criterion.
+- Status: PROPOSED. DPI 1 ships single-level JWT auth with one bootstrap admin.
+
+### 11.2 Persistence — DynamoDB as the LIVE primary store (replaces SQLite) — PROPOSED
+
+- DPI 2 **commits to persistence option B (DynamoDB)** from **§5 "Persistence
+  (decision required)"**. DynamoDB becomes the **live primary store**,
+  replacing the SQLite volume.
+- It holds **users & preferences, audit events, chat history + feedback, and
+  alerts**.
+- Moving off SQLite **removes the single-writer limit**, which is what forces
+  DPI 1 to run exactly one task. With DynamoDB the service can run **≥ 2 ECS
+  tasks across 2 AZs** (see §11.8).
+- Status: PROPOSED. DPI 1 persists to SQLite at `/data/urbani.sqlite`; the
+  `UrbaniAlerts` table exists only as un-deployed CDK scaffolding.
+
+### 11.3 Alerts & notifications pipeline — PROPOSED
+
+- **DynamoDB Streams → Lambda Notifier → Amazon SNS (email)** plus **Slack
+  and/or Microsoft Teams webhooks**. Webhook URLs live in Secrets Manager (see
+  §11.6).
+- Notification **rules by severity and service**, with **deduplication** so a
+  single incident does not spam channels.
+- A critical failure (real or simulated) must generate an alert by **email and
+  at least one of Slack/Teams** (a DPI 2 success criterion).
+- Status: PROPOSED. DPI 1 shows alerts in-app only; no outbound notifications.
+
+### 11.4 Health & KPIs — PROPOSED
+
+- **CloudWatch Synthetics** canaries + **Route 53 health checks** for **QA,
+  Main, and Payment**, feeding a health/uptime panel. **Main and Payment are
+  subject to client access** — until granted they stay
+  **MOCK / WAITING_FOR_INTEGRATION**, never LIVE.
+- **Container Insights** for the dashboard service itself.
+- Status: PROPOSED. DPI 1 has no health panel; Metrics/Services are MOCK.
+
+### 11.5 Log management — PROPOSED
+
+- **CloudWatch Logs Insights** for **full-stream search** across
+  **severity / server / date range / text / regex**, going beyond the "relevant"
+  (flagged) lines DPI 1 can currently surface.
+- **Log/report export** in **CSV, JSON, and PDF**, staging large exports in
+  **S3** with signed URLs.
+- Status: PROPOSED. DPI 1 filters only the current window and has no export.
+
+### 11.6 Monitoring scope — PROPOSED
+
+- Monitoring **expands from QA to Main + Payment**, **subject to client access**
+  (CloudWatch log-group access/ARNs, or an agreed extension of the Urbani
+  `/logs` API). Where access is not granted, those services remain
+  **MOCK / WAITING_FOR_INTEGRATION**.
+- Status: PROPOSED. DPI 1 monitors QA only.
+
+### 11.7 DPI 2 secrets note (extends §6 — do not edit the §6 table)
+
+The following **new** secrets are injected from **AWS Secrets Manager** at
+deploy time, exactly as in §6 (never baked into images, never sent to the
+browser). This note **adds to** the §6 intent; it does not change any existing
+DPI 1 secret.
+
+| Variable | Purpose |
+|---|---|
+| `SLACK_WEBHOOK_URL` | Slack notification webhook for the alerts pipeline (§11.3) — server-side only |
+| `TEAMS_WEBHOOK_URL` | Microsoft Teams notification webhook for the alerts pipeline (§11.3) — server-side only |
+| `COGNITO_USER_POOL_ID` | Cognito user pool for SSO/MFA (§11.1) |
+| `COGNITO_CLIENT_ID` | Cognito app client ID (§11.1) |
+| `COGNITO_DOMAIN` | Cognito hosted-UI domain / OIDC issuer (§11.1) |
+
+The Slack/Teams webhook URLs are used by the Lambda Notifier **server-side
+only** and are never exposed to the browser.
+
+### 11.8 DPI 2 IAM note (extends §7 — least privilege)
+
+Least-privilege **task-role** additions on top of §7, scoped to what the DPI 2
+features need at runtime:
+
+- **DynamoDB** — read/write **only** the DPI 2 tables (users/preferences,
+  audit, chat history + feedback, alerts).
+- **SNS** — `Publish` **only** to the alerts topic.
+- **CloudWatch Synthetics + Logs Insights** — **read** (query canaries and run
+  Logs Insights queries).
+- **S3** — `PutObject` / `GetObject` **only** on the export bucket/prefix.
+
+The pipeline roles keep the DPI 1 posture: **no write access to the customer's
+production app**.
+
+### 11.9 ECS operations — PROPOSED
+
+- **Service Auto Scaling** to **≥ 2 tasks across 2 AZs**, unblocked once DynamoDB
+  (§11.2) removes the single-writer constraint (updates the DPI 1 default of a
+  single task in §2).
+- The DPI 2 least-privilege **Task Role** (§11.8) covers DynamoDB / SNS /
+  CloudWatch Synthetics + Logs Insights / S3.
+- Status: PROPOSED.
