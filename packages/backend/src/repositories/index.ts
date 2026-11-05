@@ -1,6 +1,8 @@
 import { config } from '../config';
 import { PersistenceError } from '../lib/errors';
 import { logger } from '../lib/logger';
+import { createDynamoContext } from './dynamodb/client';
+import { createDynamoRepositories } from './dynamodb';
 import { createSqliteRepositories } from './sqlite';
 import type { Repositories } from './types';
 
@@ -18,10 +20,15 @@ let cached: Repositories | null = null;
 
 function build(): Repositories {
   if (config.db.driver === 'dynamodb') {
-    // Replaced by the DynamoDB driver branch (design §3.3) when that driver lands.
-    throw new PersistenceError('UNAVAILABLE', 'DB_DRIVER=dynamodb: the DynamoDB driver is not part of this build yet', {
-      fatal: true,
+    const { tableName, endpoint } = config.db.dynamodb;
+    logger.info('Persistence driver: dynamodb', {
+      table: tableName,
+      region: config.aws.region,
+      endpoint: endpoint ?? 'aws-default-chain',
     });
+    if (endpoint && config.isProd) logger.warn('DYNAMODB_ENDPOINT override is set in production', { endpoint });
+    // Builds an SDK client only; credentials resolve lazily on the first request.
+    return createDynamoRepositories(createDynamoContext({ region: config.aws.region, endpoint, tableName }));
   }
   logger.info('Persistence driver: sqlite', { path: config.db.sqlitePath });
   return createSqliteRepositories();
