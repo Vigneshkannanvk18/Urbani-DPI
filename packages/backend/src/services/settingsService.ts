@@ -1,7 +1,6 @@
 import { config } from '../config';
 import { URBANI_QA_PIPELINE } from '../config/urbaniQa';
-import { integrationRepository } from '../repositories/integrationRepository';
-import { auditRepository } from '../repositories/auditRepository';
+import { getRepositories } from '../repositories';
 
 /**
  * Settings service (Epic 12).
@@ -83,7 +82,8 @@ function runtimeIntegrationState(
 }
 
 export const settingsService = {
-  get(): SettingsView {
+  async get(): Promise<SettingsView> {
+    const repos = getRepositories();
     return {
       general: {
         appName: config.appName,
@@ -138,7 +138,7 @@ export const settingsService = {
           enabled: s.enabled,
         })),
       },
-      integrations: integrationRepository.all().map((i) => {
+      integrations: (await repos.integrations.all()).map((i) => {
         const live = runtimeIntegrationState(i.kind, i.mode, i.status);
         return {
           kind: i.kind,
@@ -155,8 +155,9 @@ export const settingsService = {
    * an update request only to audit the intent; we do NOT mutate secrets or env
    * config from the UI. Real mutable settings arrive in a later phase.
    */
-  update(actor: string, requested: Record<string, unknown>): { accepted: false; reason: string } {
-    auditRepository.record(actor, 'CONFIG_CHANGED', 'settings', {
+  async update(actor: string, requested: Record<string, unknown>): Promise<{ accepted: false; reason: string }> {
+    const repos = getRepositories();
+    await repos.audit.record(actor, 'CONFIG_CHANGED', 'settings', {
       requestedKeys: Object.keys(requested),
     });
     return {

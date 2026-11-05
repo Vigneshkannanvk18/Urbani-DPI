@@ -1,26 +1,26 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
-import type Database from 'better-sqlite3';
 import { freshTestDb } from '../test/testDb';
-import { userRepository } from '../repositories/userRepository';
+import { getRepositories } from '../repositories';
 import { authService } from './authService';
 import { UnauthorizedError } from '../lib/errors';
 
 describe('authService', () => {
-  let db: Database.Database;
+  let db: ReturnType<typeof freshTestDb>;
 
   beforeEach(async () => {
     db = freshTestDb();
+    const repos = getRepositories();
     const now = new Date().toISOString();
-    userRepository.upsertRole({
+    await repos.users.upsertRole({
       id: 'role-admin',
       name: 'ADMIN',
       description: null,
       permissions: JSON.stringify(['*']),
       created_at: now,
     });
-    userRepository.upsertUser({
+    await repos.users.upsertUser({
       id: randomUUID(),
       email: 'admin@urbani.local',
       display_name: 'Admin',

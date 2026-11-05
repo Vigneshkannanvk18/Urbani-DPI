@@ -1,7 +1,5 @@
-import type { DashboardSummary, Sourced, MetricSnapshot } from '@urbani/shared';
-import { serviceRepository, metricRepository } from '../repositories/telemetryRepository';
-import { alertRepository } from '../repositories/alertRepository';
-import { aiRepository } from '../repositories/aiRepository';
+import type { DashboardSummary, Sourced, MetricSnapshot, ServiceSummary } from '@urbani/shared';
+import { getRepositories } from '../repositories';
 import { MOCK_NOTE } from '../integrations/mock/mockData';
 
 /**
@@ -9,11 +7,12 @@ import { MOCK_NOTE } from '../integrations/mock/mockData';
  * Everything derived from seeded data is labelled MOCK.
  */
 export const dashboardService = {
-  summary(): Sourced<DashboardSummary> {
-    const totalServices = serviceRepository.count();
-    const activeAlerts = alertRepository.countActive();
-    const criticalAlerts = alertRepository.countBySeverity('CRITICAL');
-    const services = serviceRepository.all();
+  async summary(): Promise<Sourced<DashboardSummary>> {
+    const repos = getRepositories();
+    const totalServices = await repos.services.count();
+    const activeAlerts = await repos.alerts.countActive();
+    const criticalAlerts = await repos.alerts.countBySeverity('CRITICAL');
+    const services = await repos.services.all();
 
     const down = services.filter((s) => s.status === 'DOWN').length;
     const degraded = services.filter((s) => s.status === 'DEGRADED').length;
@@ -27,21 +26,22 @@ export const dashboardService = {
         totalServices,
         activeAlerts,
         criticalAlerts,
-        recentIncidents: alertRepository.query({ pageSize: 200 }).total,
-        aiAnalyses: aiRepository.count(),
+        recentIncidents: await repos.alerts.countAll(),
+        aiAnalyses: await repos.aiAnalyses.count(),
         systemHealth,
       },
     };
   },
 
   /** Observability rollup for the overview charts. */
-  health(): Sourced<{ services: ReturnType<typeof serviceRepository.all>; recentMetrics: MetricSnapshot[] }> {
+  async health(): Promise<Sourced<{ services: ServiceSummary[]; recentMetrics: MetricSnapshot[] }>> {
+    const repos = getRepositories();
     return {
       source: 'MOCK',
       sourceNote: MOCK_NOTE,
       data: {
-        services: serviceRepository.all(),
-        recentMetrics: metricRepository.query({ limit: 60 }),
+        services: await repos.services.all(),
+        recentMetrics: await repos.metrics.query({ limit: 60 }),
       },
     };
   },

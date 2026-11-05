@@ -33,7 +33,7 @@ authRoutes.post(
   '/logout',
   requireAuth,
   asyncHandler(async (req, res) => {
-    authService.logout(req.auth!.email);
+    await authService.logout(req.auth!.email);
     res.json({ ok: true });
   }),
 );
@@ -42,6 +42,6 @@ authRoutes.get(
   '/me',
   requireAuth,
   asyncHandler(async (req, res) => {
-    res.json({ user: authService.me(req.auth!.sub) });
+    res.json({ user: await authService.me(req.auth!.sub) });
   }),
 );

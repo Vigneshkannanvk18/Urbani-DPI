@@ -1,6 +1,6 @@
 import type { Sourced, UsageRecord, BudgetStatus } from '@urbani/shared';
 import { config } from '../config';
-import { usageRepository } from '../repositories/telemetryRepository';
+import { getRepositories } from '../repositories';
 import { MOCK_NOTE } from '../integrations/mock/mockData';
 
 /**
@@ -11,8 +11,9 @@ import { MOCK_NOTE } from '../integrations/mock/mockData';
  * Bedrock usage is integrated. Never fabricate live billing.
  */
 export const usageService = {
-  usage(): Sourced<{ records: UsageRecord[]; totals: { requests: number; inputTokens: number; outputTokens: number; costUsd: number } }> {
-    const records = usageRepository.all();
+  async usage(): Promise<Sourced<{ records: UsageRecord[]; totals: { requests: number; inputTokens: number; outputTokens: number; costUsd: number } }>> {
+    const repos = getRepositories();
+    const records = await repos.usage.all();
     const totals = records.reduce(
       (acc, r) => ({
         requests: acc.requests + r.aiRequestCount,
@@ -25,8 +26,9 @@ export const usageService = {
     return { source: 'MOCK', sourceNote: MOCK_NOTE, data: { records, totals } };
   },
 
-  cost(): Sourced<BudgetStatus> {
-    const records = usageRepository.all();
+  async cost(): Promise<Sourced<BudgetStatus>> {
+    const repos = getRepositories();
+    const records = await repos.usage.all();
     const today = new Date().toISOString().slice(0, 10);
     const month = today.slice(0, 7);
     const currentDailyCostUsd = Number(

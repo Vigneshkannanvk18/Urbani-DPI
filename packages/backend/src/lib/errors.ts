@@ -65,3 +65,23 @@ export class ServiceUnavailableError extends AppError {
     super('CHAT_UNAVAILABLE', message, 503);
   }
 }
+
+/**
+ * Persistence-layer failure raised by both repository drivers (DPI 2 item 1).
+ * Messages are generic; `details` only ever carries the zod issues of the caller's own input.
+ */
+export type PersistenceReason =
+  | 'DUPLICATE' | 'REFERENCE_NOT_FOUND' | 'INVALID_ARGUMENT' | 'INVALID_CURSOR' | 'ITEM_TOO_LARGE' | 'UNAVAILABLE';
+const PERSISTENCE_STATUS: Record<PersistenceReason, number> = {
+  DUPLICATE: 409, REFERENCE_NOT_FOUND: 404, INVALID_ARGUMENT: 400, INVALID_CURSOR: 400, ITEM_TOO_LARGE: 500, UNAVAILABLE: 503,
+};
+export class PersistenceError extends AppError {
+  readonly fatal: boolean;
+  readonly awsErrorName?: string;          // e.g. 'ResourceNotFoundException'; never the raw message/item
+  constructor(readonly reason: PersistenceReason, message: string,
+              opts: { details?: unknown; fatal?: boolean; awsErrorName?: string } = {}) {
+    super(`PERSISTENCE_${reason}`, message, PERSISTENCE_STATUS[reason], opts.details);
+    this.fatal = opts.fatal ?? false;
+    this.awsErrorName = opts.awsErrorName;
+  }
+}

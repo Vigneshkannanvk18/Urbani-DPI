@@ -9,7 +9,7 @@ import { aiService } from '../services/aiService';
 import { chatService } from '../services/chatService';
 import { usageService } from '../services/usageService';
 import { settingsService } from '../services/settingsService';
-import { auditRepository } from '../repositories/auditRepository';
+import { getRepositories } from '../repositories';
 import { rateLimit } from '../middleware/rateLimit';
 
 /**
@@ -29,11 +29,11 @@ const pageSchema = z.object({
 // -------------------- DASHBOARD --------------------
 apiRoutes.get(
   '/dashboard/summary',
-  asyncHandler(async (_req, res) => res.json(dashboardService.summary())),
+  asyncHandler(async (_req, res) => res.json(await dashboardService.summary())),
 );
 apiRoutes.get(
   '/dashboard/health',
-  asyncHandler(async (_req, res) => res.json(dashboardService.health())),
+  asyncHandler(async (_req, res) => res.json(await dashboardService.health())),
 );
 
 // -------------------- ALERTS --------------------
@@ -90,30 +90,30 @@ const metricQuerySchema = z.object({
 apiRoutes.get(
   '/metrics',
   asyncHandler(async (req, res) => {
-    res.json(telemetryService.metrics(metricQuerySchema.parse(req.query)));
+    res.json(await telemetryService.metrics(metricQuerySchema.parse(req.query)));
   }),
 );
 
 // -------------------- SERVICES --------------------
 apiRoutes.get(
   '/services',
-  asyncHandler(async (_req, res) => res.json(telemetryService.services())),
+  asyncHandler(async (_req, res) => res.json(await telemetryService.services())),
 );
 apiRoutes.get(
   '/services/:id',
-  asyncHandler(async (req, res) => res.json(telemetryService.service(req.params.id))),
+  asyncHandler(async (req, res) => res.json(await telemetryService.service(req.params.id))),
 );
 
 // -------------------- AI --------------------
 apiRoutes.get(
   '/ai/analyses',
   asyncHandler(async (req, res) => {
-    res.json(aiService.listAnalyses(pageSchema.parse(req.query)));
+    res.json(await aiService.listAnalyses(pageSchema.parse(req.query)));
   }),
 );
 apiRoutes.get(
   '/ai/analyses/:id',
-  asyncHandler(async (req, res) => res.json(aiService.getAnalysis(req.params.id))),
+  asyncHandler(async (req, res) => res.json(await aiService.getAnalysis(req.params.id))),
 );
 // Advisory analysis trigger (still human-in-the-loop; only produces a finding).
 const analyzeSchema = z.object({ service: z.string(), environment: z.string() });
@@ -155,8 +155,8 @@ apiRoutes.post(
 );
 
 // -------------------- USAGE --------------------
-apiRoutes.get('/usage', asyncHandler(async (_req, res) => res.json(usageService.usage())));
-apiRoutes.get('/usage/cost', asyncHandler(async (_req, res) => res.json(usageService.cost())));
+apiRoutes.get('/usage', asyncHandler(async (_req, res) => res.json(await usageService.usage())));
+apiRoutes.get('/usage/cost', asyncHandler(async (_req, res) => res.json(await usageService.cost())));
 
 // -------------------- AUDIT --------------------
 const auditQuerySchema = pageSchema.extend({
@@ -167,7 +167,7 @@ apiRoutes.get(
   '/audit',
   asyncHandler(async (req, res) => {
     const q = auditQuerySchema.parse(req.query);
-    const { items, total } = auditRepository.query(q);
+    const { items, total } = await getRepositories().audit.query(q);
     res.json({
       source: 'MOCK',
       sourceNote: 'Application-level audit events (Phase 1). CloudTrail integration in Phase 2.',
@@ -177,10 +177,10 @@ apiRoutes.get(
 );
 
 // -------------------- SETTINGS --------------------
-apiRoutes.get('/settings', asyncHandler(async (_req, res) => res.json({ data: settingsService.get() })));
+apiRoutes.get('/settings', asyncHandler(async (_req, res) => res.json({ data: await settingsService.get() })));
 apiRoutes.put(
   '/settings',
   asyncHandler(async (req, res) => {
-    res.json(settingsService.update(req.auth!.email, (req.body ?? {}) as Record<string, unknown>));
+    res.json(await settingsService.update(req.auth!.email, (req.body ?? {}) as Record<string, unknown>));
   }),
 );

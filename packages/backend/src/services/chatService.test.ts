@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import type Database from 'better-sqlite3';
 import { freshTestDb } from '../test/testDb';
 import { setIntegrationsForTesting, resetIntegrations } from '../integrations';
 import type { AIProvider, AskLogsResult } from '../integrations/ai/AIProvider';
@@ -41,7 +40,7 @@ const fakeCloudwatch: Pick<CloudWatchAdapter, 'getLogs' | 'getMetrics' | 'kind'>
 };
 
 describe('chatService.groundingNote', () => {
-  let db: Database.Database;
+  let db: ReturnType<typeof freshTestDb>;
 
   beforeEach(() => {
     db = freshTestDb();

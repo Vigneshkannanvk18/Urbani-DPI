@@ -2,8 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
 import { UnauthorizedError } from '../lib/errors';
-import { userRepository, type AuthUser } from '../repositories/userRepository';
-import { auditRepository } from '../repositories/auditRepository';
+import { getRepositories, type AuthUser } from '../repositories';
 
 /**
  * Authentication service (Service Layer, Epic 2).
@@ -26,7 +25,8 @@ export interface LoginResult {
 
 export const authService = {
   async login(email: string, password: string): Promise<LoginResult> {
-    const user = userRepository.findByEmail(email);
+    const repos = getRepositories();
+    const user = await repos.users.findByEmail(email);
     // Constant-ish behaviour: always run a compare to reduce user-enumeration signal.
     const hash = user?.password_hash ?? '$2a$10$invalidinvalidinvalidinvalidinvalidinvalidinva';
     const ok = await bcrypt.compare(password, hash);
@@ -34,9 +34,9 @@ export const authService = {
       throw new UnauthorizedError('Invalid email or password');
     }
 
-    userRepository.recordLogin(user.id);
-    const authUser = userRepository.toAuthUser(user);
-    auditRepository.record(user.email, 'LOGIN');
+    await repos.users.recordLogin(user.id);
+    const authUser = await repos.users.toAuthUser(user);
+    await repos.audit.record(user.email, 'LOGIN');
 
     const payload: TokenPayload = { sub: user.id, email: user.email, role: authUser.role };
     const token = jwt.sign(payload, config.auth.jwtSecret, {
@@ -54,13 +54,15 @@ export const authService = {
     }
   },
 
-  me(userId: string): AuthUser {
-    const user = userRepository.findById(userId);
+  async me(userId: string): Promise<AuthUser> {
+    const repos = getRepositories();
+    const user = await repos.users.findById(userId);
     if (!user) throw new UnauthorizedError('User not found or inactive');
-    return userRepository.toAuthUser(user);
+    return await repos.users.toAuthUser(user);
   },
 
-  logout(email: string): void {
-    auditRepository.record(email, 'LOGOUT');
+  async logout(email: string): Promise<void> {
+    const repos = getRepositories();
+    await repos.audit.record(email, 'LOGOUT');
   },
 };

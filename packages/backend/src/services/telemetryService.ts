@@ -1,10 +1,6 @@
 import type { Sourced, Paginated, LogEntry, MetricSnapshot, ServiceSummary } from '@urbani/shared';
 import { getIntegrations } from '../integrations';
-import {
-  serviceRepository,
-  metricRepository,
-  type LogFilter,
-} from '../repositories/telemetryRepository';
+import { getRepositories, type LogFilter } from '../repositories';
 import { NotFoundError } from '../lib/errors';
 import { MOCK_NOTE } from '../integrations/mock/mockData';
 import { config } from '../config';
@@ -47,24 +43,27 @@ export const telemetryService = {
     };
   },
 
-  metrics(filter: { service?: string; environment?: string }): Sourced<MetricSnapshot[]> {
+  async metrics(filter: { service?: string; environment?: string }): Promise<Sourced<MetricSnapshot[]>> {
+    const repos = getRepositories();
     return {
       source: 'MOCK',
       sourceNote: MOCK_NOTE,
-      data: metricRepository.query({ ...filter, limit: 300 }),
+      data: await repos.metrics.query({ ...filter, limit: 300 }),
     };
   },
 
-  services(): Sourced<ServiceSummary[]> {
+  async services(): Promise<Sourced<ServiceSummary[]>> {
     // QA exposes no /services endpoint, so the roster is config-authoritative:
     // derive `enabled` (membership in config.urbani.services) + `logGroup`
     // at read time (the SQLite row does not carry them).
-    const data = serviceRepository.all().map((s) => withRoster(s));
+    const repos = getRepositories();
+    const data = (await repos.services.all()).map((s) => withRoster(s));
     return { source: 'MOCK', sourceNote: MOCK_NOTE, data };
   },
 
-  service(id: string): Sourced<ServiceSummary> {
-    const svc = serviceRepository.findById(id);
+  async service(id: string): Promise<Sourced<ServiceSummary>> {
+    const repos = getRepositories();
+    const svc = await repos.services.findById(id);
     if (!svc) throw new NotFoundError(`Service not found: ${id}`);
     return { source: 'MOCK', sourceNote: MOCK_NOTE, data: withRoster(svc) };
   },

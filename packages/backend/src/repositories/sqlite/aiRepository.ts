@@ -1,36 +1,22 @@
 import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
-import { getDb } from '../db/connection';
+import { getDb } from '../../db/connection';
 import type { UrbaniIncidentAlert, DataSource } from '@urbani/shared';
+import type { AIAnalysisRecord, AIAnalysisRepository, NewAIAnalysis } from '../types';
+import type { SqliteContext } from './index';
 
 /**
- * AI analyses repository (Epic 8). Stores each analysis run (provider-agnostic).
- * The full finding is kept as JSON so the exact UrbaniIncidentAlert contract is
- * preserved regardless of which provider produced it.
+ * AI analyses repository (Epic 8), SQLite driver. Stores each analysis run
+ * (provider-agnostic). The full finding is kept as JSON so the exact
+ * UrbaniIncidentAlert contract is preserved regardless of which provider produced it.
  */
-
-export interface AIAnalysisRecord {
-  id: string;
-  alertId: string | null;
-  timestamp: string;
-  service: string;
-  environment: string;
-  modelId: string;
-  provider: string;
-  anomalyType: string | null;
-  confidence: number | null;
-  finding: UrbaniIncidentAlert | null;
-  inputTokens: number;
-  outputTokens: number;
-  dataSource: DataSource;
-}
 
 function db(): Database.Database {
   return getDb();
 }
 
-export const aiRepository = {
-  insert(rec: Omit<AIAnalysisRecord, 'id'> & { id?: string }): string {
+export function sqliteAIAnalysisRepository(ctx: SqliteContext): AIAnalysisRepository {
+  async function insert(rec: NewAIAnalysis): Promise<string> {
     const id = rec.id ?? randomUUID();
     db()
       .prepare(
@@ -55,12 +41,12 @@ export const aiRepository = {
         input_tokens: rec.inputTokens,
         output_tokens: rec.outputTokens,
         data_source: rec.dataSource,
-        created_at: new Date().toISOString(),
+        created_at: ctx.now(),
       });
     return id;
-  },
+  }
 
-  query(opts: { page?: number; pageSize?: number }): { items: AIAnalysisRecord[]; total: number } {
+  async function query(opts: { page?: number; pageSize?: number }): Promise<{ items: AIAnalysisRecord[]; total: number }> {
     const total = (db().prepare('SELECT COUNT(*) AS c FROM ai_analyses').get() as { c: number }).c;
     const page = Math.max(opts.page ?? 1, 1);
     const pageSize = Math.min(Math.max(opts.pageSize ?? 25, 1), 200);
@@ -68,17 +54,19 @@ export const aiRepository = {
       .prepare('SELECT * FROM ai_analyses ORDER BY timestamp DESC LIMIT ? OFFSET ?')
       .all(pageSize, (page - 1) * pageSize) as any[];
     return { items: rows.map(mapRow), total };
-  },
+  }
 
-  findById(id: string): AIAnalysisRecord | null {
+  async function findById(id: string): Promise<AIAnalysisRecord | null> {
     const row = db().prepare('SELECT * FROM ai_analyses WHERE id = ?').get(id) as any;
     return row ? mapRow(row) : null;
-  },
+  }
 
-  count(): number {
+  async function count(): Promise<number> {
     return (db().prepare('SELECT COUNT(*) AS c FROM ai_analyses').get() as { c: number }).c;
-  },
-};
+  }
+
+  return { insert, query, findById, count };
+}
 
 function mapRow(r: any): AIAnalysisRecord {
   return {

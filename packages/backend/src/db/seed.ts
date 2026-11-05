@@ -1,11 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import bcrypt from 'bcryptjs';
-import { getDb, closeDb } from './connection';
 import { runMigrations } from './migrate';
+import { CliPreconditionError } from './cliErrors';
 import { config } from '../config';
 import { logger } from '../lib/logger';
-import { userRepository } from '../repositories/userRepository';
-import { alertRepository } from '../repositories/alertRepository';
+import { getRepositories, type DbDriver } from '../repositories';
 import {
   mockServices,
   mockAlerts,
@@ -15,14 +14,15 @@ import {
 } from '../integrations/mock/mockData';
 
 /**
- * Seed script (Task 1.5 / bootstrap). Idempotent: safe to re-run.
+ * Seed script (Task 1.5 / bootstrap). Idempotent: safe to re-run, on both drivers.
  *
  * Loads:
  *  - ADMIN + VIEWER roles
  *  - a bootstrap admin user (credentials from env; dev-only defaults)
  *  - MOCK services, alerts, logs, metrics, usage, and integration rows
  *
- * All seeded telemetry is stored with data_source = 'MOCK'.
+ * All seeded telemetry is stored with data_source = 'MOCK'. Every write goes through
+ * the repository registry, so the same seed fills SQLite or DynamoDB (DB_DRIVER).
  */
 async function seed(): Promise<void> {
   // Guard (Part 6): seeding writes MOCK demo data and would overwrite real records.
@@ -32,19 +32,30 @@ async function seed(): Promise<void> {
     return;
   }
 
-  runMigrations();
-  const db = getDb();
+  const repos = getRepositories();
+
+  // ---- Prepare the store ----
+  if (repos.driver === 'sqlite') {
+    runMigrations();
+  } else {
+    try {
+      await repos.health.ping();
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      throw new Error(`DynamoDB store is not ready (${reason}); run npm run dynamo:tables first`);
+    }
+  }
   const now = new Date().toISOString();
 
   // ---- Roles ----
-  userRepository.upsertRole({
+  await repos.users.upsertRole({
     id: 'role-admin',
     name: 'ADMIN',
     description: 'Full administrative access to the observability dashboard',
     permissions: JSON.stringify(['*']),
     created_at: now,
   });
-  userRepository.upsertRole({
+  await repos.users.upsertRole({
     id: 'role-viewer',
     name: 'VIEWER',
     description: 'Read-only access to alerts, logs, metrics and dashboards',
@@ -53,10 +64,10 @@ async function seed(): Promise<void> {
   });
 
   // ---- Bootstrap admin ----
-  const existing = userRepository.findByEmail(config.auth.seedAdminEmail);
+  const existing = await repos.users.findByEmail(config.auth.seedAdminEmail);
   if (!existing) {
     const passwordHash = await bcrypt.hash(config.auth.seedAdminPassword, 10);
-    userRepository.upsertUser({
+    await repos.users.upsertUser({
       id: randomUUID(),
       email: config.auth.seedAdminEmail,
       display_name: 'Urbani Admin',
@@ -65,6 +76,7 @@ async function seed(): Promise<void> {
       is_active: 1,
       last_login_at: null,
       created_at: now,
+      role: 'SUPER_ADMIN',
     });
     logger.info('Seeded bootstrap admin user', { email: config.auth.seedAdminEmail });
   } else {
@@ -73,101 +85,45 @@ async function seed(): Promise<void> {
 
   // ---- Environments & Services ----
   const envs = new Set(mockServices.map((s) => s.environment));
-  const envStmt = db.prepare(
-    'INSERT OR IGNORE INTO environments (id, name, created_at) VALUES (?, ?, ?)',
-  );
-  envs.forEach((name) => envStmt.run(`env-${name}`, name, now));
+  for (const name of envs) await repos.environments.ensure({ id: `env-${name}`, name });
 
-  const svcStmt = db.prepare(
-    `INSERT OR REPLACE INTO services
-     (id, name, environment, status, error_rate, last_telemetry_at, last_incident_at, data_source, created_at)
-     VALUES (@id, @name, @environment, @status, @error_rate, @last_telemetry_at, @last_incident_at, 'MOCK', @created_at)`,
-  );
-  for (const s of mockServices) {
-    svcStmt.run({
-      id: s.id,
-      name: s.name,
-      environment: s.environment,
-      status: s.status,
-      error_rate: s.errorRate,
-      last_telemetry_at: s.lastTelemetryAt,
-      last_incident_at: s.lastIncidentAt,
-      created_at: now,
-    });
-  }
+  for (const s of mockServices) await repos.services.upsert(s, 'MOCK');
 
   // ---- Alerts (with evidence + actions via repository) ----
   for (const a of mockAlerts) {
-    alertRepository.insert(a, 'MOCK', 'OPEN');
+    await repos.alerts.insert(a, 'MOCK', 'OPEN');
   }
 
-  // ---- Logs ----
-  const logStmt = db.prepare(
-    `INSERT OR REPLACE INTO log_references
-     (id, timestamp, level, service, environment, message, data_source)
-     VALUES (@id, @timestamp, @level, @service, @environment, @message, 'MOCK')`,
-  );
-  for (const l of mockLogs) logStmt.run(l);
-
-  // ---- Metrics ----
-  const metricStmt = db.prepare(
-    `INSERT OR REPLACE INTO metric_snapshots
-     (id, service, environment, timestamp, cpu_percent, memory_percent, error_rate,
-      request_count, latency_ms_p95, http_5xx_count, instance_restarts, data_source)
-     VALUES (@id, @service, @environment, @timestamp, @cpu_percent, @memory_percent, @error_rate,
-             @request_count, @latency_ms_p95, @http_5xx_count, @instance_restarts, 'MOCK')`,
-  );
-  for (const m of mockMetrics) {
-    metricStmt.run({
-      id: m.id,
-      service: m.service,
-      environment: m.environment,
-      timestamp: m.timestamp,
-      cpu_percent: m.cpuPercent,
-      memory_percent: m.memoryPercent,
-      error_rate: m.errorRate,
-      request_count: m.requestCount,
-      latency_ms_p95: m.latencyMsP95,
-      http_5xx_count: m.http5xxCount,
-      instance_restarts: m.instanceRestarts,
-    });
-  }
-
-  // ---- Usage ----
-  const usageStmt = db.prepare(
-    `INSERT OR REPLACE INTO usage_records
-     (id, date, model_id, ai_request_count, input_tokens, output_tokens, estimated_cost_usd, data_source)
-     VALUES (@id, @date, @model_id, @ai_request_count, @input_tokens, @output_tokens, @estimated_cost_usd, 'MOCK')`,
-  );
-  for (const u of mockUsage) {
-    usageStmt.run({
-      id: u.id,
-      date: u.date,
-      model_id: u.modelId,
-      ai_request_count: u.aiRequestCount,
-      input_tokens: u.inputTokens,
-      output_tokens: u.outputTokens,
-      estimated_cost_usd: u.estimatedCostUsd,
-    });
-  }
+  // ---- Logs, metrics, usage ----
+  await repos.logs.upsertMany(mockLogs, 'MOCK');
+  await repos.metrics.upsertMany(mockMetrics, 'MOCK');
+  await repos.usage.upsertMany(mockUsage, 'MOCK');
 
   // ---- Integration rows (Phase 2 boundary state) ----
   // Clean up any stale pre-QA URBANI_APP row (integrations.kind is NOT UNIQUE —
   // only id is PK — so re-seeding with the new id would otherwise leave a
   // duplicate URBANI_APP row on the Settings page). Delete every URBANI_APP row
   // whose id is not the current one; the loop below re-inserts the fresh row.
-  db.prepare("DELETE FROM integrations WHERE kind = 'URBANI_APP' AND id != 'int-urbani-ecs'").run();
+  for (const r of await repos.integrations.all()) {
+    if (r.kind === 'URBANI_APP' && r.id !== 'int-urbani-ecs') await repos.integrations.delete(r.id);
+  }
   const integrations = [
     ['int-cloudwatch', 'CLOUDWATCH', 'CloudWatch Logs (ECS: main, payments)'],
     ['int-bedrock', 'BEDROCK', 'Amazon Bedrock — Nova 2 Lite'],
     ['int-dynamodb', 'DYNAMODB', 'AI incident alerts (/alerts API ← DynamoDB)'],
     ['int-urbani-ecs', 'URBANI_APP', 'Urbani QA ECS services (main, payments)'],
   ];
-  const intStmt = db.prepare(
-    `INSERT OR REPLACE INTO integrations (id, kind, display_name, mode, status, config_json, updated_at)
-     VALUES (?, ?, ?, 'MOCK', 'WAITING_FOR_INTEGRATION', '{}', ?)`,
-  );
-  for (const [id, kind, name] of integrations) intStmt.run(id, kind, name, now);
+  for (const [id, kind, name] of integrations) {
+    await repos.integrations.upsert({
+      id,
+      kind,
+      display_name: name,
+      mode: 'MOCK',
+      status: 'WAITING_FOR_INTEGRATION',
+      config_json: '{}',
+      updated_at: now,
+    });
+  }
 
   logger.info('Seed complete', {
     services: mockServices.length,
@@ -177,13 +133,29 @@ async function seed(): Promise<void> {
   });
 }
 
+/** Refuses to seed a real AWS table by accident. Throws CliPreconditionError, and the CLI exits 2. */
+export function assertSeedTarget(db: { driver: DbDriver; dynamodb: { endpoint: string | null } }, argv: string[]): void {
+  if (db.driver === 'dynamodb' && !db.dynamodb.endpoint && !argv.includes('--allow-aws')) {
+    throw new CliPreconditionError(
+      'Refusing: seeding an AWS DynamoDB table needs --allow-aws (set DYNAMODB_ENDPOINT for DynamoDB Local)');
+  }
+}
+
 if (require.main === module) {
-  seed()
-    .then(() => closeDb())
-    .catch((err) => {
-      logger.error('Seed failed', { message: (err as Error).message });
-      process.exit(1);
-    });
+  const run = async (): Promise<void> => {
+    // NFR1 guard first, before any repository is built.
+    assertSeedTarget(config.db, process.argv.slice(2));
+    await seed();
+    await getRepositories().close();
+  };
+  run().catch((err) => {
+    if (err instanceof CliPreconditionError) {
+      logger.error(err.message);
+      process.exit(2);
+    }
+    logger.error('Seed failed', { message: err instanceof Error ? err.message : String(err) });
+    process.exit(1);
+  });
 }
 
 export { seed };

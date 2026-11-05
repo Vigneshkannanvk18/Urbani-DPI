@@ -1,28 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
-import { getDb } from '../db/connection';
+import { getDb } from '../../db/connection';
 import type { PersistedAlert, UrbaniIncidentAlert, AlertStatus, DataSource } from '@urbani/shared';
+import type { AlertFilter, AlertRepository } from '../types';
+import type { SqliteContext } from './index';
 
 /**
- * Alert repository (Data Layer).
+ * Alert repository (Data Layer), SQLite driver.
  *
  * Maps between the snake_case SQLite rows and the camelCase domain contract.
- * This is the swap point for Phase 2: the same method surface can be backed by
- * a real DynamoDB table without changing the service layer.
+ * The DynamoDB driver implements the same AlertRepository interface, so the
+ * service layer does not change with the configured store.
  */
-
-export interface AlertFilter {
-  service?: string;
-  environment?: string;
-  severity?: string;
-  anomalyType?: string;
-  status?: string;
-  search?: string;
-  from?: string;
-  to?: string;
-  page?: number;
-  pageSize?: number;
-}
 
 interface AlertRow {
   alert_id: string;
@@ -89,8 +78,12 @@ function rowToAlert(row: AlertRow): PersistedAlert {
   };
 }
 
-export const alertRepository = {
-  insert(alert: UrbaniIncidentAlert, source: DataSource = 'MOCK', status: AlertStatus = 'OPEN'): void {
+/**
+ * Methods are closures over local functions (no `this`). Each runs its SQL, including
+ * any transaction, synchronously with no internal await, so it stays one atomic unit.
+ */
+export function sqliteAlertRepository(ctx: SqliteContext): AlertRepository {
+  async function insert(alert: UrbaniIncidentAlert, source: DataSource = 'MOCK', status: AlertStatus = 'OPEN'): Promise<void> {
     const tx = db().transaction(() => {
       db()
         .prepare(
@@ -113,7 +106,7 @@ export const alertRepository = {
           model_id: alert.modelId,
           status,
           data_source: source,
-          created_at: new Date().toISOString(),
+          created_at: ctx.now(),
         });
 
       db().prepare('DELETE FROM alert_evidence WHERE alert_id = ?').run(alert.alertId);
@@ -129,7 +122,7 @@ export const alertRepository = {
       alert.recommendedActions.forEach((a, i) => acStmt.run(randomUUID(), alert.alertId, i, a));
     });
     tx();
-  },
+  }
 
   /**
    * Upsert a LIVE alert WITHOUT clobbering its lifecycle. If the row already
@@ -138,7 +131,7 @@ export const alertRepository = {
    * default to 'OPEN'. The alert body (summary/evidence/actions/etc.) is always
    * refreshed to the latest upstream version.
    */
-  upsertLivePreservingStatus(alert: UrbaniIncidentAlert): void {
+  async function upsertLivePreservingStatus(alert: UrbaniIncidentAlert): Promise<void> {
     const existing = db()
       .prepare(
         'SELECT status, acknowledged_by, acknowledged_at FROM alerts WHERE alert_id = ?',
@@ -177,7 +170,7 @@ export const alertRepository = {
           acknowledged_by: acknowledgedBy,
           acknowledged_at: acknowledgedAt,
           data_source: 'LIVE',
-          created_at: new Date().toISOString(),
+          created_at: ctx.now(),
         });
 
       db().prepare('DELETE FROM alert_evidence WHERE alert_id = ?').run(alert.alertId);
@@ -193,16 +186,20 @@ export const alertRepository = {
       alert.recommendedActions.forEach((a, i) => acStmt.run(randomUUID(), alert.alertId, i, a));
     });
     tx();
-  },
+  }
 
-  findById(alertId: string): PersistedAlert | null {
+  function findByIdSync(alertId: string): PersistedAlert | null {
     const row = db().prepare('SELECT * FROM alerts WHERE alert_id = ?').get(alertId) as
       | AlertRow
       | undefined;
     return row ? rowToAlert(row) : null;
-  },
+  }
 
-  query(filter: AlertFilter): { items: PersistedAlert[]; total: number } {
+  async function findById(alertId: string): Promise<PersistedAlert | null> {
+    return findByIdSync(alertId);
+  }
+
+  async function query(filter: AlertFilter): Promise<{ items: PersistedAlert[]; total: number }> {
     const where: string[] = [];
     const params: Record<string, unknown> = {};
     if (filter.service) (where.push('service = @service'), (params.service = filter.service));
@@ -233,7 +230,7 @@ export const alertRepository = {
       .all({ ...params, limit: pageSize, offset: (page - 1) * pageSize }) as AlertRow[];
 
     return { items: rows.map(rowToAlert), total };
-  },
+  }
 
   /**
    * Replace the DERIVED log-evidence lines for an alert idempotently. Clears any
@@ -241,7 +238,7 @@ export const alertRepository = {
    * sequential ordinals, mirroring the evidence-write pattern in insert/upsert.
    * An empty array therefore clears evidence without fabricating lines.
    */
-  replaceDerivedEvidence(alertId: string, lines: string[]): void {
+  async function replaceDerivedEvidence(alertId: string, lines: string[]): Promise<void> {
     const tx = db().transaction(() => {
       db().prepare('DELETE FROM alert_evidence WHERE alert_id = ?').run(alertId);
       const evStmt = db().prepare(
@@ -250,7 +247,7 @@ export const alertRepository = {
       lines.forEach((line, i) => evStmt.run(randomUUID(), alertId, i, line));
     });
     tx();
-  },
+  }
 
   /**
    * Delete every alert with the given data_source and return the number removed.
@@ -258,31 +255,35 @@ export const alertRepository = {
    * ON DELETE CASCADE; log_references.alert_id via ON DELETE SET NULL). Used by
    * the live sync to clear stale seeded MOCK alerts so live mode shows only LIVE.
    */
-  deleteByDataSource(source: DataSource): number {
+  async function deleteByDataSource(source: DataSource): Promise<number> {
     const res = db().prepare('DELETE FROM alerts WHERE data_source = ?').run(source);
     return res.changes;
-  },
+  }
 
-  acknowledge(alertId: string, actor: string): PersistedAlert | null {
+  async function acknowledge(alertId: string, actor: string): Promise<PersistedAlert | null> {
     const res = db()
       .prepare(
         `UPDATE alerts SET status = 'ACKNOWLEDGED', acknowledged_by = ?, acknowledged_at = ?
          WHERE alert_id = ? AND status = 'OPEN'`,
       )
-      .run(actor, new Date().toISOString(), alertId);
-    if (res.changes === 0 && !this.findById(alertId)) return null;
-    return this.findById(alertId);
-  },
+      .run(actor, ctx.now(), alertId);
+    if (res.changes === 0 && !findByIdSync(alertId)) return null;
+    return findByIdSync(alertId);
+  }
 
-  countActive(): number {
+  async function countAll(): Promise<number> {
+    return (db().prepare('SELECT COUNT(*) AS c FROM alerts').get() as { c: number }).c;
+  }
+
+  async function countActive(): Promise<number> {
     return (
       db()
         .prepare("SELECT COUNT(*) AS c FROM alerts WHERE status IN ('OPEN','ACKNOWLEDGED')")
         .get() as { c: number }
     ).c;
-  },
+  }
 
-  countBySeverity(severity: string): number {
+  async function countBySeverity(severity: string): Promise<number> {
     return (
       db()
         .prepare(
@@ -290,5 +291,18 @@ export const alertRepository = {
         )
         .get(severity) as { c: number }
     ).c;
-  },
-};
+  }
+
+  return {
+    insert,
+    upsertLivePreservingStatus,
+    findById,
+    query,
+    replaceDerivedEvidence,
+    deleteByDataSource,
+    acknowledge,
+    countAll,
+    countActive,
+    countBySeverity,
+  };
+}

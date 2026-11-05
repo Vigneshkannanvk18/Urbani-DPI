@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { config } from '../config';
-import { getDb } from '../db/connection';
+import { getRepositories } from '../repositories';
 
 /**
  * Health & readiness probes (Part 7).
@@ -22,12 +22,12 @@ healthRoutes.get('/health', (_req, res) => {
   });
 });
 
-healthRoutes.get('/ready', (_req, res) => {
+healthRoutes.get('/ready', async (_req, res) => {
   const checks: Record<string, 'ok' | 'unavailable'> = {};
 
   // Database check: a trivial query confirms the connection is usable.
   try {
-    getDb().prepare('SELECT 1').get();
+    await getRepositories().health.ping();
     checks.database = 'ok';
   } catch {
     checks.database = 'unavailable';

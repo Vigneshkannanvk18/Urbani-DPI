@@ -2,8 +2,7 @@ import type { Sourced } from '@urbani/shared';
 import { config } from '../config';
 import { getIntegrations } from '../integrations';
 import type { ChatTurn } from '../integrations/ai/AIProvider';
-import { aiRepository } from '../repositories/aiRepository';
-import { auditRepository } from '../repositories/auditRepository';
+import { getRepositories } from '../repositories';
 import { ServiceUnavailableError } from '../lib/errors';
 import { logger } from '../lib/logger';
 
@@ -41,6 +40,7 @@ export const chatService = {
     opts: { service?: string; environment?: string; history?: ChatTurn[]; actor: string },
   ): Promise<Sourced<ChatAnswer>> {
     const { cloudwatch, aiProvider } = getIntegrations();
+    const repos = getRepositories();
     // Server-side service gating: only an enabled service reaches the live
     // endpoint; disabled/unknown services fall back to the default (main). This
     // owns the "disabled services are never called" invariant.
@@ -77,11 +77,17 @@ export const chatService = {
       });
     } catch (e) {
       // Record a safe audit of the failed turn (no secrets, no key).
-      auditRepository.record(opts.actor, 'ALERT_VIEWED', 'chat', {
-        questionChars: question.length,
-        logsSource: logsRes.meta.source,
-        outcome: 'unavailable',
-      });
+      await repos.audit.record(
+        opts.actor,
+        'ALERT_VIEWED',
+        'chat',
+        {
+          questionChars: question.length,
+          logsSource: logsRes.meta.source,
+          outcome: 'unavailable',
+        },
+        'FAILURE',
+      );
       // Wrap anything not already a 503-mapped error so the handler returns a
       // controlled 503 CHAT_UNAVAILABLE — never a 500, never a mock answer, no
       // key leak (AC10). The live provider throws ServiceUnavailableError.
@@ -89,7 +95,7 @@ export const chatService = {
     }
 
     // Record the interaction for usage/audit (question text only; no secrets).
-    aiRepository.insert({
+    await repos.aiAnalyses.insert({
       alertId: null,
       timestamp: new Date().toISOString(),
       service,
@@ -103,7 +109,7 @@ export const chatService = {
       outputTokens: result.outputTokens,
       dataSource: result.meta.source,
     });
-    auditRepository.record(opts.actor, 'ALERT_VIEWED', 'chat', {
+    await repos.audit.record(opts.actor, 'ALERT_VIEWED', 'chat', {
       // Safe metadata only — never log secrets/PII.
       questionChars: question.length,
       logsSource: logsRes.meta.source,

@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import type Database from 'better-sqlite3';
 import type { UrbaniIncidentAlert } from '@urbani/shared';
 import type { LogEntry } from '@urbani/shared';
 import { freshTestDb } from '../test/testDb';
-import { alertRepository } from '../repositories/alertRepository';
+import { getRepositories } from '../repositories';
 import { alertService, matchEvidence } from './alertService';
 import { NotFoundError } from '../lib/errors';
 
@@ -23,11 +22,11 @@ const sampleAlert: UrbaniIncidentAlert = {
 };
 
 describe('alertService', () => {
-  let db: Database.Database;
+  let db: ReturnType<typeof freshTestDb>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     db = freshTestDb();
-    alertRepository.insert(sampleAlert, 'MOCK', 'OPEN');
+    await getRepositories().alerts.insert(sampleAlert, 'MOCK', 'OPEN');
   });
 
   afterEach(() => db.close());
@@ -62,23 +61,24 @@ describe('alertService', () => {
     expect(res.data.status).not.toBe('RESOLVED');
   });
 
-  it('a live re-sync does NOT revert an acknowledged alert to OPEN (AC7, repository level)', () => {
+  it('a live re-sync does NOT revert an acknowledged alert to OPEN (AC7, repository level)', async () => {
     // Driven at the repository layer: syncLiveAlerts() is config-gated and would
     // early-return in mock-mode tests, so prove the invariant on the primitive
     // the live sync actually uses (upsertLivePreservingStatus).
+    const repos = getRepositories();
     const liveAlert: UrbaniIncidentAlert = {
       ...sampleAlert,
       alertId: 'ALT-LIVE-RESYNC',
       confidence: null, // live QA alerts carry no confidence
     };
-    alertRepository.upsertLivePreservingStatus(liveAlert); // new row -> OPEN
-    expect(alertRepository.findById('ALT-LIVE-RESYNC')!.status).toBe('OPEN');
+    await repos.alerts.upsertLivePreservingStatus(liveAlert); // new row -> OPEN
+    expect((await repos.alerts.findById('ALT-LIVE-RESYNC'))!.status).toBe('OPEN');
 
-    alertRepository.acknowledge('ALT-LIVE-RESYNC', 'ops@urbani.local');
+    await repos.alerts.acknowledge('ALT-LIVE-RESYNC', 'ops@urbani.local');
     // Re-sync the SAME alert (as a periodic poll would).
-    alertRepository.upsertLivePreservingStatus({ ...liveAlert, summary: 'refreshed body' });
+    await repos.alerts.upsertLivePreservingStatus({ ...liveAlert, summary: 'refreshed body' });
 
-    const after = alertRepository.findById('ALT-LIVE-RESYNC')!;
+    const after = (await repos.alerts.findById('ALT-LIVE-RESYNC'))!;
     expect(after.status).toBe('ACKNOWLEDGED');
     expect(after.acknowledgedBy).toBe('ops@urbani.local');
     expect(after.acknowledgedAt).toBeTruthy();

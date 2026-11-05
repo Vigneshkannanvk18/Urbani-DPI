@@ -83,6 +83,13 @@ const schema = z.object({
 
   DYNAMODB_ALERTS_TABLE: z.string().default('UrbaniAlerts'),
   DYNAMODB_GSI_ANOMALY_TYPE: z.string().default('anomaly_type-index'),
+  // DynamoDB driver (DB_DRIVER=dynamodb). The single app table is `${DYNAMODB_TABLE_PREFIX}App`.
+  DYNAMODB_TABLE_PREFIX: z.string().max(252).regex(/^[A-Za-z0-9_.-]*$/, 'letters, digits, _ . - only').default('Urbani'),
+  // Only for DynamoDB Local (e.g. http://127.0.0.1:8000). Empty = unset = AWS endpoint + default credential chain.
+  DYNAMODB_ENDPOINT: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().url().refine((u) => /^https?:\/\//i.test(u), 'must be an http(s) URL').optional(),
+  ),
 
   BEDROCK_PRIMARY_MODEL_ID: z.string().default('global.amazon.nova-2-lite-v1:0'),
   BEDROCK_FALLBACK_MODEL_ID: z.string().default('global.amazon.nova-2-lite-v1:0'),
@@ -173,6 +180,10 @@ export const config = {
   db: {
     driver: env.DB_DRIVER,
     sqlitePath: resolveSqlitePath(),
+    dynamodb: {
+      tableName: `${env.DYNAMODB_TABLE_PREFIX}App`,   // UrbaniApp by default
+      endpoint: env.DYNAMODB_ENDPOINT ?? null,
+    },
   },
 
   /** Which adapter implementations to wire in. */

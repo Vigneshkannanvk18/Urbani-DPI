@@ -7,3 +7,4 @@ process.env.JWT_SECRET = 'test-secret-value-not-for-production';
 process.env.INTEGRATION_MODE = 'mock';
 process.env.DB_SQLITE_PATH = ':memory:';
 process.env.LOG_LEVEL = 'error';
+process.env.DB_DRIVER = 'sqlite';

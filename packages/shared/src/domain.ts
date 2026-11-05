@@ -92,6 +92,18 @@ export interface AuditEvent {
   metadata: Record<string, unknown> | null;
 }
 
+/** DPI 2 persistence vocabularies (item 1). Later items show these in the UI. */
+export const USER_ROLES = ['SUPER_ADMIN', 'INFRA_ADMIN', 'QA_OPERATOR', 'READER_AUDITOR'] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+export const AUDIT_RESULTS = ['SUCCESS', 'FAILURE', 'DENIED'] as const;
+export type AuditResult = (typeof AUDIT_RESULTS)[number];
+export const THEMES = ['light', 'dark'] as const;
+export type Theme = (typeof THEMES)[number];
+export const CHAT_MESSAGE_ROLES = ['user', 'assistant'] as const;
+export type ChatMessageRole = (typeof CHAT_MESSAGE_ROLES)[number];
+export const CHAT_RATINGS = ['LIKE', 'DISLIKE'] as const;
+export type ChatRating = (typeof CHAT_RATINGS)[number];
+
 export const dashboardSummarySchema = z.object({
   totalServices: z.number(),
   activeAlerts: z.number(),

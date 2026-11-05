@@ -1,7 +1,6 @@
 import type { Sourced, Paginated } from '@urbani/shared';
 import { getIntegrations } from '../integrations';
-import { aiRepository, type AIAnalysisRecord } from '../repositories/aiRepository';
-import { logRepository, metricRepository } from '../repositories/telemetryRepository';
+import { getRepositories, type AIAnalysisRecord } from '../repositories';
 import { MOCK_NOTE } from '../integrations/mock/mockData';
 
 /**
@@ -13,8 +12,9 @@ import { MOCK_NOTE } from '../integrations/mock/mockData';
  * is persisted (grounding rule).
  */
 export const aiService = {
-  listAnalyses(opts: { page?: number; pageSize?: number }): Sourced<Paginated<AIAnalysisRecord>> {
-    const { items, total } = aiRepository.query(opts);
+  async listAnalyses(opts: { page?: number; pageSize?: number }): Promise<Sourced<Paginated<AIAnalysisRecord>>> {
+    const repos = getRepositories();
+    const { items, total } = await repos.aiAnalyses.query(opts);
     return {
       source: 'MOCK',
       sourceNote: MOCK_NOTE,
@@ -27,8 +27,9 @@ export const aiService = {
     };
   },
 
-  getAnalysis(id: string): Sourced<AIAnalysisRecord | null> {
-    return { source: 'MOCK', sourceNote: MOCK_NOTE, data: aiRepository.findById(id) };
+  async getAnalysis(id: string): Promise<Sourced<AIAnalysisRecord | null>> {
+    const repos = getRepositories();
+    return { source: 'MOCK', sourceNote: MOCK_NOTE, data: await repos.aiAnalyses.findById(id) };
   },
 
   /**
@@ -37,9 +38,10 @@ export const aiService = {
    */
   async analyze(service: string, environment: string): Promise<Sourced<AIAnalysisRecord>> {
     const { aiProvider, dynamodb } = getIntegrations();
+    const repos = getRepositories();
 
-    const logs = logRepository.query({ service, pageSize: 100 }).items;
-    const metrics = metricRepository.query({ service, limit: 50 });
+    const logs = (await repos.logs.query({ service, pageSize: 100 })).items;
+    const metrics = await repos.metrics.query({ service, limit: 50 });
 
     const result = await aiProvider.analyzeTelemetry({ logs, metrics, service, environment });
 
@@ -48,7 +50,7 @@ export const aiService = {
       await dynamodb.putAlert(result.alert);
     }
 
-    const id = aiRepository.insert({
+    const id = await repos.aiAnalyses.insert({
       alertId: result.alert?.alertId ?? null,
       timestamp: new Date().toISOString(),
       service,
@@ -63,7 +65,7 @@ export const aiService = {
       dataSource: result.meta.source,
     });
 
-    const record = aiRepository.findById(id)!;
+    const record = (await repos.aiAnalyses.findById(id))!;
     return { source: result.meta.source, sourceNote: result.meta.note, data: record };
   },
 };

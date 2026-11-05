@@ -1,6 +1,6 @@
 import type { DynamoDBAdapter, AlertQuery, WithMeta } from '../types';
 import type { UrbaniIncidentAlert } from '@urbani/shared';
-import { alertRepository } from '../../repositories/alertRepository';
+import { getRepositories } from '../../repositories';
 import { MOCK_NOTE } from './mockData';
 
 /**
@@ -12,19 +12,19 @@ export class MockDynamoDBAdapter implements DynamoDBAdapter {
   readonly kind = 'DYNAMODB' as const;
 
   async putAlert(alert: UrbaniIncidentAlert): Promise<WithMeta<void>> {
-    alertRepository.insert(alert, 'MOCK');
+    await getRepositories().alerts.insert(alert, 'MOCK');
     return { meta: { source: 'MOCK', note: MOCK_NOTE }, value: undefined };
   }
 
   async getAlert(alertId: string): Promise<WithMeta<UrbaniIncidentAlert | null>> {
-    const found = alertRepository.findById(alertId);
+    const found = await getRepositories().alerts.findById(alertId);
     return { meta: { source: 'MOCK', note: MOCK_NOTE }, value: found };
   }
 
   async queryAlerts(
     query: AlertQuery,
   ): Promise<WithMeta<{ items: UrbaniIncidentAlert[]; total: number }>> {
-    const res = alertRepository.query(query);
+    const res = await getRepositories().alerts.query(query);
     return { meta: { source: 'MOCK', note: MOCK_NOTE }, value: res };
   }
 }
