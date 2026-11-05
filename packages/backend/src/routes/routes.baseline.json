@@ -1,0 +1,552 @@
+{
+  "01-get-health": {
+    "status": 200,
+    "keys": [
+      "app",
+      "env",
+      "integrationMode",
+      "status",
+      "uptimeSeconds"
+    ]
+  },
+  "02-get-ready": {
+    "status": 200,
+    "keys": [
+      "checks",
+      "checks.database",
+      "status"
+    ]
+  },
+  "03-post-auth-login": {
+    "status": 200,
+    "keys": [
+      "token",
+      "user",
+      "user.displayName",
+      "user.email",
+      "user.id",
+      "user.permissions",
+      "user.permissions[]",
+      "user.role"
+    ]
+  },
+  "04-get-auth-me": {
+    "status": 200,
+    "keys": [
+      "user",
+      "user.displayName",
+      "user.email",
+      "user.id",
+      "user.permissions",
+      "user.permissions[]",
+      "user.role"
+    ]
+  },
+  "05-get-dashboard-summary": {
+    "status": 200,
+    "keys": [
+      "data",
+      "data.activeAlerts",
+      "data.aiAnalyses",
+      "data.criticalAlerts",
+      "data.recentIncidents",
+      "data.systemHealth",
+      "data.totalServices",
+      "source",
+      "sourceNote"
+    ]
+  },
+  "06-get-dashboard-health": {
+    "status": 200,
+    "keys": [
+      "data",
+      "data.recentMetrics",
+      "data.recentMetrics[].cpuPercent",
+      "data.recentMetrics[].environment",
+      "data.recentMetrics[].errorRate",
+      "data.recentMetrics[].http5xxCount",
+      "data.recentMetrics[].id",
+      "data.recentMetrics[].instanceRestarts",
+      "data.recentMetrics[].latencyMsP95",
+      "data.recentMetrics[].memoryPercent",
+      "data.recentMetrics[].requestCount",
+      "data.recentMetrics[].service",
+      "data.recentMetrics[].timestamp",
+      "data.services",
+      "data.services[].alertCount",
+      "data.services[].environment",
+      "data.services[].errorRate",
+      "data.services[].id",
+      "data.services[].lastIncidentAt",
+      "data.services[].lastTelemetryAt",
+      "data.services[].name",
+      "data.services[].status",
+      "source",
+      "sourceNote"
+    ]
+  },
+  "07-get-alerts": {
+    "status": 200,
+    "keys": [
+      "data",
+      "data.items",
+      "data.items[].acknowledgedAt",
+      "data.items[].acknowledgedBy",
+      "data.items[].alertId",
+      "data.items[].anomalyType",
+      "data.items[].confidence",
+      "data.items[].environment",
+      "data.items[].evidence",
+      "data.items[].evidence[]",
+      "data.items[].modelId",
+      "data.items[].probableCause",
+      "data.items[].recommendedActions",
+      "data.items[].recommendedActions[]",
+      "data.items[].relatedLogIds",
+      "data.items[].relatedMetricIds",
+      "data.items[].service",
+      "data.items[].severity",
+      "data.items[].status",
+      "data.items[].summary",
+      "data.items[].timestamp",
+      "data.page",
+      "data.pageSize",
+      "data.total",
+      "source",
+      "sourceNote"
+    ]
+  },
+  "08-get-alert-detail": {
+    "status": 200,
+    "keys": [
+      "data",
+      "data.acknowledgedAt",
+      "data.acknowledgedBy",
+      "data.alertId",
+      "data.anomalyType",
+      "data.confidence",
+      "data.environment",
+      "data.evidence",
+      "data.evidence[]",
+      "data.modelId",
+      "data.probableCause",
+      "data.recommendedActions",
+      "data.recommendedActions[]",
+      "data.relatedLogIds",
+      "data.relatedLogs",
+      "data.relatedMetricIds",
+      "data.service",
+      "data.severity",
+      "data.status",
+      "data.summary",
+      "data.timestamp",
+      "source",
+      "sourceNote"
+    ]
+  },
+  "09-get-alert-missing": {
+    "status": 404,
+    "keys": [
+      "error",
+      "error.code",
+      "error.correlationId",
+      "error.message"
+    ]
+  },
+  "10-get-logs": {
+    "status": 200,
+    "keys": [
+      "data",
+      "data.items",
+      "data.items[].environment",
+      "data.items[].id",
+      "data.items[].level",
+      "data.items[].message",
+      "data.items[].service",
+      "data.items[].timestamp",
+      "data.page",
+      "data.pageSize",
+      "data.total",
+      "source",
+      "sourceNote"
+    ]
+  },
+  "11-get-metrics": {
+    "status": 200,
+    "keys": [
+      "data",
+      "data[].cpuPercent",
+      "data[].environment",
+      "data[].errorRate",
+      "data[].http5xxCount",
+      "data[].id",
+      "data[].instanceRestarts",
+      "data[].latencyMsP95",
+      "data[].memoryPercent",
+      "data[].requestCount",
+      "data[].service",
+      "data[].timestamp",
+      "source",
+      "sourceNote"
+    ]
+  },
+  "12-get-services": {
+    "status": 200,
+    "keys": [
+      "data",
+      "data[].alertCount",
+      "data[].enabled",
+      "data[].environment",
+      "data[].errorRate",
+      "data[].id",
+      "data[].lastIncidentAt",
+      "data[].lastTelemetryAt",
+      "data[].logGroup",
+      "data[].name",
+      "data[].status",
+      "source",
+      "sourceNote"
+    ]
+  },
+  "13-get-service-detail": {
+    "status": 200,
+    "keys": [
+      "data",
+      "data.alertCount",
+      "data.enabled",
+      "data.environment",
+      "data.errorRate",
+      "data.id",
+      "data.lastIncidentAt",
+      "data.lastTelemetryAt",
+      "data.logGroup",
+      "data.name",
+      "data.status",
+      "source",
+      "sourceNote"
+    ]
+  },
+  "14-get-service-missing": {
+    "status": 404,
+    "keys": [
+      "error",
+      "error.code",
+      "error.correlationId",
+      "error.message"
+    ]
+  },
+  "15-get-usage": {
+    "status": 200,
+    "keys": [
+      "data",
+      "data.records",
+      "data.records[].aiRequestCount",
+      "data.records[].date",
+      "data.records[].estimatedCostUsd",
+      "data.records[].id",
+      "data.records[].inputTokens",
+      "data.records[].modelId",
+      "data.records[].outputTokens",
+      "data.totals",
+      "data.totals.costUsd",
+      "data.totals.inputTokens",
+      "data.totals.outputTokens",
+      "data.totals.requests",
+      "source",
+      "sourceNote"
+    ]
+  },
+  "16-get-usage-cost": {
+    "status": 200,
+    "keys": [
+      "data",
+      "data.currentDailyCostUsd",
+      "data.currentMonthlyCostUsd",
+      "data.dailyBudgetUsd",
+      "data.hardAlertUsd",
+      "data.monthlyBudgetUsd",
+      "data.softAlertUsd",
+      "data.state",
+      "source",
+      "sourceNote"
+    ]
+  },
+  "17-get-settings": {
+    "status": 200,
+    "keys": [
+      "data",
+      "data.ai",
+      "data.ai.fallbackModelId",
+      "data.ai.guardrailId",
+      "data.ai.guardrailName",
+      "data.ai.guardrailVersion",
+      "data.ai.maxTokens",
+      "data.ai.primaryModelId",
+      "data.ai.temperature",
+      "data.ai.topP",
+      "data.aws",
+      "data.aws.accountId",
+      "data.aws.hasStaticCredentials",
+      "data.aws.region",
+      "data.cloudwatch",
+      "data.cloudwatch.logGroup",
+      "data.cloudwatch.logGroups",
+      "data.cloudwatch.logGroups[]",
+      "data.cloudwatch.maxLogLines",
+      "data.cloudwatch.queryWindowMinutes",
+      "data.cost",
+      "data.cost.dailyBudgetUsd",
+      "data.cost.hardAlertUsd",
+      "data.cost.monthlyBudgetUsd",
+      "data.cost.softAlertUsd",
+      "data.dynamodb",
+      "data.dynamodb.alertsTable",
+      "data.dynamodb.anomalyTypeGsi",
+      "data.general",
+      "data.general.appName",
+      "data.general.environment",
+      "data.general.integrationMode",
+      "data.integrations",
+      "data.integrations[].displayName",
+      "data.integrations[].kind",
+      "data.integrations[].mode",
+      "data.integrations[].status",
+      "data.pipeline",
+      "data.pipeline.alertWriterLambda",
+      "data.pipeline.alertsApiLambda",
+      "data.pipeline.chatLambda",
+      "data.pipeline.collectorLambda",
+      "data.pipeline.collectorScheduleMinutes",
+      "data.pipeline.duplicateSuppressionMinutes",
+      "data.pipeline.eventBridgeRule",
+      "data.pipeline.flow",
+      "data.pipeline.logsApiLambda",
+      "data.pipeline.region",
+      "data.pipeline.registeredServices",
+      "data.pipeline.registeredServices[].enabled",
+      "data.pipeline.registeredServices[].name",
+      "data.scheduler",
+      "data.scheduler.collectorMinutes"
+    ]
+  },
+  "18-get-ai-analyses-before-analyze": {
+    "status": 200,
+    "keys": [
+      "data",
+      "data.items",
+      "data.page",
+      "data.pageSize",
+      "data.total",
+      "source",
+      "sourceNote"
+    ]
+  },
+  "19-get-audit-before-writes": {
+    "status": 200,
+    "keys": [
+      "data",
+      "data.items",
+      "data.items[].action",
+      "data.items[].actor",
+      "data.items[].id",
+      "data.items[].metadata",
+      "data.items[].target",
+      "data.items[].timestamp",
+      "data.page",
+      "data.pageSize",
+      "data.total",
+      "source",
+      "sourceNote"
+    ]
+  },
+  "20-post-ai-analyze": {
+    "status": 200,
+    "keys": [
+      "data",
+      "data.alertId",
+      "data.anomalyType",
+      "data.confidence",
+      "data.dataSource",
+      "data.environment",
+      "data.finding",
+      "data.finding.alertId",
+      "data.finding.anomalyType",
+      "data.finding.confidence",
+      "data.finding.environment",
+      "data.finding.evidence",
+      "data.finding.evidence[]",
+      "data.finding.modelId",
+      "data.finding.probableCause",
+      "data.finding.recommendedActions",
+      "data.finding.recommendedActions[]",
+      "data.finding.service",
+      "data.finding.severity",
+      "data.finding.summary",
+      "data.finding.timestamp",
+      "data.id",
+      "data.inputTokens",
+      "data.modelId",
+      "data.outputTokens",
+      "data.provider",
+      "data.service",
+      "data.timestamp",
+      "source",
+      "sourceNote"
+    ]
+  },
+  "21-post-chat": {
+    "status": 200,
+    "keys": [
+      "data",
+      "data.answer",
+      "data.citations",
+      "data.citations[]",
+      "data.environment",
+      "data.groundingNote",
+      "data.inputTokens",
+      "data.logsSource",
+      "data.modelId",
+      "data.outputTokens",
+      "data.provider",
+      "data.service",
+      "source",
+      "sourceNote"
+    ]
+  },
+  "22-get-ai-analyses-after-analyze": {
+    "status": 200,
+    "keys": [
+      "data",
+      "data.items",
+      "data.items[].alertId",
+      "data.items[].anomalyType",
+      "data.items[].confidence",
+      "data.items[].dataSource",
+      "data.items[].environment",
+      "data.items[].finding",
+      "data.items[].finding.alertId",
+      "data.items[].finding.anomalyType",
+      "data.items[].finding.confidence",
+      "data.items[].finding.environment",
+      "data.items[].finding.evidence",
+      "data.items[].finding.evidence[]",
+      "data.items[].finding.modelId",
+      "data.items[].finding.probableCause",
+      "data.items[].finding.recommendedActions",
+      "data.items[].finding.recommendedActions[]",
+      "data.items[].finding.service",
+      "data.items[].finding.severity",
+      "data.items[].finding.summary",
+      "data.items[].finding.timestamp",
+      "data.items[].id",
+      "data.items[].inputTokens",
+      "data.items[].modelId",
+      "data.items[].outputTokens",
+      "data.items[].provider",
+      "data.items[].service",
+      "data.items[].timestamp",
+      "data.page",
+      "data.pageSize",
+      "data.total",
+      "source",
+      "sourceNote"
+    ]
+  },
+  "23-get-ai-analysis-detail": {
+    "status": 200,
+    "keys": [
+      "data",
+      "data.alertId",
+      "data.anomalyType",
+      "data.confidence",
+      "data.dataSource",
+      "data.environment",
+      "data.finding",
+      "data.finding.alertId",
+      "data.finding.anomalyType",
+      "data.finding.confidence",
+      "data.finding.environment",
+      "data.finding.evidence",
+      "data.finding.evidence[]",
+      "data.finding.modelId",
+      "data.finding.probableCause",
+      "data.finding.recommendedActions",
+      "data.finding.recommendedActions[]",
+      "data.finding.service",
+      "data.finding.severity",
+      "data.finding.summary",
+      "data.finding.timestamp",
+      "data.id",
+      "data.inputTokens",
+      "data.modelId",
+      "data.outputTokens",
+      "data.provider",
+      "data.service",
+      "data.timestamp",
+      "source",
+      "sourceNote"
+    ]
+  },
+  "24-post-alert-acknowledge": {
+    "status": 200,
+    "keys": [
+      "data",
+      "data.acknowledgedAt",
+      "data.acknowledgedBy",
+      "data.alertId",
+      "data.anomalyType",
+      "data.confidence",
+      "data.environment",
+      "data.evidence",
+      "data.evidence[]",
+      "data.modelId",
+      "data.probableCause",
+      "data.recommendedActions",
+      "data.recommendedActions[]",
+      "data.relatedLogIds",
+      "data.relatedMetricIds",
+      "data.service",
+      "data.severity",
+      "data.status",
+      "data.summary",
+      "data.timestamp",
+      "source",
+      "sourceNote"
+    ]
+  },
+  "25-put-settings": {
+    "status": 200,
+    "keys": [
+      "accepted",
+      "reason"
+    ]
+  },
+  "26-get-audit-after-writes": {
+    "status": 200,
+    "keys": [
+      "data",
+      "data.items",
+      "data.items[].action",
+      "data.items[].actor",
+      "data.items[].id",
+      "data.items[].metadata",
+      "data.items[].metadata.logsSource",
+      "data.items[].metadata.questionChars",
+      "data.items[].metadata.requestedKeys",
+      "data.items[].metadata.requestedKeys[]",
+      "data.items[].target",
+      "data.items[].timestamp",
+      "data.page",
+      "data.pageSize",
+      "data.total",
+      "source",
+      "sourceNote"
+    ]
+  },
+  "27-post-auth-logout": {
+    "status": 200,
+    "keys": [
+      "ok"
+    ]
+  }
+}
