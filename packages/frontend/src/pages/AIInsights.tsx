@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApi } from '../hooks/useApi';
 import { useAuth } from '../auth/AuthContext';
-import { aiApi, alertsApi, servicesApi } from '../api/endpoints';
+import { aiApi, alertsApi, chatApi, servicesApi } from '../api/endpoints';
 import {
   PageHeader, Card, Button, Select, AsyncView, Confidence, fmtTime, SourceBadge, SeverityBadge,
 } from '../components/ui';
@@ -52,6 +52,7 @@ export function AIInsights() {
         </AsyncView>
       </Card>
 
+      {can('audit:view') && <CopilotQualityCard />}
       <Card title="Run advisory analysis" titleSub="MOCK — human-in-the-loop, produces a finding only">
         <div className="filter-bar" style={{ marginBottom: 0 }}>
           <Select value={service} onChange={(e) => setService(e.target.value)} aria-label="Service">
@@ -104,6 +105,67 @@ export function AIInsights() {
         </AsyncView>
       </Card>
     </div>
+  );
+}
+
+const fmtMs = (ms: number | null | undefined) => (ms === null || ms === undefined ? 'n/a' : `${(ms / 1000).toFixed(1)} s`);
+
+/** Copilot quality (DPI 2 items 8-9): satisfaction, counts, latency p50/p95/max, recent DOWN comments.
+ *  Aggregates only: no user identity and no question text. Shown to roles holding audit:view. */
+function CopilotQualityCard() {
+  const summary = useApi(() => chatApi.summary(), []);
+  return (
+    <Card title="Copilot quality" titleSub="Last 30 days. Feedback and end-to-end latency of assistant answers">
+      <AsyncView state={summary}>
+        {(res) => {
+          const d = res.data;
+          const fb = d.feedback;
+          const lat = d.latency.totalMs;
+          return (
+            <div className="stack">
+              {!d.historyEnabled && (
+                <p className="text-secondary">Chat history is disabled, so new feedback is not being stored.</p>
+              )}
+              <div className="grid two">
+                <div>
+                  <div className="k">Satisfaction</div>
+                  <div style={{ fontSize: 24, fontWeight: 700 }} aria-label="Satisfaction percentage">
+                    {fb.satisfactionPct === null ? 'No feedback yet' : `${fb.satisfactionPct}%`}
+                  </div>
+                  <div className="text-secondary" style={{ fontSize: 12 }}>
+                    {fb.up} liked · {fb.down} disliked · {fb.total} rated
+                  </div>
+                </div>
+                <div>
+                  <div className="k" title="Includes the Urbani /chat round trip, not just the model.">Answer latency (end to end)</div>
+                  {lat.count === 0 ? (
+                    <div className="text-secondary">No latency data yet.</div>
+                  ) : (
+                    <div style={{ fontSize: 16, fontWeight: 600 }}>
+                      p50 {fmtMs(lat.p50)} · p95 {fmtMs(lat.p95)} · max {fmtMs(lat.max)}
+                    </div>
+                  )}
+                  <div className="text-secondary" style={{ fontSize: 12 }}>{lat.count} answers measured</div>
+                </div>
+              </div>
+              {d.recentDownComments.length > 0 && (
+                <div>
+                  <div className="k">Recent dislike comments</div>
+                  <ul className="quality-comments">
+                    {d.recentDownComments.map((c) => (
+                      <li key={c.messageId}>
+                        <span>{c.comment}</span>
+                        <span className="text-muted"> · {c.service ?? 'unknown'} · {fmtTime(c.timestamp)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          );
+        }}
+      </AsyncView>
+    </Card>
   );
 }
 

@@ -220,13 +220,70 @@ export interface ChatAnswer {
   groundingNote: string;
   inputTokens: number;
   outputTokens: number;
+  /** DPI 2 items 8-9 (additive; absent on older backends). */
+  sessionId?: string | null;
+  assistantMessageId?: string | null;
+  historyEnabled?: boolean;
+  latencyMs?: { totalMs: number; providerMs: number } | null;
 }
-
+export type ApiRating = 'UP' | 'DOWN';
+export interface ChatSessionSummary {
+  id: string;
+  title: string | null;
+  service: string | null;
+  environment: string | null;
+  messageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface ChatStoredMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  citations: string[];
+  provider: string | null;
+  modelId: string | null;
+  source: string | null;
+  logsSource: string | null;
+  groundingNote: string | null;
+  isError: boolean;
+  latencyMs: { totalMs: number; providerMs: number | null } | null;
+  createdAt: string;
+  feedback: { rating: ApiRating; comment: string | null } | null;
+}
+export interface LatencyStats { count: number; p50: number | null; p95: number | null; max: number | null }
+export interface ChatQualitySummary {
+  range: { from: string; to: string };
+  historyEnabled: boolean;
+  feedback: {
+    total: number; up: number; down: number; satisfactionPct: number | null;
+    perDay: { date: string; up: number; down: number }[];
+    perService: { service: string; up: number; down: number }[];
+  };
+  latency: { totalMs: LatencyStats; providerMs: LatencyStats; note: string };
+  recentDownComments: { messageId: string; service: string | null; comment: string; timestamp: string }[];
+}
 export const chatApi = {
-  ask: (question: string, opts: { service?: string; environment?: string; history?: ChatTurn[] } = {}) =>
-    api.post<Sourced<ChatAnswer>>('/chat', { question, ...opts }),
+  ask: (
+    question: string,
+    opts: { service?: string; environment?: string; history?: ChatTurn[]; sessionId?: string } = {},
+  ) => api.post<Sourced<ChatAnswer>>('/chat', { question, ...opts }),
+  sessions: (cursor?: string) =>
+    api.get<{ data: { items: ChatSessionSummary[]; nextCursor: string | null; historyEnabled: boolean } }>(
+      `/chat/sessions${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`,
+    ),
+  session: (id: string) =>
+    api.get<{ data: { session: ChatSessionSummary; messages: ChatStoredMessage[] } }>(`/chat/sessions/${encodeURIComponent(id)}`),
+  rename: (id: string, title: string) =>
+    api.patch<{ data: ChatSessionSummary }>(`/chat/sessions/${encodeURIComponent(id)}`, { title }),
+  remove: (id: string) => api.delete<{ data: { deleted: boolean } }>(`/chat/sessions/${encodeURIComponent(id)}`),
+  feedback: (messageId: string, rating: ApiRating | null, comment?: string) =>
+    api.put<{ data: { rating: ApiRating | null; comment: string | null } }>(
+      `/chat/messages/${encodeURIComponent(messageId)}/feedback`,
+      { rating, ...(comment ? { comment } : {}) },
+    ),
+  summary: () => api.get<{ data: ChatQualitySummary }>('/chat/feedback/summary'),
 };
-
 export const usageApi = {
   usage: () =>
     api.get<

@@ -23,6 +23,7 @@ export class ApiClientError extends Error {
     public status: number,
     public code: string,
     message: string,
+    public details?: unknown,
   ) {
     super(message);
   }
@@ -53,7 +54,7 @@ async function request<T>(method: string, path: string, body?: unknown, opts: Re
 
   if (!res.ok) {
     const err = (data as ApiError)?.error;
-    throw new ApiClientError(res.status, err?.code ?? 'ERROR', err?.message ?? res.statusText);
+    throw new ApiClientError(res.status, err?.code ?? 'ERROR', err?.message ?? res.statusText, (err as { details?: unknown } | undefined)?.details);
   }
   return data as T;
 }
@@ -62,5 +63,6 @@ export const api = {
   get: <T>(path: string, opts?: RequestOptions) => request<T>('GET', path, undefined, opts),
   post: <T>(path: string, body?: unknown, opts?: RequestOptions) => request<T>('POST', path, body, opts),
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
+  patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
   delete: <T>(path: string) => request<T>('DELETE', path),
 };
