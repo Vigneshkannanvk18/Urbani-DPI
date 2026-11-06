@@ -245,12 +245,15 @@ describe('/api/preferences (own preferences, any authenticated user)', () => {
     expect((await call('get', '/api/preferences', t)).body.data.theme).toBe('light');
   });
 
-  it('keeps room for widgetLayout: a bounded JSON object round-trips, an oversized one is rejected', async () => {
+  it('widgetLayout (item 12): a valid layout round-trips, an unknown id or oversized one is rejected, null resets', async () => {
     const t = tokens.SUPER_ADMIN;
-    const layout = { order: ['alerts', 'logs'], hidden: [] };
+    const layout = { version: 1, widgets: [{ id: 'recent-alerts', visible: true }, { id: 'kpi', visible: false }] };
     expect((await call('put', '/api/preferences', t, { widgetLayout: layout })).body.data).toMatchObject({ widgetLayout: layout });
     expect((await call('get', '/api/preferences', t)).body.data.widgetLayout).toEqual(layout);
-    expect((await call('put', '/api/preferences', t, { widgetLayout: { blob: 'x'.repeat(9000) } })).status).toBe(400);
+    expect((await call('put', '/api/preferences', t, { widgetLayout: { version: 1, widgets: [{ id: 'nope', visible: true }] } })).status).toBe(400);
+    const many = Array.from({ length: 31 }, () => ({ id: 'kpi', visible: true }));
+    expect((await call('put', '/api/preferences', t, { widgetLayout: { version: 1, widgets: many } })).status).toBe(400);
+    expect((await call('put', '/api/preferences', t, { widgetLayout: { version: 2, widgets: [] } })).status).toBe(400);
     expect((await call('put', '/api/preferences', t, { widgetLayout: null })).body.data.widgetLayout).toBeNull();
   });
 });

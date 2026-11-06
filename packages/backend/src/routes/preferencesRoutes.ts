@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { THEME_PREFERENCES, type ThemePreference } from '@urbani/shared';
+import { THEME_PREFERENCES, DASHBOARD_WIDGET_IDS, DASHBOARD_LAYOUT_VERSION, MAX_LAYOUT_ENTRIES, type ThemePreference } from '@urbani/shared';
 import { asyncHandler } from '../lib/asyncHandler';
 import { getRepositories } from '../repositories';
 import type { UserPreferences } from '../repositories/types';
@@ -13,9 +13,22 @@ import type { UserPreferences } from '../repositories/types';
  */
 export const preferencesRoutes = Router();
 
+// Dashboard layout (item 12): version 1, at most 30 entries, ids must be known registry ids. null resets to default.
 const widgetLayout = z
-  .record(z.string(), z.unknown())
-  .refine((v) => JSON.stringify(v).length <= 8192, 'widgetLayout is too large (max 8 KB)');
+  .object({
+    version: z.literal(DASHBOARD_LAYOUT_VERSION),
+    widgets: z
+      .array(
+        z
+          .object({
+            id: z.string().refine((id) => DASHBOARD_WIDGET_IDS.includes(id), 'unknown widget id'),
+            visible: z.boolean(),
+          })
+          .strict(),
+      )
+      .max(MAX_LAYOUT_ENTRIES),
+  })
+  .strict();
 
 const putBody = z
   .object({

@@ -22,3 +22,13 @@ export {
 } from './rbac';
 export * from './notifications';
 export * from './health';
+// Explicit named re-exports so bundlers can detect these runtime values through the CommonJS build.
+export {
+  DASHBOARD_LAYOUT_VERSION,
+  MAX_LAYOUT_ENTRIES,
+  DASHBOARD_WIDGETS,
+  DASHBOARD_WIDGET_IDS,
+  defaultLayout,
+  normalizeLayout,
+} from './dashboardLayout';
+export type { WidgetDefinition, WidgetLayoutEntry, DashboardLayout } from './dashboardLayout';
