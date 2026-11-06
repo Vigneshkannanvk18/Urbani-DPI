@@ -23,6 +23,8 @@
     "gen:dpi2": "node scripts/gen-dpi2-docs.js",
     "migrate": "npm run migrate --workspace @urbani/backend",
     "seed": "npm run seed --workspace @urbani/backend",
+    "dynamo:tables": "npm run dynamo:tables --workspace @urbani/backend --",
+    "dynamo:migrate": "npm run dynamo:migrate --workspace @urbani/backend --",
     "migrate:prod": "node packages/backend/dist/db/migrate.js",
     "seed:prod": "node packages/backend/dist/db/seed.js",
     "reset:prod": "node packages/backend/dist/db/reset.js"

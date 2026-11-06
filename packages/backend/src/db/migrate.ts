@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type Database from 'better-sqlite3';
 import { getDb, closeDb } from './connection';
+import { config } from '../config';
 import { logger } from '../lib/logger';
 
 /**
@@ -58,6 +59,11 @@ export function runMigrations(db: Database.Database = getDb()): string[] {
 
 // CLI entry point: `npm run migrate`
 if (require.main === module) {
+  // DynamoDB has no SQL schema; checked before runMigrations() so no SQLite file is opened.
+  if (config.db.driver !== 'sqlite') {
+    logger.info('No SQL migrations for DB_DRIVER=dynamodb (table schema: dynamo:tables / IaC)');
+    process.exit(0);
+  }
   try {
     const applied = runMigrations();
     if (applied.length === 0) {

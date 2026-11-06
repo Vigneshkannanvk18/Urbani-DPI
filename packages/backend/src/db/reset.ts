@@ -11,6 +11,10 @@ import { logger } from '../lib/logger';
  * explicitly set, to prevent accidental production data loss.
  */
 function reset(): void {
+  // First, before the production guard and getDb(), so the refusal never opens or creates a SQLite file.
+  if (config.db.driver !== 'sqlite') {
+    throw new Error('reset is SQLite-only. For DynamoDB Local run `npm run dynamo:tables -- --reset`');
+  }
   if (config.isProd && process.env.FORCE_DB_RESET !== 'yes') {
     throw new Error(
       'Refusing to reset the database in production. Set FORCE_DB_RESET=yes to override.',

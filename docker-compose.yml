@@ -84,6 +84,17 @@ services:
     networks:
       - urbani_net
 
+  # DynamoDB Local for DB_DRIVER=dynamodb development/tests. Not started by default:
+  #   docker compose --profile dynamodb up -d dynamodb-local
+  dynamodb-local:
+    image: amazon/dynamodb-local:2.5.2
+    profiles: ["dynamodb"]
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
+    ports:
+      - "127.0.0.1:8000:8000"   # loopback only
+    networks:
+      - urbani_net
+
 volumes:
   urbani_data:
     driver: local

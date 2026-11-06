@@ -14,6 +14,8 @@
     "migrate:prod": "node dist/db/migrate.js",
     "seed:prod": "node dist/db/seed.js",
     "reset:prod": "node dist/db/reset.js",
+    "dynamo:tables": "ts-node src/db/cli.ts tables",
+    "dynamo:migrate": "ts-node src/db/cli.ts migrate",
     "test": "vitest run",
     "test:watch": "vitest"
   },
