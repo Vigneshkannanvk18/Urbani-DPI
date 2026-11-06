@@ -8,6 +8,9 @@ import { Button } from './ui';
 import { IconLogout, IconMenu, IconChevronLeft, IconChevronRight } from './icons';
 import { AssistantChatProvider } from './assistant/useAssistantChat';
 import { AssistantWidget } from './assistant/AssistantWidget';
+import { BRAND } from '../branding/brand';
+import { BrandMark } from '../branding/BrandLogo';
+import { ThemeToggle } from '../theme/ThemeToggle';
 
 /**
  * App shell (Parts 12, 13): light sidebar with #D1990A active state, alert
@@ -57,10 +60,10 @@ export function Layout() {
 
       <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'open' : ''}`} aria-label="Primary">
         <div className="brand">
-          <div className="brand-mark" aria-hidden>U</div>
+          <BrandMark size={34} />
           <div className="brand-text">
-            <div className="brand-name">URBANI</div>
-            <div className="brand-sub">Proactive Observability &amp; AI Troubleshooting</div>
+            <div className="brand-name">{BRAND.shortName}</div>
+            <div className="brand-sub">{BRAND.tagline}</div>
           </div>
         </div>
 
@@ -98,6 +101,7 @@ export function Layout() {
             {collapsed ? <IconChevronRight size={18} /> : <IconChevronLeft size={18} />}
             {!collapsed && <span>Collapse</span>}
           </button>
+          {!collapsed && <div className="legal-footer">{BRAND.legal.text()}</div>}
         </div>
       </aside>
 
@@ -111,6 +115,7 @@ export function Layout() {
           <span className="src src-LIVE" title="Connected to the live Urbani AWS backend">
             ENV · LIVE
           </span>
+          <ThemeToggle />
           <div className="topbar-user">
             <div className="avatar" aria-hidden>{initials}</div>
             <div style={{ lineHeight: 1.2 }}>

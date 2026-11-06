@@ -11,6 +11,8 @@ import {
   IconServices, IconAlert, IconWarn, IconActivity, IconAI, IconServer,
 } from '../components/icons';
 import { CHART, chartAxisProps, chartTooltipStyle } from '../components/chart';
+import { HealthStrip, useHealthStatus } from '../components/health';
+import { useAuth } from '../auth/AuthContext';
 
 /** Dashboard overview (Parts 14–17). Light theme, KPI cards, system health,
  *  observability chart, AI cost/budget — all clearly MOCK-labelled in Phase 1. */
@@ -22,6 +24,8 @@ export function Dashboard() {
   const cost = useApi(() => usageApi.cost(), []);
 
   const s = summary.data?.data;
+  const { can } = useAuth();
+  const serviceHealth = useHealthStatus();
   const healthState = s?.systemHealth ?? 'UNKNOWN';
 
   return (
@@ -61,6 +65,11 @@ export function Dashboard() {
         )}
       </AsyncView>
 
+      {can('services:view') && (
+        <Card title="Service health" titleSub="probes, refreshed every 30 s" actions={<Link to="/health">Details</Link>}>
+          <AsyncView state={serviceHealth}>{(h) => <HealthStrip targets={h.targets} />}</AsyncView>
+        </Card>
+      )}
       <div className="grid two">
         {/* System Health */}
         <Card title="System Health">

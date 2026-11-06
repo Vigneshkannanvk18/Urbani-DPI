@@ -42,6 +42,7 @@ export const IconInbox = (p: IconProps) => (<svg {...base(p)}><polyline points="
 export const IconWarn = (p: IconProps) => (<svg {...base(p)}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>);
 export const IconCheck = (p: IconProps) => (<svg {...base(p)}><polyline points="20 6 9 17 4 12"/></svg>);
 export const IconActivity = (p: IconProps) => (<svg {...base(p)}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>);
+export const IconHeartPulse = (p: IconProps) => (<svg {...base(p)}><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8Z"/><path d="M3.5 12h4l1.5-3 3 6 1.5-3h4"/></svg>);
 export const IconServer = (p: IconProps) => (<svg {...base(p)}><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>);
 // Professional assistant chat icon: a rounded speech bubble with a small AI
 // spark, used by the floating assistant launcher and chat messages (replaces

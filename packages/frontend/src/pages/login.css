@@ -289,10 +289,10 @@
 .login-check input { width: 17px; height: 17px; margin: 0; accent-color: #d1990a; cursor: pointer; }
 .login-forgot {
   font-size: clamp(12px, 1.55vh, 15px);
-  font-weight: 500; color: #c88a07;
+  font-weight: 500; color: var(--color-primary-text);
   text-decoration: underline; text-underline-offset: 3px;
 }
-.login-forgot:hover { color: #a87306; }
+.login-forgot:hover { color: var(--color-primary-hover); }
 
 .login-submit {
   position: relative;
@@ -301,7 +301,7 @@
   display: flex; align-items: center; justify-content: center;
   font-family: inherit;
   font-size: clamp(14px, 1.95vh, 18px);
-  font-weight: 600; color: #fff;
+  font-weight: 600; color: var(--color-on-primary);
   border: none; border-radius: 10px; cursor: pointer;
   background: linear-gradient(180deg, #dda422 0%, #b67e09 100%);
   box-shadow: 0 12px 24px -10px rgba(182, 126, 9, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.25);

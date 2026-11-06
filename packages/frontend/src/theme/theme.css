@@ -1,0 +1,121 @@
+/* ============================================================================
+   Dark theme layer (DPI 2 item 10).
+   Light tokens live in styles.css (:root); brand colours in branding/brand.css. Setting
+   <html data-theme="dark"> (done before first paint by the inline script in index.html and afterwards by
+   theme/ThemeContext.tsx) swaps every token below. Components only use tokens, so most surfaces need no
+   rule; the second half of this file covers the few places that carry their own colours (login page,
+   scrollbars, native controls, health sparkline).
+   Contrast of the token pairs is verified by `node scripts/check-contrast.mjs` (also run by the backend tests).
+   ============================================================================ */
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-background: #0d1220;
+  --color-surface: #151c2c;
+  --color-surface-2: #1c2539;
+  --color-surface-alt: #121929;
+  --color-border: #28324a;
+  --color-border-strong: #3a4763;
+
+  --color-text-primary: #e8ecf4;
+  --color-text-secondary: #aeb8cb;
+  --color-text-muted: #8d99b0;
+
+  --color-success: #4cd697;
+  --color-success-soft: #10281d;
+  --color-warning: #f2c75a;
+  --color-warning-soft: #2b2410;
+  --color-danger: #ff8a7c;
+  --color-danger-soft: #3a1713;
+  --color-danger-border: #6b2b25;
+  --color-info: #6bb2ea;
+  --color-info-soft: #12263a;
+
+  --sev-low: #4cd697;
+  --sev-low-soft: #10281d;
+  --sev-medium: #f2c75a;
+  --sev-medium-soft: #2b2410;
+  --sev-high: #ffa75a;
+  --sev-high-soft: #33200e;
+  --sev-critical: #ff8a7c;
+  --sev-critical-soft: #3a1713;
+
+  --chart-success: #4cd697;
+  --chart-danger: #ff8a7c;
+  --chart-neutral: #8d99b0;
+  --chart-grid: #28324a;
+  --chart-axis: #aeb8cb;
+  --chart-tooltip-bg: #1c2539;
+  --chart-tooltip-border: #3a4763;
+  --chart-tooltip-text: #e8ecf4;
+
+  --overlay-scrim: rgba(0, 0, 0, 0.6);
+  --skeleton-hi: #263150;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- Native controls, scrollbars, selection ---------- */
+[data-theme='dark'] { scrollbar-color: #3a4763 #121929; }
+[data-theme='dark'] ::-webkit-scrollbar { width: 12px; height: 12px; }
+[data-theme='dark'] ::-webkit-scrollbar-track { background: #121929; }
+[data-theme='dark'] ::-webkit-scrollbar-thumb { background: #3a4763; border-radius: 8px; border: 3px solid #121929; }
+[data-theme='dark'] ::-webkit-scrollbar-thumb:hover { background: #4d5c7c; }
+[data-theme='dark'] ::selection { background: #3d3216; color: #f6e3a8; }
+[data-theme='dark'] input, [data-theme='dark'] select, [data-theme='dark'] textarea, [data-theme='dark'] button { color-scheme: dark; }
+[data-theme='dark'] .input, [data-theme='dark'] .select, [data-theme='dark'] textarea {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-strong);
+}
+[data-theme='dark'] pre, [data-theme='dark'] code, [data-theme='dark'] .mono { color-scheme: dark; }
+
+/* ---------- Login page (own artwork; light by default, re-coloured here) ---------- */
+[data-theme='dark'] .login-page {
+  background:
+    radial-gradient(55% 60% at 0% 100%, #2b2410 0%, rgba(43, 36, 16, 0) 70%),
+    linear-gradient(180deg, #0d1220 0%, #101728 100%);
+  color: var(--color-text-primary);
+}
+[data-theme='dark'] .login-orb-1 { background: linear-gradient(215deg, #8a6410 0%, #6b4f12 40%, #3a2e14 75%, #1c1a1a 100%); opacity: 0.8; }
+[data-theme='dark'] .login-orb-2 { background: linear-gradient(160deg, #4a3a14 0%, #2b2410 50%, rgba(43, 36, 16, 0) 100%); opacity: 0.8; }
+[data-theme='dark'] .login-orb-3 { background: radial-gradient(circle, rgba(138, 100, 16, 0.35) 0%, rgba(138, 100, 16, 0) 70%); }
+[data-theme='dark'] .login-dots { background-image: radial-gradient(#6b4f12 1.6px, transparent 1.7px); }
+[data-theme='dark'] .lg-name, [data-theme='dark'] .login-headline, [data-theme='dark'] .login-card-title,
+[data-theme='dark'] .login-label, [data-theme='dark'] .login-feature-label { color: var(--color-text-primary); }
+[data-theme='dark'] .login-headline .accent { background: linear-gradient(180deg, #f2c75a 0%, #e3ad1f 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+[data-theme='dark'] .lg-sub, [data-theme='dark'] .login-lede, [data-theme='dark'] .login-card-sub,
+[data-theme='dark'] .login-foot, [data-theme='dark'] .login-check { color: var(--color-text-secondary); }
+[data-theme='dark'] .login-feature { border-left-color: var(--color-border); }
+[data-theme='dark'] .login-feature-icon { background: var(--color-primary-soft); color: var(--color-primary-text); }
+[data-theme='dark'] .login-card {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.7), 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+[data-theme='dark'] .login-card .lg-brand, [data-theme='dark'] .login-foot { border-color: var(--color-border); }
+[data-theme='dark'] .login-input-el { background: var(--color-surface-2); border-color: var(--color-border-strong); color: var(--color-text-primary); }
+[data-theme='dark'] .login-input-el::placeholder { color: var(--color-text-muted); }
+[data-theme='dark'] .login-input-el:focus { background: var(--color-surface); border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(227, 173, 31, 0.25); }
+[data-theme='dark'] .login-input-icon { color: var(--color-text-secondary); }
+[data-theme='dark'] .login-eye { color: var(--color-text-secondary); }
+[data-theme='dark'] .login-eye:hover { color: var(--color-text-primary); }
+[data-theme='dark'] .login-forgot { color: var(--color-primary-text); }
+[data-theme='dark'] .login-forgot:hover { color: var(--color-primary-hover); }
+[data-theme='dark'] .login-error { background: var(--color-danger-soft); color: var(--color-danger); border-color: var(--color-danger-border); }
+/* Decorative tablet mock keeps a dark device frame; re-colour its screen. */
+[data-theme='dark'] .ld-screen { background: #151c2c; }
+[data-theme='dark'] .ld-sidebar { background: #121929; border-right-color: var(--color-border); }
+[data-theme='dark'] .ld-sb-brand, [data-theme='dark'] .ld-crumb, [data-theme='dark'] .ld-user,
+[data-theme='dark'] .ld-title, [data-theme='dark'] .ld-kpi-value, [data-theme='dark'] .ld-health-title { color: var(--color-text-primary); }
+[data-theme='dark'] .ld-nav { color: var(--color-text-secondary); }
+[data-theme='dark'] .ld-nav.active, [data-theme='dark'] .ld-avatar { background: var(--color-primary-soft); color: var(--color-primary-text); }
+[data-theme='dark'] .ld-top, [data-theme='dark'] .ld-kpi, [data-theme='dark'] .ld-health { border-color: var(--color-border); }
+[data-theme='dark'] .ld-kpi { background: #1c2539; }
+[data-theme='dark'] .ld-kpi-icon { background: var(--color-primary-soft); color: var(--color-primary-text); }
+[data-theme='dark'] .ld-sub, [data-theme='dark'] .ld-kpi-label { color: var(--color-text-secondary); }
+[data-theme='dark'] .ld-kpi-sub, [data-theme='dark'] .ld-user small { color: var(--color-text-muted); }
+[data-theme='dark'] .ld-env, [data-theme='dark'] .ld-live { background: var(--color-success-soft); color: var(--color-success); }
+[data-theme='dark'] .ld-degraded { background: var(--color-warning-soft); color: var(--color-warning); }

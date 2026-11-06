@@ -1,9 +1,27 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light" data-theme-mode="system">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <!-- Branding: title and favicon. Keep in sync with src/branding/brand.ts (docs/BRANDING.md). -->
     <title>Urbani Observability</title>
+    <link rel="icon" type="image/svg+xml" href="/src/branding/assets/favicon.svg" />
+    <!-- Applies the saved / system colour theme BEFORE first paint (no flash). Same key and logic as src/theme/ThemeContext.tsx. -->
+    <script>
+      (function () {
+        var root = document.documentElement;
+        try {
+          var mode = localStorage.getItem('urbani.theme');
+          if (mode !== 'light' && mode !== 'dark' && mode !== 'system') mode = 'system';
+          var dark = mode === 'dark' || (mode === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          root.setAttribute('data-theme', dark ? 'dark' : 'light');
+          root.setAttribute('data-theme-mode', mode);
+        } catch (e) {
+          root.setAttribute('data-theme', 'light');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

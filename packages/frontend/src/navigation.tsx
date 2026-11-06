@@ -13,6 +13,7 @@ import {
   IconBell,
   IconSettings,
   IconUsers,
+  IconHeartPulse,
 } from './components/icons';
 
 /**
@@ -38,6 +39,7 @@ export const NAV_SECTIONS: NavSection[] = [
   { key: 'ai', label: 'AI Insights', title: 'AI Insights', path: '/ai', icon: IconAI, enabled: true, permission: 'ai:view' },
   { key: 'assistant', label: 'Urbani Copilot', title: 'Urbani Copilot', path: '/assistant', icon: IconAssistant, enabled: true, permission: 'chat:use' },
   { key: 'services', label: 'Services', title: 'Services / Applications', path: '/services', icon: IconServices, enabled: true, permission: 'services:view' },
+  { key: 'health', label: 'Service Health', title: 'Service Health', path: '/health', icon: IconHeartPulse, enabled: true, permission: 'services:view' },
   { key: 'notifications', label: 'Notifications', title: 'Notifications', path: '/notifications', icon: IconBell, enabled: true, permission: 'alerts:view' },
   { key: 'usage', label: 'Usage & Cost', title: 'Usage & Cost', path: '/usage', icon: IconCost, enabled: true, permission: 'usage:view' },
   { key: 'audit', label: 'Audit / Activity', title: 'Audit / Activity', path: '/audit', icon: IconAudit, enabled: true, permission: 'audit:view' },

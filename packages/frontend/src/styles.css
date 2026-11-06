@@ -1,6 +1,6 @@
 /* ============================================================================
    Urbani Observability — Design System (Phase 2)
-   Professional LIGHT enterprise theme. Brand: #D1990A.
+   Enterprise theme tokens (light) + dark overrides in theme/theme.css. Brand palette: branding/brand.css.
    All colors, spacing, radius, shadow, and type come from tokens below.
    Components must reference var(--token) — never raw hex.
    ============================================================================ */
@@ -8,46 +8,53 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  /* ---- Brand ---- */
-  --color-primary: #d1990a;
-  --color-primary-hover: #b8830a;
-  --color-primary-active: #9c6f08;
-  --color-primary-soft: #fbf3e0;      /* tinted surface for selected/active */
-  --color-primary-border: #e6cf95;
-  --color-on-primary: #ffffff;
-
+  /* ---- Brand colours live in branding/brand.css (single source) ---- */
+  color-scheme: light;
   /* ---- Neutrals / surfaces ---- */
   --color-background: #f7f8fa;
   --color-surface: #ffffff;
   --color-surface-2: #f3f4f6;
+  --color-surface-alt: #f9fafb;
   --color-border: #e5e7eb;
   --color-border-strong: #d0d5dd;
-
   /* ---- Text ---- */
   --color-text-primary: #172033;
-  --color-text-secondary: #667085;
-  --color-text-muted: #98a2b3;
-
+  --color-text-secondary: #566073;
+  --color-text-muted: #667085;
   /* ---- Semantic ---- */
-  --color-success: #12854e;
+  --color-success: #0f7a47;
   --color-success-soft: #e7f4ee;
-  --color-warning: #b8830a;
+  --color-warning: #8a6100;
   --color-warning-soft: #fbf3e0;
   --color-danger: #c0392b;
   --color-danger-soft: #fbeae7;
+  --color-danger-border: #f3c0bd;
+  --color-danger-solid: #c0392b;      /* solid red fills (alert count pill) */
+  --color-on-danger: #ffffff;
   --color-info: #1f6fb2;
   --color-info-soft: #e8f1f9;
-
   /* ---- Severity (align with semantic, distinct tints) ---- */
-  --sev-low: #12854e;
+  --sev-low: #0f7a47;
   --sev-low-soft: #e7f4ee;
-  --sev-medium: #b8830a;
+  --sev-medium: #8a6100;
   --sev-medium-soft: #fbf3e0;
-  --sev-high: #d9822b;
+  --sev-high: #a35a00;
   --sev-high-soft: #fdf0e3;
   --sev-critical: #c0392b;
   --sev-critical-soft: #fbeae7;
-
+  /* ---- Charts (read by components/chart.tsx; theme-aware) ---- */
+  --chart-info: var(--color-accent);
+  --chart-success: #0f7a47;
+  --chart-danger: #c0392b;
+  --chart-neutral: #98a2b3;
+  --chart-grid: #e5e7eb;
+  --chart-axis: #667085;
+  --chart-tooltip-bg: #ffffff;
+  --chart-tooltip-border: #e5e7eb;
+  --chart-tooltip-text: #172033;
+  /* ---- Overlays ---- */
+  --overlay-scrim: rgba(16, 24, 40, 0.4);
+  --skeleton-hi: #eceef1;
   /* ---- Spacing (8px base) ---- */
   --space-1: 4px;
   --space-2: 8px;
@@ -99,12 +106,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-a { color: var(--color-primary); text-decoration: none; }
+a { color: var(--color-primary-text); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
 /* Visible focus for keyboard users (accessibility, Part 28). */
 :focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }

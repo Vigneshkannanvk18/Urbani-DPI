@@ -18,12 +18,15 @@ import { Settings } from './pages/Settings';
 import { Users } from './pages/Users';
 import { Security } from './pages/Security';
 import { SsoCallback } from './pages/SsoCallback';
+import { ServiceHealth } from './pages/ServiceHealth';
+import { ThemeProvider } from './theme/ThemeContext';
 import { RequirePermission } from './auth/RequirePermission';
 
 /** App router. All dashboard routes are nested under the authenticated Layout. */
 export function App() {
   return (
     <AuthProvider>
+      <ThemeProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -43,6 +46,7 @@ export function App() {
             <Route path="/ai" element={<RequirePermission permission="ai:view"><AIInsights /></RequirePermission>} />
             <Route path="/assistant" element={<RequirePermission permission="chat:use"><Assistant /></RequirePermission>} />
             <Route path="/services" element={<RequirePermission permission="services:view"><Services /></RequirePermission>} />
+            <Route path="/health" element={<RequirePermission permission="services:view"><ServiceHealth /></RequirePermission>} />
             <Route path="/notifications" element={<RequirePermission permission="alerts:view"><Notifications /></RequirePermission>} />
             <Route path="/usage" element={<RequirePermission permission="usage:view"><Usage /></RequirePermission>} />
             <Route path="/audit" element={<RequirePermission permission="audit:view"><Audit /></RequirePermission>} />
@@ -53,6 +57,7 @@ export function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

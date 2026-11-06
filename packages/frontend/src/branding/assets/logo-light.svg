@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" width="200" height="48" role="img" aria-label="Urbani">
+  <!-- PLACEHOLDER logo, LIGHT-background variant (dark wordmark). Replace with the official logo. -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ebae2a"/>
+      <stop offset="1" stop-color="#c98b06"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="11" fill="url(#g)"/>
+  <path d="M15 13v14.5a9 9 0 0 0 18 0V13" fill="none" stroke="#ffffff" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="60" y="32" font-family="Inter, 'Segoe UI', Arial, sans-serif" font-size="26" font-weight="800" letter-spacing="1" fill="#172033">URBANI</text>
+</svg>

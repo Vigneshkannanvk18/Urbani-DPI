@@ -11,6 +11,10 @@ import type {
   BudgetStatus,
   AuditEvent,
   UserRole,
+  ThemePreference,
+  HealthStatusResponse,
+  HealthHistoryResponse,
+  HealthRange,
 } from '@urbani/shared';
 import { api, setToken, clearToken } from './client';
 
@@ -417,4 +421,25 @@ export const notificationsApi = {
     api.get<{ data: { items: NotifLogEntry[]; page: number; pageSize: number; total: number } }>(`/notifications/log${qs(params)}`).then((r) => r.data),
   test: (channel: NotifChannel, severity: NotifSeverity = 'CRITICAL') =>
     api.post<{ data: NotifLogEntry }>('/notifications/test', { channel, severity }).then((r) => r.data),
+};
+
+/** Per-user preferences (DPI 2 item 10). */
+export interface UserPreferencesView {
+  theme: ThemePreference;
+  widgetLayout: Record<string, unknown> | null;
+  /** null = the user has never saved preferences. */
+  updatedAt: string | null;
+}
+export const preferencesApi = {
+  get: () => api.get<{ data: UserPreferencesView }>('/preferences').then((r) => r.data),
+  update: (b: { theme?: ThemePreference; widgetLayout?: Record<string, unknown> | null }) =>
+    api.put<{ data: UserPreferencesView }>('/preferences', b).then((r) => r.data),
+};
+
+/** Service health / uptime panel (DPI 2 item 9). */
+export const healthApi = {
+  status: () => api.get<{ data: HealthStatusResponse }>('/health/status').then((r) => r.data),
+  history: (target: string, range: HealthRange = '24h') =>
+    api.get<{ data: HealthHistoryResponse }>(`/health/history?target=${encodeURIComponent(target)}&range=${range}`).then((r) => r.data),
+  checkNow: () => api.post<{ data: HealthStatusResponse }>('/health/check-now', {}).then((r) => r.data),
 };

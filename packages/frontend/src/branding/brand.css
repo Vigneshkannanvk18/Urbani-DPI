@@ -1,0 +1,31 @@
+/* ============================================================================
+   BRAND PALETTE  --  *** PLACEHOLDER ***  (DPI 2 item 10)
+   These are the CURRENT look (gold #D1990A / navy), kept as a placeholder until Urbani supplies the official
+   palette (client inputs #8/#9/#10). This is the ONLY file that holds brand colours. To re-brand, replace the
+   hex values below (see docs/BRANDING.md), then run `node scripts/check-contrast.mjs` and rebuild.
+   Dark values live in the [data-theme='dark'] block.
+   ============================================================================ */
+:root {
+  --color-primary: #d1990a;          /* brand fill: buttons, active marks, badges */
+  --color-primary-hover: #b8830a;
+  --color-primary-soft: #fbf3e0;     /* tinted surface for selected / active */
+  --color-primary-border: #e6cf95;
+  --color-primary-active: #7a5800;   /* text and icons on primary-soft (active nav item) */
+  --color-primary-text: #7a5800;     /* brand-coloured text and links on neutral surfaces */
+  --color-on-primary: #172033;       /* text on the primary fill */
+  --color-focus: #8a6100;            /* keyboard focus ring */
+  --color-accent: #1f6fb2;           /* secondary accent (second chart series, info) */
+  --chart-primary: #b8830a;
+}
+[data-theme='dark'] {
+  --color-primary: #e3ad1f;
+  --color-primary-hover: #f0bd3f;
+  --color-primary-soft: #2b2410;
+  --color-primary-border: #5a4713;
+  --color-primary-active: #f2c75a;
+  --color-primary-text: #f2c75a;
+  --color-on-primary: #1a1300;
+  --color-focus: #f2c75a;
+  --color-accent: #6bb2ea;
+  --chart-primary: #e3ad1f;
+}

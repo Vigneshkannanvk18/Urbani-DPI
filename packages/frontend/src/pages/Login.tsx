@@ -25,6 +25,9 @@ import {
   IconSettings,
   IconServer,
 } from '../components/icons';
+import { BRAND } from '../branding/brand';
+import { BrandLogo, BrandMark } from '../branding/BrandLogo';
+import { ThemeToggle } from '../theme/ThemeToggle';
 import './login.css';
 
 const FEATURES = [
@@ -37,11 +40,20 @@ const FEATURES = [
 function Brand({ variant }: { variant: 'hero' | 'card' }) {
   return (
     <div className={`lg-brand lg-brand-${variant}`}>
-      <div className="lg-mark" aria-hidden>U</div>
-      <div>
-        <div className="lg-name">URBANI</div>
-        <div className="lg-sub">Proactive Observability &amp; AI Troubleshooting</div>
-      </div>
+      {variant === 'hero' ? (
+        <div>
+          <BrandLogo className="lg-logo" />
+          <div className="lg-sub">{BRAND.tagline}</div>
+        </div>
+      ) : (
+        <>
+          <BrandMark className="lg-mark-img" size={48} />
+          <div>
+            <div className="lg-name">{BRAND.shortName}</div>
+            <div className="lg-sub">{BRAND.tagline}</div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -73,7 +85,7 @@ function DashboardMock() {
           <div className="ld-body">
             <aside className="ld-sidebar">
               <div className="ld-sb-brand">
-                <span className="ld-mark">U</span> URBANI
+                <BrandMark className="ld-mark-img" size={22} /> {BRAND.shortName}
               </div>
               {nav.map((n, i) => (
                 <span key={n.label} className={`ld-nav ${i === 0 ? 'active' : ''}`}>
@@ -115,7 +127,7 @@ function DashboardMock() {
                 <div className="ld-health">
                   <div className="ld-health-head">
                     <span className="ld-health-title">
-                      <span className="ld-mark sm">U</span> System Health
+                      <BrandMark className="ld-mark-img" size={16} /> System Health
                     </span>
                     <span className="ld-degraded">‚óè DEGRADED</span>
                   </div>
@@ -212,6 +224,7 @@ export function Login() {
   };
   return (
     <div className="login-page">
+      <ThemeToggle className="login-theme-toggle" />
       <div className="login-orb login-orb-1" aria-hidden />
       <div className="login-orb login-orb-2" aria-hidden />
       <div className="login-orb login-orb-3" aria-hidden />
@@ -287,7 +300,7 @@ export function Login() {
               </div>
               {error && <div className="login-error" role="alert">{error}</div>}
               <button type="submit" className="login-submit" disabled={busy || code.trim() === ''}>
-                <span>{busy ? 'VerifyingÖ' : 'Verify'}</span>
+                <span>{busy ? 'VerifyingÔøΩ' : 'Verify'}</span>
                 <IconArrowRight size={20} className="login-submit-arrow" />
               </button>
             </form>
@@ -358,7 +371,7 @@ export function Login() {
                   {error && <div className="login-error" role="alert">{error}</div>}
 
                   <button type="submit" className="login-submit" disabled={busy}>
-                    <span>{busy ? 'Signing inÖ' : 'Sign in'}</span>
+                    <span>{busy ? 'Signing inÔøΩ' : 'Sign in'}</span>
                     <IconArrowRight size={20} className="login-submit-arrow" />
                   </button>
                 </>
@@ -372,6 +385,7 @@ export function Login() {
             <IconShield size={14} />
             <span>Secure access to your observability platform</span>
           </div>
+          <div className="login-legal">{BRAND.legal.text()}</div>
         </div>
       </section>
     </div>

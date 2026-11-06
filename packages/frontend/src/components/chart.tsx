@@ -1,29 +1,28 @@
 /**
- * Shared chart theme (Part 16). Restrained palette: brand #D1990A is the primary
- * accent; supporting series use muted neutral/info tones. Kept in sync with the
- * design tokens so charts never introduce ad-hoc colors.
+ * Shared chart theme (Part 16, theme-aware since DPI 2 item 10). Values are CSS custom properties (--chart-*,
+ * defined in styles.css, branding/brand.css and theme/theme.css), so recharts re-colours when the theme changes
+ * with no re-render logic. Never put raw hex colours here.
  */
 export const CHART = {
-  primary: '#d1990a',
-  info: '#1f6fb2',
-  success: '#12854e',
-  danger: '#c0392b',
-  neutral: '#98a2b3',
-  grid: '#e5e7eb',
-  axis: '#98a2b3',
+  primary: 'var(--chart-primary)',
+  info: 'var(--chart-info)',
+  success: 'var(--chart-success)',
+  danger: 'var(--chart-danger)',
+  neutral: 'var(--chart-neutral)',
+  grid: 'var(--chart-grid)',
+  axis: 'var(--chart-axis)',
 };
-
 export const chartAxisProps = {
   stroke: CHART.axis,
   fontSize: 11,
   tickLine: false,
   axisLine: { stroke: CHART.grid },
 };
-
 export const chartTooltipStyle = {
-  background: '#ffffff',
-  border: '1px solid #e5e7eb',
+  background: 'var(--chart-tooltip-bg)',
+  color: 'var(--chart-tooltip-text)',
+  border: '1px solid var(--chart-tooltip-border)',
   borderRadius: 8,
   fontSize: 12,
-  boxShadow: '0 4px 12px rgba(16,24,40,0.08)',
+  boxShadow: 'var(--shadow-md)',
 };
