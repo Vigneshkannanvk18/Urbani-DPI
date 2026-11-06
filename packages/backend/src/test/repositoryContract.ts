@@ -28,7 +28,7 @@ import type {
 import { makeTestClock, type RepositoryHarness } from './repositoryHarness';
 
 /**
- * Repository contract suite (design §8.1, §8.2): 69 cases that every driver must pass. The cases use
+ * Repository contract suite (design Â§8.1, Â§8.2): 69 cases that every driver must pass. The cases use
  * only the Repositories interface. "Rejects" means rejects.toThrow() unless a PersistenceError reason
  * is named, because the drivers raise different error classes on legacy paths. Fixtures carry
  * distinct timestamps and relatedLogIds are compared sorted (SQLite returns them in rowid order).
@@ -409,7 +409,7 @@ export function defineRepositoryContract(harness: RepositoryHarness): void {
     expect(await ids({ to: at(20) })).toEqual(['A2', 'A1']);
     expect(await ids({ from: at(20), to: at(20) })).toEqual(['A2']);
     expect(await ids({ from: at(21), to: at(29) })).toEqual([]);
-    // String comparison: '…00:00:20.000Z' < '…00:00:20Z' because '.' sorts before 'Z'.
+    // String comparison: 'â€¦00:00:20.000Z' < 'â€¦00:00:20Z' because '.' sorts before 'Z'.
     const noMillis = '2026-10-05T00:00:20Z';
     expect(await ids({ from: noMillis })).toEqual(['A3']);
     expect(await ids({ to: noMillis })).toEqual(['A2', 'A1']);
@@ -1270,7 +1270,7 @@ export function defineRepositoryContract(harness: RepositoryHarness): void {
     const layout = {
       rows: [{ id: 'w1', size: [2, 3], opts: { pinned: true, label: null } }],
       ratio: 1.5,
-      title: 'ünïcödé 😀',
+      title: 'Ã¼nÃ¯cÃ¶dÃ© ðŸ˜€',
     };
     await repos.preferences.update('u1', { theme: 'light', widgetLayout: layout });
     expect((await repos.preferences.get('u1'))?.widgetLayout).toEqual(layout);
@@ -1732,6 +1732,52 @@ export function defineRepositoryContract(harness: RepositoryHarness): void {
     expect((await repos.alerts.query({ dataSource: 'LIVE' })).items.map((a) => a.alertId)).toEqual(['L1']);
     expect((await repos.alerts.query({ dataSource: 'MOCK', status: 'OPEN' })).items.map((a) => a.alertId)).toEqual(['M1']);
     expect((await repos.alerts.query({})).total).toBe(2);
+  });
+  // ---------------------------------------------------------------- Health results (DPI 2 item 9)
+  const hr = (targetId: string, timestamp: string, over: Partial<Parameters<Repositories['health']['recordResult']>[0]> = {}) => ({
+    targetId, timestamp, status: 'UP' as const, httpStatus: 200, latencyMs: 12, error: null, ...over,
+  });
+  it('C-HL-01 recordResult is idempotent per (target, minute): the last write of the minute wins', async () => {
+    const h = repos.health;
+    await h.recordResult(hr('radar-api', '2026-10-01T10:00:05.000Z'));
+    await h.recordResult(hr('radar-api', '2026-10-01T10:00:40.000Z', { status: 'DOWN', httpStatus: null, latencyMs: null, error: 'timeout' }));
+    await h.recordResult(hr('radar-api', '2026-10-01T10:01:05.000Z'));
+    const all = await h.listResults('radar-api', '2026-10-01T00:00:00.000Z', '2026-10-02T00:00:00.000Z');
+    expect(all.map((r) => r.timestamp)).toEqual(['2026-10-01T10:00:40.000Z', '2026-10-01T10:01:05.000Z']);
+    expect(all[0]).toEqual({ targetId: 'radar-api', timestamp: '2026-10-01T10:00:40.000Z', status: 'DOWN', httpStatus: null, latencyMs: null, error: 'timeout' });
+  });
+  it('C-HL-02 listResults: per target, inclusive bounds, oldest first, limit', async () => {
+    const h = repos.health;
+    for (const m of ['10', '11', '12', '13']) await h.recordResult(hr('a', `2026-10-01T10:${m}:00.000Z`));
+    await h.recordResult(hr('b', '2026-10-01T10:11:00.000Z'));
+    expect((await h.listResults('a', '2026-10-01T10:11:00.000Z', '2026-10-01T10:12:00.000Z')).map((r) => r.timestamp))
+      .toEqual(['2026-10-01T10:11:00.000Z', '2026-10-01T10:12:00.000Z']);
+    expect((await h.listResults('a', '2026-10-01T10:11:00.001Z', '2026-10-01T10:12:59.999Z')).map((r) => r.timestamp))
+      .toEqual(['2026-10-01T10:12:00.000Z']);
+    expect(await h.listResults('a', '2026-10-01T00:00:00.000Z', '2026-10-02T00:00:00.000Z', 2)).toHaveLength(2);
+    expect(await h.listResults('nobody', '2026-10-01T00:00:00.000Z', '2026-10-02T00:00:00.000Z')).toEqual([]);
+  });
+  it('C-HL-03 latestResult returns the newest result or null', async () => {
+    const h = repos.health;
+    expect(await h.latestResult('a')).toBeNull();
+    await h.recordResult(hr('a', '2026-10-01T10:00:00.000Z'));
+    await h.recordResult(hr('a', '2026-10-01T10:05:00.000Z', { status: 'DEGRADED', httpStatus: 503, error: 'unexpected status 503' }));
+    expect(await h.latestResult('a')).toMatchObject({ timestamp: '2026-10-01T10:05:00.000Z', status: 'DEGRADED', httpStatus: 503 });
+  });
+  it('C-HL-04 purgeOlderThan deletes older results for every target and keeps the rest', async () => {
+    const h = repos.health;
+    await h.recordResult(hr('a', '2026-09-01T10:00:00.000Z'));
+    await h.recordResult(hr('b', '2026-09-02T10:00:00.000Z'));
+    await h.recordResult(hr('a', '2026-10-01T10:00:00.000Z'));
+    expect(await h.purgeOlderThan('2026-09-15T00:00:00.000Z')).toBe(2);
+    expect(await h.listResults('a', '2000-01-01T00:00:00.000Z', '2999-01-01T00:00:00.000Z')).toHaveLength(1);
+    expect(await h.latestResult('b')).toBeNull();
+    expect(await h.purgeOlderThan('2026-09-15T00:00:00.000Z')).toBe(0);
+  });
+  it('C-HL-05 recordResult validates its input', async () => {
+    await expectReason(repos.health.recordResult(hr('bad id!', '2026-10-01T10:00:00.000Z')), 'INVALID_ARGUMENT');
+    await expectReason(repos.health.recordResult(hr('a', 'not-a-date')), 'INVALID_ARGUMENT');
+    await expectReason(repos.health.recordResult(hr('a', '2026-10-01T10:00:00.000Z', { status: 'LIVE' as never })), 'INVALID_ARGUMENT');
   });
   // ---------------------------------------------------------------- Keys
 

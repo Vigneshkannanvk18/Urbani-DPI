@@ -21,3 +21,4 @@ export {
   roleHasPermission,
 } from './rbac';
 export * from './notifications';
+export * from './health';

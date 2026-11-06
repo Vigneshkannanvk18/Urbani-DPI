@@ -59,3 +59,13 @@ Reader / Auditor holds no mutating permission (no acknowledge, analyze, settings
 | `POST /api/users/:id/reset-password` | `password` (min 10) | |
 
 Guard rail violations return `409 CONFLICT`. Audit actions written: `user.create`, `user.role_change`, `user.activate`, `user.deactivate`, `user.password_reset`, `auth.login_failed`, `access.denied`. Successful logins still use the existing `LOGIN` action.
+
+## Service health and preferences (items 9 and 10)
+
+| Route | Permission |
+|---|---|
+| `GET /api/health/status`, `GET /api/health/history` | `services:view` (all four roles) |
+| `POST /api/health/check-now` | `settings:update` (Super Admin, Infra Admin); rate limited (5/min), audited as `health.check_now` |
+| `GET` / `PUT /api/preferences` | any authenticated user, own preferences only |
+
+No new permission was added; the matrix is unchanged.

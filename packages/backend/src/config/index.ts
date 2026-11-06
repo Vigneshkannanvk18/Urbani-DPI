@@ -137,6 +137,15 @@ const schema = z.object({
   TEAMS_WEBHOOK_FORMAT: z.enum(['adaptive', 'messagecard']).default('adaptive'),
   ALERT_SNS_TOPIC_ARN: z.string().optional(),
   DASHBOARD_BASE_URL: z.string().optional(),
+  // Service health / uptime panel (DPI 2 item 9). Targets come ONLY from this env var (never from API input).
+  // JSON array of { id, name?, type: 'http', url, method?, expectedStatus?, timeoutMs?, degradedAboveMs?, service? }.
+  HEALTH_TARGETS: z.string().optional(),
+  HEALTH_PROBES_ENABLED: z.string().optional(),
+  HEALTH_PROBE_INTERVAL_SECONDS: z.coerce.number().int().min(10).max(3600).default(60),
+  HEALTH_RETENTION_DAYS: z.coerce.number().int().min(0).default(30),
+  HEALTH_ALLOW_PRIVATE_TARGETS: z.string().optional(),
+  HEALTH_MIN_SAMPLES: z.coerce.number().int().min(1).default(10),
+  HEALTH_MAX_RESPONSE_BYTES: z.coerce.number().int().min(1024).max(1_048_576).default(65_536),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -330,6 +339,17 @@ export const config = {
     snsTopicArn: env.ALERT_SNS_TOPIC_ARN?.trim() || null,
     /** Base URL for deep links: DASHBOARD_BASE_URL, else FRONTEND_URL. Null = no link in messages. */
     dashboardBaseUrl: env.DASHBOARD_BASE_URL?.trim() || env.FRONTEND_URL?.trim() || null,
+  },
+  health: {
+    /** Raw HEALTH_TARGETS JSON (parsed and validated by health/targets.ts so a typo cannot stop the server). */
+    targetsRaw: env.HEALTH_TARGETS?.trim() || null,
+    /** Background probing: default on, except in tests. */
+    probesEnabled: env.NODE_ENV !== 'test' && boolFromEnv(env.HEALTH_PROBES_ENABLED, true),
+    intervalSeconds: env.HEALTH_PROBE_INTERVAL_SECONDS,
+    retentionDays: env.HEALTH_RETENTION_DAYS,
+    allowPrivateTargets: boolFromEnv(env.HEALTH_ALLOW_PRIVATE_TARGETS, false),
+    minSamples: env.HEALTH_MIN_SAMPLES,
+    maxResponseBytes: env.HEALTH_MAX_RESPONSE_BYTES,
   },
 } as const;
 

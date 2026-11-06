@@ -279,7 +279,27 @@ export interface NotificationRepository {
 }
 
 // ---- Health ----
-export interface HealthRepository { ping(): Promise<void> }
+/** One probe result (DPI 2 item 9). Stored once per (targetId, minute bucket); a later write in the same minute replaces it. */
+export interface HealthCheckResult {
+  targetId: string;
+  /** ISO-8601 UTC. */
+  timestamp: string;
+  status: 'UP' | 'DEGRADED' | 'DOWN';
+  httpStatus: number | null;
+  latencyMs: number | null;
+  /** Redacted, short. Never a URL with credentials or a query string. */
+  error: string | null;
+}
+export interface HealthRepository {
+  ping(): Promise<void>;
+  /** Idempotent per (targetId, timestamp minute): the last write for the minute wins. */
+  recordResult(result: HealthCheckResult): Promise<void>;
+  /** Results with from <= timestamp <= to, oldest first, at most `limit` (default and max 50000). */
+  listResults(targetId: string, from: string, to: string, limit?: number): Promise<HealthCheckResult[]>;
+  latestResult(targetId: string): Promise<HealthCheckResult | null>;
+  /** Retention: deletes results whose minute bucket is before the cutoff's minute, for every target. Returns the number deleted. */
+  purgeOlderThan(cutoff: string): Promise<number>;
+}
 
 export interface Repositories {
   readonly driver: DbDriver;

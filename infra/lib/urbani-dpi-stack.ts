@@ -8,6 +8,7 @@ import { CostConstruct } from './cost-construct';
 import { DashboardConstruct } from './dashboard-construct';
 import { CognitoConstruct } from './cognito-construct';
 import { NotificationsConstruct } from './notifications-construct';
+import { HealthMonitoringConstruct } from './health-monitoring-construct';
 
 const truthy = (v: unknown): boolean => v === true || (typeof v === 'string' && ['1', 'true', 'yes'].includes(v.toLowerCase()));
 
@@ -51,8 +52,9 @@ export class UrbaniDpiStack extends Stack {
       });
     }
     // Alert notifier (DPI 2 item 6): authored only; off unless `-c enableNotifications=true`. The engine runs in the backend.
+    let notifications: NotificationsConstruct | undefined;
     if (truthy(this.node.tryGetContext('enableNotifications'))) {
-      new NotificationsConstruct(this, 'Notifications', {
+      notifications = new NotificationsConstruct(this, 'Notifications', {
         key: security.key,
         taskRole: security.dashboardTaskRole,
         alertEmails: String(this.node.tryGetContext('alertEmails') ?? '').split(',').map((s) => s.trim()).filter(Boolean),
@@ -61,6 +63,13 @@ export class UrbaniDpiStack extends Stack {
       });
     }
 
+    // Health monitoring (DPI 2 item 9): authored only; off unless `-c enableHealthMonitoring=true` (+ `healthEndpoints`).
+    if (truthy(this.node.tryGetContext('enableHealthMonitoring'))) {
+      new HealthMonitoringConstruct(this, 'HealthMonitoring', {
+        endpoints: String(this.node.tryGetContext('healthEndpoints') ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+        alarmTopic: notifications?.topic,
+      });
+    }
     // Consistent tagging for cost allocation + governance.
     Tags.of(this).add('project', 'urbani-observability');
     Tags.of(this).add('managed-by', 'cdk');

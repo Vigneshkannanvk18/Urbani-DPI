@@ -16,6 +16,8 @@ import { getRepositories } from '../repositories';
 import { rateLimit } from '../middleware/rateLimit';
 import { userRoutes } from './userRoutes';
 import { notificationRoutes } from './notificationRoutes';
+import { healthStatusRoutes } from './healthStatusRoutes';
+import { preferencesRoutes } from './preferencesRoutes';
 import { auditService } from '../services/auditService';
 import { AUDIT_CATEGORIES, AUDIT_RESULTS } from '@urbani/shared';
 import { config } from '../config';
@@ -325,5 +327,9 @@ apiRoutes.put(
 // -------------------- NOTIFICATIONS (DPI 2 item 6; per-route permissions) --------------------
 apiRoutes.use('/notifications', notificationRoutes);
 
+// -------------------- SERVICE HEALTH (DPI 2 item 9; per-route permissions) --------------------
+apiRoutes.use('/health', healthStatusRoutes);
+// -------------------- PREFERENCES (DPI 2 item 10; any authenticated user, own preferences only) --------------------
+apiRoutes.use('/preferences', preferencesRoutes);
 // -------------------- USER MANAGEMENT (Super Admin only; users:manage) --------------------
 apiRoutes.use('/users', requirePermission('users:manage'), userRoutes);

@@ -110,6 +110,7 @@ export const AUDIT_ACTIONS = [
   'notification.rule_delete',
   'notification.settings_update',
   'notification.test_send',
+  'health.check_now',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
@@ -157,6 +158,7 @@ export const AUDIT_ACTION_CATALOG: Record<AuditAction, { category: AuditCategory
   'notification.rule_delete': { category: 'CONFIG', description: 'Notification rule deleted' },
   'notification.settings_update': { category: 'CONFIG', description: 'Notification dedup/rate settings updated' },
   'notification.test_send': { category: 'CONFIG', description: 'Notification test message sent' },
+  'health.check_now': { category: 'CONFIG', description: 'Service health probes run on demand' },
 };
 export const auditActionsForCategory = (c: AuditCategory): AuditAction[] =>
   AUDIT_ACTIONS.filter((a) => AUDIT_ACTION_CATALOG[a].category === c);
@@ -177,6 +179,9 @@ export const AUDIT_RESULTS = ['SUCCESS', 'FAILURE', 'DENIED'] as const;
 export type AuditResult = (typeof AUDIT_RESULTS)[number];
 export const THEMES = ['light', 'dark'] as const;
 export type Theme = (typeof THEMES)[number];
+/** UI theme choice (DPI 2 item 10). 'system' follows prefers-color-scheme and is stored as `theme = null`. */
+export const THEME_PREFERENCES = ['system', 'light', 'dark'] as const;
+export type ThemePreference = (typeof THEME_PREFERENCES)[number];
 export const CHAT_MESSAGE_ROLES = ['user', 'assistant'] as const;
 export type ChatMessageRole = (typeof CHAT_MESSAGE_ROLES)[number];
 export const CHAT_RATINGS = ['LIKE', 'DISLIKE'] as const;

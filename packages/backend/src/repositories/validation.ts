@@ -14,6 +14,7 @@ import type {
   AuditRangeQuery,
   ChatFeedbackInput,
   ChatMessageMeta,
+  HealthCheckResult,
   NewChatMessage,
   NewChatSession,
   PreferencesPatch,
@@ -312,3 +313,30 @@ export const sessionCursorSchema = z.tuple([canonicalTsSchema, safeIdSchema]);
 
 /** Messages `[id]`. */
 export const messageCursorSchema = z.tuple([safeIdSchema]);
+
+// ---- Health results (DPI 2 item 9) ----
+const healthResultSchema = z.object({
+  targetId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, 'letters, digits, _ and - only (1-64)'),
+  timestamp: canonicalTsSchema,
+  status: z.enum(['UP', 'DEGRADED', 'DOWN']),
+  httpStatus: z.number().int().min(100).max(599).nullable(),
+  latencyMs: z.number().int().min(0).max(3_600_000).nullable(),
+  error: z.string().max(300).nullable(),
+});
+export function parseHealthResult(input: HealthCheckResult): HealthCheckResult {
+  return parseWith(healthResultSchema, input);
+}
+/** First 16 characters of a canonical ISO timestamp: the minute bucket. */
+export const healthBucket = (timestamp: string): string => timestamp.slice(0, 16);
+export const HEALTH_LIST_MAX = 50_000;
+export function parseHealthRange(targetId: string, from: string, to: string, limit?: number) {
+  return parseWith(
+    z.object({
+      targetId: z.string().min(1).max(64),
+      from: canonicalTsSchema,
+      to: canonicalTsSchema,
+      limit: z.number().int().min(1).max(HEALTH_LIST_MAX).default(HEALTH_LIST_MAX),
+    }),
+    { targetId, from, to, limit },
+  );
+}

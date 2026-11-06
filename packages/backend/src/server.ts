@@ -2,6 +2,7 @@ import { createApp } from './app';
 import { startAuditRetentionJob } from './services/auditService';
 import { startNotificationRetentionJob } from './services/notificationService';
 import { startChatRetentionJob } from './services/chatHistoryService';
+import { startHealthProbes, startHealthRetentionJob } from './services/healthService';
 import { startNotificationPoller } from './notifications/poller';
 import { config } from './config';
 import { logger } from './lib/logger';
@@ -28,6 +29,8 @@ async function main(): Promise<void> {
   startAuditRetentionJob();
 startChatRetentionJob();
   startNotificationRetentionJob();
+  startHealthRetentionJob();
+  const stopHealthProbes = startHealthProbes();
   const stopPoller = await startNotificationPoller();
   const server = app.listen(config.port, '0.0.0.0', () => {
     logger.info('Urbani Observability API listening', {
@@ -42,6 +45,7 @@ startChatRetentionJob();
   const shutdown = (signal: string) => {
     logger.info('Shutting down', { signal });
     stopPoller();
+    stopHealthProbes();
     server.close(() => process.exit(0));
     // Failsafe: force-exit if connections don't drain in time.
     setTimeout(() => process.exit(0), 10_000).unref();

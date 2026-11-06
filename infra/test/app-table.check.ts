@@ -209,9 +209,79 @@ function main(): void {
   assert.deepEqual(publish.Resource, { Ref: topicId });
   assert.ok(!JSON.stringify(nt.toJSON()).includes('hooks.slack.com'), 'no webhook URL may appear in the template');
   assert.ok(JSON.stringify(nt.toJSON().Outputs).includes('AlertTopicArn'), 'missing output AlertTopicArn');
-  console.log(
+  // 11. Health monitoring (DPI 2 item 9) is OFF by default: no health checks and no canary (the CloudTrail bucket is the only bucket).
+  assert.equal(Object.keys(template.findResources('AWS::S3::Bucket')).length, 1, 'only the CloudTrail bucket exists by default');
+  for (const type of ['AWS::Route53::HealthCheck', 'AWS::Synthetics::Canary']) {
+    assert.deepEqual(Object.keys(template.findResources(type)), [], `${type} must be off by default`);
+  }
+  // 12. With enableHealthMonitoring: Route 53 HTTPS checks, an encrypted lifecycle bucket, a minimal-IAM canary and alarms.
+  const hm = Template.fromStack(
+    new UrbaniDpiStack(
+      new App({
+        context: {
+          enableHealthMonitoring: 'true',
+          healthEndpoints: 'https://qa.example.test/health, https://pay.example.test:8443/status?probe=1',
+          enableNotifications: 'true',
+        },
+      }),
+      'UrbaniDpiHealthCheck',
+    ),
+  );
+  const checks = Object.values(hm.findResources('AWS::Route53::HealthCheck')).map((r: Resource) => r.Properties.HealthCheckConfig);
+  assert.equal(checks.length, 2, 'one Route 53 health check per endpoint');
+  assert.deepEqual(checks.map((c: Resource) => c.Type), ['HTTPS', 'HTTPS']);
+  assert.deepEqual(checks.map((c: Resource) => c.FullyQualifiedDomainName).sort(), ['pay.example.test', 'qa.example.test']);
+  const pay = checks.find((c: Resource) => c.FullyQualifiedDomainName === 'pay.example.test') as Resource;
+  assert.equal(pay.Port, 8443);
+  assert.equal(pay.ResourcePath, '/status?probe=1');
+  assert.equal(pay.EnableSNI, true);
+  // Bucket: S3-managed encryption, fully private, SSL only, 30-day expiry (the CloudTrail bucket is the other bucket).
+  const [, bucket] = only(hm.findResources('AWS::S3::Bucket', { Properties: { LifecycleConfiguration: Match.objectLike({ Rules: Match.arrayWith([Match.objectLike({ Id: 'expire-canary-artifacts' })]) }) } }), 'canary artifact AWS::S3::Bucket');
+  const bp = bucket.Properties;
+  assert.equal(bp.BucketEncryption.ServerSideEncryptionConfiguration[0].ServerSideEncryptionByDefault.SSEAlgorithm, 'AES256');
+  assert.deepEqual(bp.PublicAccessBlockConfiguration, { BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true });
+  assert.equal(bp.LifecycleConfiguration.Rules[0].ExpirationInDays, 30);
+  assert.equal(bucket.DeletionPolicy, 'Retain');
+  hm.hasResourceProperties('AWS::S3::BucketPolicy', {
+    PolicyDocument: Match.objectLike({ Statement: Match.arrayWith([Match.objectLike({ Effect: 'Deny', Condition: { Bool: { 'aws:SecureTransport': 'false' } } })]) }),
+  });
+  // Canary: heartbeat, scheduled, running; role is the explicit minimal role (no managed policies, no wildcard actions).
+  const [, canary] = only(hm.findResources('AWS::Synthetics::Canary'), 'AWS::Synthetics::Canary');
+  assert.equal(canary.Properties.Name, 'urbani-health-heartbeat');
+  assert.equal(canary.Properties.StartCanaryAfterCreation, true);
+  assert.equal(canary.Properties.Schedule.Expression, 'rate(5 minutes)');
+  assert.ok(String(canary.Properties.Code.Handler) === 'index.handler');
+  assert.ok(!JSON.stringify(canary.Properties.Code).includes('x-api-key'), 'no secrets in the canary code');
+  const canaryRoleEntry = Object.entries(hm.findResources('AWS::IAM::Role')).find(([id]) => id.startsWith('HealthMonitoringCanaryRole'));
+  assert.ok(canaryRoleEntry, 'canary role is missing');
+  const [canaryRoleId, canaryRole] = canaryRoleEntry as [string, Resource];
+  assert.ok(JSON.stringify(canaryRole.Properties.AssumeRolePolicyDocument).includes('lambda.amazonaws.com'));
+  assert.equal(canaryRole.Properties.ManagedPolicyArns, undefined, 'the canary role must not use managed policies');  const canaryPolicy = Object.values(hm.findResources('AWS::IAM::Policy')).find((p: Resource) =>
+    JSON.stringify(p.Properties.Roles).includes(canaryRoleId),
+  ) as Resource;
+  const canaryActions = (canaryPolicy.Properties.PolicyDocument.Statement as Statement[]).flatMap((s) => sorted(s.Action));
+  assert.deepEqual(
+    canaryActions.sort(),
+    ['cloudwatch:PutMetricData', 'logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents', 's3:GetBucketLocation', 's3:ListAllMyBuckets', 's3:PutObject'],
+  );
+  // Alarms: one per Route 53 check (the env-agnostic stack region is unresolved, so they are created) plus the canary
+  // alarm; every alarm notifies the shared alert topic.
+  const alarms = Object.values(hm.findResources('AWS::CloudWatch::Alarm')) as Resource[];
+  assert.equal(alarms.length, 3, 'two Route 53 alarms and one canary alarm');
+  assert.ok(alarms.every((a) => (a.Properties.AlarmActions ?? []).length === 1), 'each alarm must notify the alert topic');
+  assert.equal(alarms.filter((a) => a.Properties.Namespace === 'AWS/Route53').length, 2);
+  // Misconfiguration fails fast.
+  assert.throws(
+    () => new UrbaniDpiStack(new App({ context: { enableHealthMonitoring: 'true' } }), 'UrbaniDpiHealthNoEndpoints'),
+    /healthEndpoints/,
+  );
+  assert.throws(
+    () => new UrbaniDpiStack(new App({ context: { enableHealthMonitoring: 'true', healthEndpoints: 'http://insecure.example.test' } }), 'UrbaniDpiHealthHttp'),
+    /https/,
+  );  console.log(
     'app-table check passed: UrbaniApp table (PK/SK, GSI1, CMK, PITR, Retain), UrbaniAlerts unchanged, ' +
-      'UrbaniDashboardTaskRole (ecs-tasks + aws:SourceAccount, 2 statements, no Scan), backend DB_DRIVER=sqlite',
+      'UrbaniDashboardTaskRole (ecs-tasks + aws:SourceAccount, 2 statements, no Scan), backend DB_DRIVER=sqlite, ' +
+      'health monitoring off by default and (flag on) Route 53 checks + minimal-IAM Synthetics canary + alarms',
   );
 }
 
