@@ -1,6 +1,7 @@
-import type { Sourced, Paginated, LogEntry, MetricSnapshot, ServiceSummary } from '@urbani/shared';
+import type { Sourced, Paginated, LogEntry, LogSearchMeta, MetricSnapshot, ServiceSummary } from '@urbani/shared';
 import { getIntegrations } from '../integrations';
-import { getRepositories, type LogFilter } from '../repositories';
+import { getRepositories } from '../repositories';
+import { appliedFilters, type LogSearch } from '../lib/logQuery';
 import { NotFoundError } from '../lib/errors';
 import { MOCK_NOTE } from '../integrations/mock/mockData';
 import { config } from '../config';
@@ -20,14 +21,20 @@ export const telemetryService = {
    * is preserved. Filtering/pagination are applied in-service over the adapter's
    * current window (the API returns the latest window, capped at 100 lines).
    */
-  async logs(filter: LogFilter): Promise<Sourced<Paginated<LogEntry>>> {
+  async logs(filter: LogSearch): Promise<Sourced<Paginated<LogEntry>> & { meta: LogSearchMeta }> {
     const { cloudwatch } = getIntegrations();
     const res = await cloudwatch.getLogs({
-      service: filter.service,
+      services: filter.services,
       environment: filter.environment,
-      level: filter.level,
+      levels: filter.levels,
       search: filter.search,
-      limit: 100,
+      regex: filter.regex,
+      regexMaxLength: config.logs.regexMaxLength,
+      startTime: filter.from,
+      endTime: filter.to,
+      sort: filter.sort,
+      // Adapters clamp to their own window cap (100 for mock/Urbani API, LOGS_INSIGHTS_MAX_RESULTS for Insights).
+      limit: config.logs.source === 'insights' ? config.logs.insightsMaxResults : 100,
     });
 
     const all = res.value;
@@ -40,6 +47,14 @@ export const telemetryService = {
       source: res.meta.source,
       sourceNote: res.meta.note,
       data: { items, page, pageSize, total: all.length },
+      meta: {
+        applied: appliedFilters(filter),
+        sort: filter.sort,
+        total: all.length,
+        truncated: res.meta.truncated ?? all.length >= 100,
+        windowCap: res.meta.windowCap ?? 100,
+        scope: res.meta.scope ?? 'Latest log window from the configured source.',
+      },
     };
   },
 

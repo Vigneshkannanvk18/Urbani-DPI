@@ -4,6 +4,7 @@ import type {
   PersistedAlert,
   DashboardSummary,
   LogEntry,
+  LogSearchMeta,
   MetricSnapshot,
   ServiceSummary,
   UsageRecord,
@@ -97,9 +98,26 @@ export const alertsApi = {
   acknowledge: (id: string) => api.post<Sourced<PersistedAlert>>(`/alerts/${id}/acknowledge`),
 };
 
+export interface LogQueryParams {
+  service?: string;
+  level?: string;
+  /** Comma-separated levels, e.g. "ERROR,WARN". */
+  levels?: string;
+  /** Comma-separated servers (services), e.g. "main,payments". */
+  services?: string;
+  search?: string;
+  regex?: boolean;
+  /** ISO 8601 date-time. */
+  from?: string;
+  to?: string;
+  sort?: 'newest' | 'oldest';
+  page?: number;
+  pageSize?: number;
+}
+
 export const logsApi = {
-  list: (params: { service?: string; level?: string; search?: string; page?: number } = {}) =>
-    api.get<Sourced<Paginated<LogEntry>>>(`/logs${qs(params)}`),
+  list: (params: LogQueryParams = {}) =>
+    api.get<Sourced<Paginated<LogEntry>> & { meta?: LogSearchMeta }>(`/logs${qs(params)}`),
 };
 
 export const metricsApi = {

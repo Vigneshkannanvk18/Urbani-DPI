@@ -81,7 +81,32 @@ export class SecurityConstruct extends Construct {
       assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com', {
         conditions: { StringEquals: { 'aws:SourceAccount': Stack.of(this).account } }, // confused-deputy guard
       }),
-      description: 'Dashboard backend task role: least-privilege data access to the UrbaniApp DynamoDB table only.',
+      description: 'Dashboard backend task role: least-privilege data access to the UrbaniApp DynamoDB table plus read-only Logs Insights on the configured log groups.',
     });
+
+    // Log search via CloudWatch Logs Insights (DPI 2 item 4). Authored only, not deployed.
+    // Scoped to the configured log groups; empty list (default) => no statement is added.
+    const insightsGroups = cfg.logsInsightsLogGroups;
+    if (insightsGroups.length > 0) {
+      const groupArns = insightsGroups.flatMap((g) => [
+        `arn:aws:logs:${cfg.region}:${Stack.of(this).account}:log-group:${g}`,
+        `arn:aws:logs:${cfg.region}:${Stack.of(this).account}:log-group:${g}:*`,
+      ]);
+      this.dashboardTaskRole.addToPolicy(
+        new iam.PolicyStatement({
+          sid: 'LogsInsightsReadConfiguredGroups',
+          actions: ['logs:StartQuery', 'logs:DescribeLogGroups'],
+          resources: groupArns,
+        }),
+      );
+      // GetQueryResults is authorised on the query id, which has no group-scoped ARN.
+      this.dashboardTaskRole.addToPolicy(
+        new iam.PolicyStatement({
+          sid: 'LogsInsightsGetQueryResults',
+          actions: ['logs:GetQueryResults'],
+          resources: ['*'],
+        }),
+      );
+    }
   }
 }

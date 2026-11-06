@@ -110,6 +110,15 @@ const schema = z.object({
   // Audit retention (DPI 2 item 3). Placeholder default; the period is a client decision. 0 = keep forever.
   AUDIT_RETENTION_DAYS: z.coerce.number().int().min(0).default(365),
   AUDIT_RETENTION_JOB: z.string().optional(),
+
+  // Log search (DPI 2 item 4). `default` keeps the current source (mock / Urbani /logs API).
+  // `insights` searches the full CloudWatch stream via Logs Insights; it needs LOGS_INSIGHTS_LOG_GROUPS.
+  LOGS_SOURCE: z.enum(['default', 'insights']).default('default'),
+  // Comma-separated service=logGroupName pairs, e.g. main=/aws/ecs/urbaniqa-qa-main/app,payments=/aws/ecs/urbaniqa-qa-payments/app
+  LOGS_INSIGHTS_LOG_GROUPS: z.string().default(''),
+  LOGS_INSIGHTS_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(15_000),
+  LOGS_INSIGHTS_MAX_RESULTS: z.coerce.number().int().min(1).max(10_000).default(1000),
+  LOGS_REGEX_MAX_LENGTH: z.coerce.number().int().min(10).max(1000).default(200),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -155,6 +164,19 @@ const urbaniServices = (() => {
 // QA groups: /aws/ecs/urbaniqa-qa-main/app and /aws/ecs/urbaniqa-qa-payments/app).
 const urbaniLogGroupFor = (service: string): string =>
   `/aws/ecs/urbaniqa-${env.URBANI_ENVIRONMENT}-${service}/app`;
+
+// "main=/aws/ecs/x,payments=/aws/ecs/y" -> { main: '/aws/ecs/x', payments: '/aws/ecs/y' }
+function parseLogGroupMap(raw: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const part of raw.split(',')) {
+    const i = part.indexOf('=');
+    if (i <= 0) continue;
+    const svc = part.slice(0, i).trim();
+    const group = part.slice(i + 1).trim();
+    if (svc && group) out[svc] = group;
+  }
+  return out;
+}
 
 export const config = {
   env: env.NODE_ENV,
@@ -259,6 +281,14 @@ export const config = {
 
   scheduler: {
     collectorMinutes: env.COLLECTOR_SCHEDULE_MINUTES,
+  },
+  logs: {
+    source: env.LOGS_SOURCE,
+    /** service -> CloudWatch log group, parsed from LOGS_INSIGHTS_LOG_GROUPS (empty = not configured). */
+    insightsLogGroups: parseLogGroupMap(env.LOGS_INSIGHTS_LOG_GROUPS),
+    insightsTimeoutMs: env.LOGS_INSIGHTS_TIMEOUT_MS,
+    insightsMaxResults: env.LOGS_INSIGHTS_MAX_RESULTS,
+    regexMaxLength: env.LOGS_REGEX_MAX_LENGTH,
   },
   audit: {
     retentionDays: env.AUDIT_RETENTION_DAYS,

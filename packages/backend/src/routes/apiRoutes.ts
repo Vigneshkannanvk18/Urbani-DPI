@@ -14,6 +14,8 @@ import { rateLimit } from '../middleware/rateLimit';
 import { userRoutes } from './userRoutes';
 import { auditService } from '../services/auditService';
 import { AUDIT_CATEGORIES, AUDIT_RESULTS } from '@urbani/shared';
+import { config } from '../config';
+import { parseLogSearch, appliedFilters } from '../lib/logQuery';
 
 /**
  * Protected API routes (Epic 10). Every route here requires authentication
@@ -77,20 +79,22 @@ apiRoutes.post(
 );
 
 // -------------------- LOGS --------------------
-const logQuerySchema = pageSchema.extend({
-  service: z.string().optional(),
-  environment: z.string().optional(),
-  level: z.enum(['DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL']).optional(),
-  search: z.string().optional(),
-});
 apiRoutes.get(
   '/logs',
   requirePermission('logs:view'),
   asyncHandler(async (req, res) => {
-    const filter = logQuerySchema.parse(req.query);
-    const out = await telemetryService.logs(filter);
+    const search = parseLogSearch(req.query, config.logs.regexMaxLength);
+    const out = await telemetryService.logs(search);
     // Filter parameters only; never the log content.
-    await getRepositories().audit.record(req.auth!.email, 'logs.search', 'logs', { ...filter });
+    await getRepositories().audit.record(req.auth!.email, 'logs.search', 'logs', {
+      ...appliedFilters(search),
+      ...(search.sort === 'oldest' ? { sort: search.sort } : {}),
+      service: search.service,
+      level: search.level,
+      page: search.page,
+      pageSize: search.pageSize,
+      environment: search.environment,
+    });
     res.json(out);
   }),
 );

@@ -7,6 +7,7 @@ import type {
 import type { LogEntry, MetricSnapshot, UrbaniIncidentAlert } from '@urbani/shared';
 import { logger } from '../../lib/logger';
 import { mockMetrics, MOCK_NOTE } from '../mock/mockData';
+import { filterLogEntries, effectiveServices } from '../logFilter';
 import {
   parseLogLine,
   stableSortDesc,
@@ -148,8 +149,8 @@ export class HttpUrbaniLogsAdapter implements CloudWatchAdapter {
 
   async getLogs(query: CloudWatchLogQuery): Promise<WithMeta<LogEntry[]>> {
     // Fetch the requested service (if enabled), else fan out across all enabled.
-    const target =
-      query.service && this.services.includes(query.service) ? [query.service] : this.services;
+    const wantedSvcs = effectiveServices(query).filter((s) => this.services.includes(s));
+    const target = wantedSvcs.length ? wantedSvcs : this.services;
 
     const [perService, evidenceTuples] = await Promise.all([
       Promise.all(target.map((svc) => this.fetchService(svc))),
@@ -166,19 +167,21 @@ export class HttpUrbaniLogsAdapter implements CloudWatchAdapter {
     // De-dup across both channels on the natural key so a line present in both a
     // log window and an alert's evidence collapses to one row (stable id).
     let tuples = dedupeByNaturalKey(merged);
-    if (query.service) tuples = tuples.filter((t) => t.entry.service === query.service);
-    if (query.environment) tuples = tuples.filter((t) => t.entry.environment === query.environment);
-    if (query.level) tuples = tuples.filter((t) => t.entry.level === query.level);
-    if (query.search) {
-      const q = query.search.toLowerCase();
-      tuples = tuples.filter((t) => t.entry.message.toLowerCase().includes(q));
-    }
+    // Filters (service(s), environment, level(s), date range, text/regex) run in-process
+    // over the merged window; the regex path is validated and time-boxed.
+    const keep = new Set(filterLogEntries(tuples.map((t) => t.entry), query));
+    tuples = tuples.filter((t) => keep.has(t.entry));
 
     // Stable descending sort on sortKeyMs: an unresolved timestamp is -Infinity
     // and therefore sorts LAST, never first.
-    const sorted = stableSortDesc(tuples);
+    let sorted = stableSortDesc(tuples);
+    if (query.sort === 'oldest') {
+      const resolved = sorted.filter((t) => t.sortKeyMs !== -Infinity).reverse();
+      sorted = [...resolved, ...sorted.filter((t) => t.sortKeyMs === -Infinity)];
+    }
     const limit = Math.min(query.limit ?? 100, 100);
     const items = sorted.slice(0, limit).map((t) => t.entry);
+    const truncated = sorted.length > limit;
 
     // A fully-failed /logs/* fetch with no lines from any channel is degraded:
     // label WAITING_FOR_INTEGRATION so the Logs page shows "temporarily
@@ -199,7 +202,14 @@ export class HttpUrbaniLogsAdapter implements CloudWatchAdapter {
       : `Live Urbani logs (services=${this.services.join(', ')}). Latest + history, refreshed every ${this.ttlMs / 60000} min.`;
 
     return {
-      meta: { source: 'LIVE', note },
+      meta: {
+        source: 'LIVE',
+        note,
+        truncated,
+        windowCap: 100,
+        scope:
+          'Latest + history window from the Urbani /logs API (flagged lines only) plus lines from recent incident evidence. Not the full CloudWatch stream.',
+      },
       value: items,
     };
   }

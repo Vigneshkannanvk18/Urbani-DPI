@@ -16,6 +16,7 @@ import { MockAIProvider } from './ai/MockAIProvider';
 import { HttpUrbaniLogsAdapter } from './live/HttpUrbaniLogsAdapter';
 import { HttpUrbaniChatProvider } from './live/HttpUrbaniChatProvider';
 import { HttpUrbaniAlertsAdapter } from './live/HttpUrbaniAlertsAdapter';
+import { CloudWatchLogsInsightsAdapter } from './aws/CloudWatchLogsInsightsAdapter';
 
 /**
  * Integration factory (Phase 1 Mock/Adapter strategy).
@@ -146,6 +147,22 @@ export function getIntegrations(): Integrations {
       break;
     default:
       cached = buildMock();
+  }
+  // Opt-in full-stream search (DPI 2 item 4). Default LOGS_SOURCE=default leaves the adapter above untouched.
+  if (config.logs.source === 'insights') {
+    logger.info('Wiring CloudWatch Logs Insights for log search', {
+      services: Object.keys(config.logs.insightsLogGroups),
+    });
+    cached.cloudwatch = new CloudWatchLogsInsightsAdapter(
+      {
+        logGroups: config.logs.insightsLogGroups,
+        services: config.urbani.services,
+        environment: config.urbani.environment,
+        timeoutMs: config.logs.insightsTimeoutMs,
+        maxResults: config.logs.insightsMaxResults,
+      },
+      config.cloudwatch.region,
+    );
   }
   return cached;
 }

@@ -24,6 +24,30 @@ export interface Paginated<T> {
   total: number;
 }
 
+/** Filters that were actually applied to a log search (echoed back by GET /api/logs). */
+export interface LogSearchApplied {
+  levels?: string[];
+  services?: string[];
+  from?: string;
+  to?: string;
+  search?: string;
+  regex?: boolean;
+}
+
+/** Search metadata returned next to the Sourced log page so coverage is never misrepresented. */
+export interface LogSearchMeta {
+  applied: LogSearchApplied;
+  sort: 'newest' | 'oldest';
+  /** Matches found inside the scanned window (not a claim about the whole log stream). */
+  total: number;
+  /** True when the window cap was hit, so more matching lines may exist beyond it. */
+  truncated: boolean;
+  /** Maximum lines the active source scans per request. */
+  windowCap: number;
+  /** Plain-language description of WHAT is searched. */
+  scope: string;
+}
+
 /** Standard API error body (see backend error handler). */
 export interface ApiError {
   error: {

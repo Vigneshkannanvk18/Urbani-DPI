@@ -6,6 +6,7 @@ import type {
 } from '../types';
 import type { LogEntry, MetricSnapshot } from '@urbani/shared';
 import { mockLogs, mockMetrics, MOCK_NOTE } from './mockData';
+import { filterLogEntries, sortLogEntries } from '../logFilter';
 
 /**
  * MockCloudWatchAdapter (Phase 1). Returns seeded telemetry with a MOCK label.
@@ -15,18 +16,19 @@ export class MockCloudWatchAdapter implements CloudWatchAdapter {
   readonly kind = 'CLOUDWATCH' as const;
 
   async getLogs(query: CloudWatchLogQuery): Promise<WithMeta<LogEntry[]>> {
-    let items = [...mockLogs];
-    if (query.service) items = items.filter((l) => l.service === query.service);
-    if (query.environment) items = items.filter((l) => l.environment === query.environment);
-    if (query.level) items = items.filter((l) => l.level === query.level);
-    if (query.search) {
-      const q = query.search.toLowerCase();
-      items = items.filter((l) => l.message.toLowerCase().includes(q));
-    }
+    const matched = sortLogEntries(filterLogEntries(mockLogs, query), query.sort);
     // Honour the documented 100-line cap.
     const limit = Math.min(query.limit ?? 100, 100);
-    items = items.slice(0, limit);
-    return { meta: { source: 'MOCK', note: MOCK_NOTE }, value: items };
+    return {
+      meta: {
+        source: 'MOCK',
+        note: MOCK_NOTE,
+        truncated: matched.length > limit,
+        windowCap: 100,
+        scope: 'Seeded demo log lines (mock data, not real telemetry).',
+      },
+      value: matched.slice(0, limit),
+    };
   }
 
   async getMetrics(query: CloudWatchMetricQuery): Promise<WithMeta<MetricSnapshot[]>> {

@@ -44,6 +44,8 @@ export interface UrbaniConfig {
   dashboardDesiredCount: number; // number of running tasks (set >=2 for HA)
   frontendImage: string;       // ECR image URI/tag for urbani/frontend
   backendImage: string;        // ECR image URI/tag for urbani/backend
+  /** Log groups the dashboard may query with Logs Insights (DPI 2 item 4). Empty = no IAM statement. */
+  logsInsightsLogGroups: string[];
 }
 
 function ctx<T extends string | number>(
@@ -84,6 +86,11 @@ export function loadConfig(scope: Construct): UrbaniConfig {
     anomalyTypeGsi: ctx(scope, 'anomalyTypeGsi', process.env.URBANI_ANOMALY_GSI, 'anomaly_type-index'),
     dynamoTablePrefix,
     appTableName: `${dynamoTablePrefix}App`,
+    // Comma-separated log group names (context `logsInsightsLogGroups` or URBANI_LOGS_INSIGHTS_LOG_GROUPS).
+    logsInsightsLogGroups: ctx(scope, 'logsInsightsLogGroups', process.env.URBANI_LOGS_INSIGHTS_LOG_GROUPS, '')
+      .split(',')
+      .map((g) => g.trim())
+      .filter(Boolean),
     budgetSoftUsd: ctx(scope, 'budgetSoftUsd', process.env.URBANI_BUDGET_SOFT, 50),
     budgetHardUsd: ctx(scope, 'budgetHardUsd', process.env.URBANI_BUDGET_HARD, 100),
     // ECS Fargate dashboard hosting. Defaults sized for a low-footprint

@@ -171,6 +171,13 @@
       "data.page",
       "data.pageSize",
       "data.total",
+      "meta",
+      "meta.applied",
+      "meta.scope",
+      "meta.sort",
+      "meta.total",
+      "meta.truncated",
+      "meta.windowCap",
       "source",
       "sourceNote"
     ]

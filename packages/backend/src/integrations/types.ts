@@ -23,6 +23,12 @@ export interface AdapterMeta {
   /** LIVE once backed by real AWS; MOCK / WAITING_FOR_INTEGRATION otherwise. */
   source: DataSource;
   note?: string;
+  /** Log search only: true when the window cap was hit (more matches may exist). */
+  truncated?: boolean;
+  /** Log search only: lines scanned per request by this adapter. */
+  windowCap?: number;
+  /** Log search only: plain-language description of what was searched. */
+  scope?: string;
 }
 
 export interface WithMeta<T> {
@@ -36,8 +42,16 @@ export interface CloudWatchLogQuery {
   environment?: string;
   level?: string;
   search?: string;
+  /** Multi-select filters (DPI 2 item 4). Merged with the legacy single `level` / `service`. */
+  levels?: string[];
+  services?: string[];
+  /** When true, `search` is a (validated, time-boxed) regular expression instead of a substring. */
+  regex?: boolean;
+  regexMaxLength?: number;
+  /** Date range, ISO 8601 (inclusive). */
   startTime?: string;
   endTime?: string;
+  sort?: 'newest' | 'oldest';
   /** Hard cap; documented architecture limits to 100 lines per cycle. */
   limit?: number;
 }
