@@ -6,7 +6,10 @@ import { dashboardService } from '../services/dashboardService';
 import { alertService } from '../services/alertService';
 import { telemetryService } from '../services/telemetryService';
 import { aiService } from '../services/aiService';
+import { performance } from 'node:perf_hooks';
 import { chatService } from '../services/chatService';
+import { chatHistoryService } from '../services/chatHistoryService';
+import { AppError } from '../lib/errors';
 import { usageService } from '../services/usageService';
 import { settingsService } from '../services/settingsService';
 import { getRepositories } from '../repositories';
@@ -159,6 +162,7 @@ const chatSchema = z.object({
   question: z.string().trim().min(1).max(1000),
   service: z.string().optional(),
   environment: z.string().optional(),
+  sessionId: z.string().min(1).max(128).optional(),
   history: z
     .array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().max(4000) }))
     .max(20)
@@ -169,15 +173,85 @@ apiRoutes.post(
   requirePermission('chat:use'),
   rateLimit({ windowMs: 60_000, max: 30 }),
   asyncHandler(async (req, res) => {
+    const startedAt = performance.now(); // monotonic: request received
     const body = chatSchema.parse(req.body);
     res.json(
       await chatService.ask(body.question, {
+        startedAt,
+        userId: req.auth!.sub,
+        sessionId: body.sessionId,
         service: body.service,
         environment: body.environment,
         history: body.history,
         actor: req.auth!.email,
       }),
     );
+  }),
+);
+
+// ---- Chat history + feedback (DPI 2 item 8). chat:use, OWNER-ONLY: someone else's session is a 404. ----
+const sessionsQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  cursor: z.string().max(1024).optional(),
+});
+const renameBody = z.object({ title: z.string().trim().min(1).max(200) });
+const feedbackBody = z.object({
+  rating: z.enum(['UP', 'DOWN']).nullable(),
+  comment: z.string().max(500).optional(),
+});
+const summaryQuery = z.object({
+  from: z.string().datetime({ offset: true }).optional(),
+  to: z.string().datetime({ offset: true }).optional(),
+});
+apiRoutes.get(
+  '/chat/sessions',
+  requirePermission('chat:use'),
+  asyncHandler(async (req, res) => {
+    const q = sessionsQuery.parse(req.query);
+    res.json({ data: await chatHistoryService.listSessions(req.auth!.sub, q) });
+  }),
+);
+apiRoutes.get(
+  '/chat/sessions/:id',
+  requirePermission('chat:use'),
+  asyncHandler(async (req, res) => res.json({ data: await chatHistoryService.getSession(req.auth!.sub, req.params.id) })),
+);
+apiRoutes.patch(
+  '/chat/sessions/:id',
+  requirePermission('chat:use'),
+  asyncHandler(async (req, res) => {
+    const { title } = renameBody.parse(req.body);
+    res.json({ data: await chatHistoryService.rename(req.auth!.sub, req.params.id, title) });
+  }),
+);
+apiRoutes.delete(
+  '/chat/sessions/:id',
+  requirePermission('chat:use'),
+  asyncHandler(async (req, res) => {
+    const out = await chatHistoryService.remove(req.auth!.sub, req.params.id);
+    // IDs and counts only, never content.
+    await getRepositories().audit.record(req.auth!.email, 'chat.session_delete', req.params.id, { messageCount: out.messageCount });
+    res.json({ data: { deleted: true } });
+  }),
+);
+apiRoutes.put(
+  '/chat/messages/:id/feedback',
+  requirePermission('chat:use'),
+  asyncHandler(async (req, res) => {
+    const body = feedbackBody.parse(req.body);
+    res.json({ data: await chatHistoryService.setFeedback(req.auth!.sub, req.params.id, body.rating, body.comment) });
+  }),
+);
+// Quality monitoring: aggregates only (audit:view roles). Never user identity or question text.
+apiRoutes.get(
+  '/chat/feedback/summary',
+  requirePermission('audit:view'),
+  asyncHandler(async (req, res) => {
+    const q = summaryQuery.parse(req.query);
+    const to = q.to ? new Date(q.to) : new Date();
+    const from = q.from ? new Date(q.from) : new Date(to.getTime() - 30 * 86_400_000);
+    if (from > to) throw new AppError('VALIDATION_ERROR', 'from must be before to', 400);
+    res.json({ data: await chatHistoryService.summary(from, to) });
   }),
 );
 

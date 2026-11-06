@@ -110,6 +110,9 @@ const schema = z.object({
   // Audit retention (DPI 2 item 3). Placeholder default; the period is a client decision. 0 = keep forever.
   AUDIT_RETENTION_DAYS: z.coerce.number().int().min(0).default(365),
   AUDIT_RETENTION_JOB: z.string().optional(),
+  // Chat history (DPI 2 item 8). Retention default is a PLACEHOLDER pending the client's PII/retention policy. 0 = keep forever.
+  CHAT_HISTORY_ENABLED: z.string().optional(),
+  CHAT_RETENTION_DAYS: z.coerce.number().int().min(0).default(90),
 
   // Log search (DPI 2 item 4). `default` keeps the current source (mock / Urbani /logs API).
   // `insights` searches the full CloudWatch stream via Logs Insights; it needs LOGS_INSIGHTS_LOG_GROUPS.
@@ -304,6 +307,10 @@ export const config = {
     insightsTimeoutMs: env.LOGS_INSIGHTS_TIMEOUT_MS,
     insightsMaxResults: env.LOGS_INSIGHTS_MAX_RESULTS,
     regexMaxLength: env.LOGS_REGEX_MAX_LENGTH,
+  },
+  chat: {
+    historyEnabled: boolFromEnv(env.CHAT_HISTORY_ENABLED, true),
+    retentionDays: env.CHAT_RETENTION_DAYS,
   },
   audit: {
     retentionDays: env.AUDIT_RETENTION_DAYS,

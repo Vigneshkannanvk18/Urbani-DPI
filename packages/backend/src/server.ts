@@ -1,6 +1,7 @@
 import { createApp } from './app';
 import { startAuditRetentionJob } from './services/auditService';
 import { startNotificationRetentionJob } from './services/notificationService';
+import { startChatRetentionJob } from './services/chatHistoryService';
 import { startNotificationPoller } from './notifications/poller';
 import { config } from './config';
 import { logger } from './lib/logger';
@@ -25,6 +26,7 @@ async function main(): Promise<void> {
   }
   const app = createApp();
   startAuditRetentionJob();
+startChatRetentionJob();
   startNotificationRetentionJob();
   const stopPoller = await startNotificationPoller();
   const server = app.listen(config.port, '0.0.0.0', () => {

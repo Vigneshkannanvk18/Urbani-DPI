@@ -56,3 +56,14 @@ export function preview(text: string, max = 80): string {
   const t = text.replace(/\s+/g, ' ').trim();
   return t.length > max ? `${t.slice(0, max)}…` : t;
 }
+
+/**
+ * Best-effort redaction of secrets typed into FREE TEXT (e.g. a feedback comment): `key=value` / `key: value`
+ * pairs whose key looks like a secret, bearer tokens and AWS access key ids. Reuses the key pattern of redact().
+ */
+export function redactText(text: string): string {
+  return text
+    .replace(new RegExp(`\\b(${SECRET_KEY.source.slice(1, -1)})\\w*\\s*[:=]\\s*\\S+`, 'gi'), (_m, k: string) => `${k}=${REDACTED}`)
+    .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]{8,}/gi, `Bearer ${REDACTED}`)
+    .replace(/\b(AKIA|ASIA)[A-Z0-9]{16}\b/g, REDACTED);
+}

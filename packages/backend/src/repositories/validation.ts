@@ -13,6 +13,7 @@ import { compareBinary } from './common';
 import type {
   AuditRangeQuery,
   ChatFeedbackInput,
+  ChatMessageMeta,
   NewChatMessage,
   NewChatSession,
   PreferencesPatch,
@@ -210,6 +211,17 @@ const newChatMessageSchema = z.object({
   latencyMs: z.number().int().min(0).max(600_000).nullable().optional(),
   inputTokens: z.number().int().min(0).nullable().optional(),
   outputTokens: z.number().int().min(0).nullable().optional(),
+  meta: z
+    .object({
+      groundingNote: z.string().max(2_000).optional(),
+      logsSource: z.string().max(64).optional(),
+      providerMs: z.number().min(0).max(600_000).optional(),
+      preparationMs: z.number().min(0).max(600_000).optional(),
+      error: z.boolean().optional(),
+    })
+    .strict()
+    .nullable()
+    .optional(),
 });
 
 export interface ParsedNewChatMessage {
@@ -223,6 +235,7 @@ export interface ParsedNewChatMessage {
   latencyMs: number | null;
   inputTokens: number | null;
   outputTokens: number | null;
+  meta: ChatMessageMeta | null;
 }
 
 export function parseNewChatMessage(input: NewChatMessage): ParsedNewChatMessage {
@@ -238,6 +251,7 @@ export function parseNewChatMessage(input: NewChatMessage): ParsedNewChatMessage
     latencyMs: m.latencyMs ?? null,
     inputTokens: m.inputTokens ?? null,
     outputTokens: m.outputTokens ?? null,
+    meta: m.meta ?? null,
   };
 }
 
@@ -254,6 +268,11 @@ export type ParsedChatFeedbackInput = Omit<ChatFeedbackInput, 'comment'> & { com
 export function parseChatFeedbackInput(input: ChatFeedbackInput): ParsedChatFeedbackInput {
   const f = parseWith(chatFeedbackInputSchema, input);
   return { ...f, comment: f.comment ?? null };
+}
+
+/** renameSession title: 1-200 characters. */
+export function parseSessionTitle(title: string): string {
+  return parseWith(z.string().trim().min(1).max(200), title);
 }
 
 /** preferences.get, getSession, listSessionsByUser, listMessages, listFeedback: 1–128 characters. */

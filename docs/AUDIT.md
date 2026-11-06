@@ -13,7 +13,9 @@ The single source of truth is `AUDIT_ACTION_CATALOG` in `packages/shared/src/dom
 | `LOGOUT` | SENSITIVE_QUERY | `POST /api/auth/logout` |
 | `access.denied` | SENSITIVE_QUERY | permission guard (DENIED) |
 | `ALERT_VIEWED` | SENSITIVE_QUERY | `GET /api/alerts/:id` |
-| `chat.query` | SENSITIVE_QUERY | `POST /api/chat` (service + question preview, never the answer; FAILURE if the assistant is unavailable) |
+| `chat.query` | SENSITIVE_QUERY | `POST /api/chat` (service + question preview, never the answer; end-to-end `latency` numbers and `sessionId`; FAILURE if the assistant is unavailable) |
+| `chat.session_delete` | CONFIG | `DELETE /api/chat/sessions/:id` (session id and message count only) |
+| `chat.purge` | CONFIG | Chat retention job (counts of purged sessions/messages/feedback only) |
 | `logs.search` | SENSITIVE_QUERY | `GET /api/logs` (filter parameters only, never log content) |
 | `audit.view` | SENSITIVE_QUERY | `GET /api/audit` (filter parameters) |
 | `ALERT_ACKNOWLEDGED` | CONFIG | `POST /api/alerts/:id/acknowledge` |

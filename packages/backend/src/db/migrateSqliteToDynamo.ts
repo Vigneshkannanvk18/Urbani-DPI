@@ -435,6 +435,7 @@ const MAPPERS: Record<MigrationEntity, (row: Row) => Planned> = {
         inputTokens: nn(r, 'input_tokens'),
         outputTokens: nn(r, 'output_tokens'),
         createdAt: s(r, 'created_at'),
+        meta: sn(r, 'meta_json') ? JSON.parse(s(r, 'meta_json')) : null,
       }),
     ),
   chatFeedback: (r) =>

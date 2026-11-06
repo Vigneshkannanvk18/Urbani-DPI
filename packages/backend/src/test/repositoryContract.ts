@@ -1357,6 +1357,7 @@ export function defineRepositoryContract(harness: RepositoryHarness): void {
       inputTokens: null,
       outputTokens: null,
       createdAt: expect.any(String),
+      meta: null,
     });
     expect(stamps).toContain(m.createdAt);
     let after = await repos.chat.getSession(s.id);
@@ -1530,6 +1531,88 @@ export function defineRepositoryContract(harness: RepositoryHarness): void {
       await expectReason(repos.chat.listFeedback(id), 'INVALID_ARGUMENT');
       await expectReason(repos.preferences.get(id), 'INVALID_ARGUMENT');
     }
+  });
+
+  // ---------------------------------------------------------------- Chat history + quality (DPI 2 items 8-9)
+
+  const WIDE_FROM = '2000-01-01T00:00:00.000Z';
+  const WIDE_TO = '2999-01-01T00:00:00.000Z';
+
+  it('C-CH-11 message meta round-trips; renameSession changes only the title; deleteFeedback removes one row', async () => {
+    await addUser('u1', 'u1@urbani.test');
+    const s = await repos.chat.createSession({ userId: 'u1', title: 'Old' });
+    const meta = { groundingNote: 'grounded', logsSource: 'MOCK', providerMs: 12.5, preparationMs: 1.5 };
+    const m = await repos.chat.appendMessage({ sessionId: s.id, role: 'assistant', content: 'a', latencyMs: 20, meta });
+    expect(m.meta).toEqual(meta);
+    expect((await repos.chat.listMessages(s.id)).items[0].meta).toEqual(meta);
+    expect((await repos.chat.appendMessage({ sessionId: s.id, role: 'user', content: 'q' })).meta).toBeNull();
+
+    const before = await repos.chat.getSession(s.id);
+    const renamed = await repos.chat.renameSession(s.id, '  New title ');
+    expect(renamed?.title).toBe('New title');
+    expect(renamed?.updatedAt).toBe(before?.updatedAt);
+    expect(await repos.chat.renameSession('sess-missing', 'x')).toBeNull();
+    await expectReason(repos.chat.renameSession(s.id, '   '), 'INVALID_ARGUMENT');
+
+    await repos.chat.setFeedback({ sessionId: s.id, messageId: m.id, userId: 'u1', rating: 'LIKE' });
+    expect(await repos.chat.deleteFeedback(s.id, m.id)).toBe(true);
+    expect(await repos.chat.deleteFeedback(s.id, m.id)).toBe(false);
+    expect(await repos.chat.listFeedback(s.id)).toEqual([]);
+  });
+
+  it('C-CH-12 deleteSession removes the session, its messages and feedback, and nothing else', async () => {
+    await addUser('u1', 'u1@urbani.test');
+    const a = await repos.chat.createSession({ userId: 'u1', title: 'A' });
+    const b = await repos.chat.createSession({ userId: 'u1', title: 'B' });
+    const ma = await repos.chat.appendMessage({ sessionId: a.id, role: 'assistant', content: 'a' });
+    const mb = await repos.chat.appendMessage({ sessionId: b.id, role: 'assistant', content: 'b' });
+    await repos.chat.setFeedback({ sessionId: a.id, messageId: ma.id, userId: 'u1', rating: 'LIKE' });
+    await repos.chat.setFeedback({ sessionId: b.id, messageId: mb.id, userId: 'u1', rating: 'DISLIKE' });
+    expect(await repos.chat.deleteSession(a.id)).toBe(true);
+    expect(await repos.chat.getSession(a.id)).toBeNull();
+    expect((await repos.chat.listMessages(a.id)).items).toEqual([]);
+    expect(await repos.chat.listFeedback(a.id)).toEqual([]);
+    expect((await repos.chat.listSessionsByUser('u1')).items.map((x) => x.id)).toEqual([b.id]);
+    expect((await repos.chat.listMessages(b.id)).items).toHaveLength(1);
+    expect(await repos.chat.listFeedback(b.id)).toHaveLength(1);
+    expect(await repos.chat.deleteSession(a.id)).toBe(false);
+  });
+
+  it('C-CH-13 purgeOlderThan deletes whole idle sessions (messages and feedback) before the cutoff only', async () => {
+    await addUser('u1', 'u1@urbani.test');
+    const old = await repos.chat.createSession({ userId: 'u1', title: 'old' });
+    const m1 = await repos.chat.appendMessage({ sessionId: old.id, role: 'user', content: 'q' });
+    const m2 = await repos.chat.appendMessage({ sessionId: old.id, role: 'assistant', content: 'a' });
+    await repos.chat.setFeedback({ sessionId: old.id, messageId: m2.id, userId: 'u1', rating: 'DISLIKE' });
+    expect(m1.id).not.toBe(m2.id);
+    const fresh = await repos.chat.createSession({ userId: 'u1', title: 'fresh' });
+    await repos.chat.appendMessage({ sessionId: fresh.id, role: 'user', content: 'q' });
+    expect(await repos.chat.purgeOlderThan(fresh.createdAt)).toEqual({ sessions: 1, messages: 2, feedback: 1 });
+    expect(await repos.chat.getSession(old.id)).toBeNull();
+    expect((await repos.chat.listMessages(fresh.id)).items).toHaveLength(1);
+    expect(await repos.chat.purgeOlderThan(fresh.createdAt)).toEqual({ sessions: 0, messages: 0, feedback: 0 });
+  });
+
+  it('C-CH-14 listFeedbackRecords and listLatencySamples are range-bound and carry no user identity', async () => {
+    await addUser('u1', 'u1@urbani.test');
+    const s = await repos.chat.createSession({ userId: 'u1', service: 'main' });
+    const ok = await repos.chat.appendMessage({
+      sessionId: s.id, role: 'assistant', content: 'a', latencyMs: 3200, meta: { providerMs: 3000 },
+    });
+    await repos.chat.appendMessage({ sessionId: s.id, role: 'assistant', content: 'e', latencyMs: 50, meta: { error: true } });
+    await repos.chat.appendMessage({ sessionId: s.id, role: 'assistant', content: 'old data without latency' });
+    await repos.chat.appendMessage({ sessionId: s.id, role: 'user', content: 'q', latencyMs: 9 });
+    await repos.chat.setFeedback({ sessionId: s.id, messageId: ok.id, userId: 'u1', rating: 'DISLIKE', comment: 'slow' });
+
+    const samples = await repos.chat.listLatencySamples(WIDE_FROM, WIDE_TO);
+    expect(samples).toEqual([{ createdAt: ok.createdAt, service: 'main', totalMs: 3200, providerMs: 3000 }]);
+    const records = await repos.chat.listFeedbackRecords(WIDE_FROM, WIDE_TO);
+    expect(records).toEqual([
+      { messageId: ok.id, sessionId: s.id, rating: 'DISLIKE', comment: 'slow', updatedAt: expect.any(String), service: 'main' },
+    ]);
+    expect(JSON.stringify(records)).not.toContain('u1');
+    expect(await repos.chat.listLatencySamples(WIDE_FROM, WIDE_FROM)).toEqual([]);
+    expect(await repos.chat.listFeedbackRecords('2998-01-01T00:00:00.000Z', WIDE_TO)).toEqual([]);
   });
 
   // ---------------------------------------------------------------- Notifications (DPI 2 item 6)

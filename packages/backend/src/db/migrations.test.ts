@@ -46,7 +46,7 @@ describe('migration 002_dpi2_persistence_foundation', () => {
   afterEach(() => db.close());
 
   it('applies once on a 001-only database, backfills role and result, and creates the 4 tables', () => {
-    expect(runMigrations(db)).toEqual(['002_dpi2_persistence_foundation', '003_dpi2_mfa_sso', '004_dpi2_notifications']);
+    expect(runMigrations(db)).toEqual(['002_dpi2_persistence_foundation', '003_dpi2_mfa_sso', '004_dpi2_notifications', '005_dpi2_chat_meta']);
 
     expect(db.prepare('SELECT role FROM users WHERE id = ?').get('user-1')).toEqual({ role: 'SUPER_ADMIN' });
     const results = (db.prepare('SELECT result FROM audit_events ORDER BY id').all() as { result: string }[]).map(

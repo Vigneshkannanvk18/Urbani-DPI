@@ -20,7 +20,7 @@ export interface ServiceSummary {
   lastIncidentAt: string | null;
   /**
    * Whether this service is enabled upstream (membership in config.urbani.services).
-   * OPTIONAL + derived-at-read in the service layer — the raw SQLite row does not
+   * OPTIONAL + derived-at-read in the service layer â€” the raw SQLite row does not
    * carry it, so declaring it optional keeps the repository mapping migration-free.
    */
   enabled?: boolean;
@@ -88,6 +88,8 @@ export const AUDIT_ACTIONS = [
   'user.deactivate',
   'user.password_reset',
   'chat.query',
+  'chat.session_delete',
+  'chat.purge',
   'logs.search',
   'ai.analyze',
   'audit.view',
@@ -135,6 +137,8 @@ export const AUDIT_ACTION_CATALOG: Record<AuditAction, { category: AuditCategory
   'ai.analyze': { category: 'CONFIG', description: 'AI analysis triggered' },
   'audit.purge': { category: 'CONFIG', description: 'Retention purge of old audit events' },
   'chat.query': { category: 'SENSITIVE_QUERY', description: 'Assistant question asked (preview only, no answer)' },
+  'chat.session_delete': { category: 'CONFIG', description: 'Assistant conversation deleted by its owner (no content)' },
+  'chat.purge': { category: 'CONFIG', description: 'Retention purge of old assistant conversations (counts only)' },
   'logs.search': { category: 'SENSITIVE_QUERY', description: 'Log search or filter performed (parameters only)' },
   'audit.view': { category: 'SENSITIVE_QUERY', description: 'Audit log viewed or searched' },
   'mfa.enroll': { category: 'CONFIG', description: 'MFA (TOTP) enrolment confirmed' },

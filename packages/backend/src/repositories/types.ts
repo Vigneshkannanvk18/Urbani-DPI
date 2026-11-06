@@ -184,10 +184,14 @@ export interface ChatSession {
   id: string; userId: string; title: string | null; service: string | null; environment: string | null;
   messageCount: number; createdAt: string; updatedAt: string;
 }
+/** Extra per-message facts (DPI 2 item 8/9). providerMs is time inside aiProvider.askLogs; latencyMs on the message is totalMs. */
+export interface ChatMessageMeta {
+  groundingNote?: string; logsSource?: string; providerMs?: number; preparationMs?: number; error?: boolean;
+}
 export interface ChatMessage {
   id: string; sessionId: string; role: ChatMessageRole; content: string; citations: string[];
   provider: string | null; modelId: string | null; source: DataSource | null; latencyMs: number | null;
-  inputTokens: number | null; outputTokens: number | null; createdAt: string;
+  inputTokens: number | null; outputTokens: number | null; createdAt: string; meta: ChatMessageMeta | null;
 }
 export interface ChatFeedback {
   messageId: string; sessionId: string; userId: string; rating: ChatRating; comment: string | null;
@@ -197,8 +201,14 @@ export interface NewChatSession { id?: string; userId: string; title?: string | 
 export interface NewChatMessage {
   sessionId: string; role: ChatMessageRole; content: string; citations?: string[]; provider?: string | null;
   modelId?: string | null; source?: DataSource | null; latencyMs?: number | null;
-  inputTokens?: number | null; outputTokens?: number | null;
+  inputTokens?: number | null; outputTokens?: number | null; meta?: ChatMessageMeta | null;
 }
+/** Privacy-safe rows for the quality summary: no user id, no message text. */
+export interface ChatFeedbackRecord {
+  messageId: string; sessionId: string; rating: ChatRating; comment: string | null; updatedAt: string; service: string | null;
+}
+export interface ChatLatencySample { createdAt: string; service: string | null; totalMs: number; providerMs: number | null }
+export interface ChatPurgeResult { sessions: number; messages: number; feedback: number }
 export interface ChatFeedbackInput { sessionId: string; messageId: string; userId: string; rating: ChatRating; comment?: string | null }
 export interface ChatRepository {
   createSession(input: NewChatSession): Promise<ChatSession>;
@@ -212,6 +222,18 @@ export interface ChatRepository {
   /** One feedback per message; create or update. */
   setFeedback(input: ChatFeedbackInput): Promise<ChatFeedback>;
   listFeedback(sessionId: string): Promise<ChatFeedback[]>;   // ordered by messageId
+  /** Item 8: sets the title only (updatedAt unchanged). Null if the session does not exist. */
+  renameSession(sessionId: string, title: string): Promise<ChatSession | null>;
+  /** Item 8: hard delete of the session, its messages and feedback. False if it did not exist. */
+  deleteSession(sessionId: string): Promise<boolean>;
+  /** Item 8: removes one feedback row. False if there was none. */
+  deleteFeedback(sessionId: string, messageId: string): Promise<boolean>;
+  /** Item 8: feedback updated in [from, to] (ISO), newest first, without user identity. Capped at 20000 rows. */
+  listFeedbackRecords(from: string, to: string): Promise<ChatFeedbackRecord[]>;
+  /** Item 9: successful assistant answers created in [from, to] that carry a latency. Capped at 20000 rows. */
+  listLatencySamples(from: string, to: string): Promise<ChatLatencySample[]>;
+  /** Item 8 retention: deletes whole sessions whose updatedAt is before the cutoff, with messages and feedback. */
+  purgeOlderThan(cutoff: string): Promise<ChatPurgeResult>;
 }
 
 // ---- Notifications (DPI 2 item 6) ----

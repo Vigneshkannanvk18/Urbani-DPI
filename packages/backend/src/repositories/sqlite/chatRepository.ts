@@ -12,12 +12,17 @@ import {
   parseNewChatMessage,
   parseNewChatSession,
   parseReadId,
+  parseSessionTitle,
   sessionCursorSchema,
 } from '../validation';
 import type {
   ChatFeedback,
   ChatFeedbackInput,
   ChatMessage,
+  ChatMessageMeta,
+  ChatFeedbackRecord,
+  ChatLatencySample,
+  ChatPurgeResult,
   ChatRepository,
   ChatSession,
   CursorOptions,
@@ -58,6 +63,7 @@ interface MessageRow {
   input_tokens: number | null;
   output_tokens: number | null;
   created_at: string;
+  meta_json: string | null;
 }
 
 interface FeedbackRow {
@@ -108,6 +114,7 @@ function rowToMessage(r: MessageRow): ChatMessage {
     inputTokens: r.input_tokens,
     outputTokens: r.output_tokens,
     createdAt: r.created_at,
+    meta: r.meta_json ? (JSON.parse(r.meta_json) as ChatMessageMeta) : null,
   };
 }
 
@@ -197,6 +204,7 @@ export function sqliteChatRepository(ctx: SqliteContext): ChatRepository {
       input_tokens: m.inputTokens,
       output_tokens: m.outputTokens,
       created_at: now,
+      meta_json: m.meta ? JSON.stringify(m.meta) : null,
     };
     const tx = db().transaction(() => {
       if (!db().prepare('SELECT 1 FROM chat_sessions WHERE id = ?').get(row.session_id)) throw notFound();
@@ -204,9 +212,9 @@ export function sqliteChatRepository(ctx: SqliteContext): ChatRepository {
         .prepare(
           `INSERT INTO chat_messages
            (id, session_id, role, content, citations_json, provider, model_id, data_source,
-            latency_ms, input_tokens, output_tokens, created_at)
+            latency_ms, input_tokens, output_tokens, created_at, meta_json)
            VALUES (@id, @session_id, @role, @content, @citations_json, @provider, @model_id, @data_source,
-                   @latency_ms, @input_tokens, @output_tokens, @created_at)`,
+                   @latency_ms, @input_tokens, @output_tokens, @created_at, @meta_json)`,
         )
         .run(row);
       db()
@@ -276,5 +284,89 @@ export function sqliteChatRepository(ctx: SqliteContext): ChatRepository {
     return rows.map(rowToFeedback);
   }
 
-  return { createSession, getSession, listSessionsByUser, appendMessage, listMessages, setFeedback, listFeedback };
+  async function renameSession(sessionId: string, title: string): Promise<ChatSession | null> {
+    const id = parseReadId(sessionId);
+    const t = parseSessionTitle(title);
+    db().prepare('UPDATE chat_sessions SET title = ? WHERE id = ?').run(t, id);
+    return getSession(id);
+  }
+
+  /** Explicit deletes (feedback, messages, session) in one transaction; does not rely on FK cascades. */
+  function deleteSessionTx(id: string): { messages: number; feedback: number; session: number } {
+    const feedback = db().prepare('DELETE FROM chat_feedback WHERE session_id = ?').run(id).changes;
+    const messages = db().prepare('DELETE FROM chat_messages WHERE session_id = ?').run(id).changes;
+    const session = db().prepare('DELETE FROM chat_sessions WHERE id = ?').run(id).changes;
+    return { messages, feedback, session };
+  }
+
+  async function deleteSession(sessionId: string): Promise<boolean> {
+    const id = parseReadId(sessionId);
+    return db().transaction(() => deleteSessionTx(id).session > 0)();
+  }
+
+  async function deleteFeedback(sessionId: string, messageId: string): Promise<boolean> {
+    const sid = parseReadId(sessionId);
+    const mid = parseReadId(messageId);
+    return db().prepare('DELETE FROM chat_feedback WHERE session_id = ? AND message_id = ?').run(sid, mid).changes > 0;
+  }
+
+  async function listFeedbackRecords(from: string, to: string): Promise<ChatFeedbackRecord[]> {
+    const rows = db()
+      .prepare(
+        `SELECT f.message_id, f.session_id, f.rating, f.comment, f.updated_at, s.service
+           FROM chat_feedback f LEFT JOIN chat_sessions s ON s.id = f.session_id
+          WHERE f.updated_at >= ? AND f.updated_at <= ?
+          ORDER BY f.updated_at DESC, f.message_id DESC LIMIT 20000`,
+      )
+      .all(from, to) as Array<{
+      message_id: string; session_id: string; rating: string; comment: string | null; updated_at: string; service: string | null;
+    }>;
+    return rows.map((r) => ({
+      messageId: r.message_id,
+      sessionId: r.session_id,
+      rating: r.rating as ChatRating,
+      comment: r.comment,
+      updatedAt: r.updated_at,
+      service: r.service,
+    }));
+  }
+
+  async function listLatencySamples(from: string, to: string): Promise<ChatLatencySample[]> {
+    const rows = db()
+      .prepare(
+        `SELECT m.created_at, m.latency_ms, m.meta_json, s.service
+           FROM chat_messages m LEFT JOIN chat_sessions s ON s.id = m.session_id
+          WHERE m.role = 'assistant' AND m.latency_ms IS NOT NULL AND m.created_at >= ? AND m.created_at <= ?
+          ORDER BY m.created_at DESC LIMIT 20000`,
+      )
+      .all(from, to) as Array<{ created_at: string; latency_ms: number; meta_json: string | null; service: string | null }>;
+    return rows
+      .map((r) => ({ r, meta: r.meta_json ? (JSON.parse(r.meta_json) as ChatMessageMeta) : null }))
+      .filter(({ meta }) => !meta?.error)
+      .map(({ r, meta }) => ({
+        createdAt: r.created_at,
+        service: r.service,
+        totalMs: r.latency_ms,
+        providerMs: meta?.providerMs ?? null,
+      }));
+  }
+
+  async function purgeOlderThan(cutoff: string): Promise<ChatPurgeResult> {
+    return db().transaction(() => {
+      const ids = (db().prepare('SELECT id FROM chat_sessions WHERE updated_at < ?').all(cutoff) as { id: string }[]).map((r) => r.id);
+      const out: ChatPurgeResult = { sessions: 0, messages: 0, feedback: 0 };
+      for (const id of ids) {
+        const d = deleteSessionTx(id);
+        out.sessions += d.session;
+        out.messages += d.messages;
+        out.feedback += d.feedback;
+      }
+      return out;
+    })();
+  }
+
+  return {
+    createSession, getSession, listSessionsByUser, appendMessage, listMessages, setFeedback, listFeedback,
+    renameSession, deleteSession, deleteFeedback, listFeedbackRecords, listLatencySamples, purgeOlderThan,
+  };
 }

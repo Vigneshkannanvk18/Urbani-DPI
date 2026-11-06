@@ -27,6 +27,8 @@ Existing DPI 1 users became `SUPER_ADMIN` through the item 1 migration default, 
 | audit:view | yes | yes | no | yes |
 | users:manage | yes | no | no | no |
 
+**Chat history and feedback (item 8).** The history and feedback routes (GET/PATCH/DELETE /api/chat/sessions..., PUT /api/chat/messages/:id/feedback) need chat:use AND are owner-only: nobody, Super Admin included, can read another user's conversation (404). The feedback quality summary GET /api/chat/feedback/summary reuses udit:view (Super Admin, Infra Admin, Reader / Auditor; same roles, no new permission) and returns aggregates and de-identified dislike comments only. DRAFT, pending sign-off like the rest of the matrix; see [CHAT.md](CHAT.md).
+
 Reader / Auditor holds no mutating permission (no acknowledge, analyze, settings update or user management). `chat:use` is allowed because the assistant is read-only advisory; Urbani may remove it.
 
 ## How enforcement works

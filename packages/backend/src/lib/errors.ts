@@ -61,8 +61,8 @@ export class IntegrationError extends AppError {
  * "temporarily unavailable" response (never a 500, never a fabricated answer).
  */
 export class ServiceUnavailableError extends AppError {
-  constructor(message = 'Service temporarily unavailable') {
-    super('CHAT_UNAVAILABLE', message, 503);
+  constructor(message = 'Service temporarily unavailable', details?: unknown) {
+    super('CHAT_UNAVAILABLE', message, 503, details);
   }
 }
 

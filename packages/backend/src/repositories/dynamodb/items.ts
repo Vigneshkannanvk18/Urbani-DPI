@@ -390,6 +390,7 @@ export function chatMessageItem(m: ChatMessage): DynamoItem {
     inputTokens: m.inputTokens,
     outputTokens: m.outputTokens,
     createdAt: m.createdAt,
+    meta: m.meta,
   });
 }
 
@@ -600,6 +601,7 @@ export function itemToChatMessage(item: StoredItem): ChatMessage {
     inputTokens: item.inputTokens ?? null,
     outputTokens: item.outputTokens ?? null,
     createdAt: item.createdAt,
+    meta: item.meta ?? null,
   };
 }
 

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { GetCommand, PutCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { DeleteCommand, GetCommand, PutCommand, ScanCommand, TransactWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { PersistenceError } from '../../lib/errors';
 import { decodeCursor, encodeCursor, newTimeOrderedId } from '../common';
 import {
@@ -10,12 +10,17 @@ import {
   parseNewChatMessage,
   parseNewChatSession,
   parseReadId,
+  parseSessionTitle,
   sessionCursorSchema,
 } from '../validation';
 import type {
   ChatFeedback,
   ChatFeedbackInput,
+  ChatFeedbackRecord,
+  ChatLatencySample,
   ChatMessage,
+  ChatMessageMeta,
+  ChatPurgeResult,
   ChatRepository,
   ChatSession,
   CursorOptions,
@@ -45,6 +50,8 @@ import {
   userKey,
 } from './keys';
 import {
+  batchGetAll,
+  batchWriteAll,
   cancellationCodes,
   CONDITIONAL_CHECK_FAILED,
   errorName,
@@ -182,6 +189,7 @@ export function dynamoChatRepository(ctx: DynamoRepositoryContext): ChatReposito
         inputTokens: m.inputTokens,
         outputTokens: m.outputTokens,
         createdAt: now,
+        meta: m.meta,
       };
       const command = new TransactWriteCommand({
         TransactItems: [
@@ -344,5 +352,152 @@ export function dynamoChatRepository(ctx: DynamoRepositoryContext): ChatReposito
     return items.map(itemToFeedback);
   }
 
-  return { createSession, getSession, listSessionsByUser, appendMessage, listMessages, setFeedback, listFeedback };
+  /** Title only; the GSI1 sort key (updatedAt) is untouched. */
+  async function renameSession(sessionId: string, title: string): Promise<ChatSession | null> {
+    const id = parseReadId(sessionId);
+    const t = parseSessionTitle(title);
+    try {
+      await send(
+        ctx,
+        new UpdateCommand({
+          TableName: ctx.tableName,
+          Key: chatSessionKey(id),
+          UpdateExpression: 'SET #title = :t',
+          ConditionExpression: 'attribute_exists(#pk)',
+          ExpressionAttributeNames: { '#title': 'title', '#pk': 'PK' },
+          ExpressionAttributeValues: { ':t': t },
+        }),
+        'chat.renameSession',
+        { handled: [CONDITIONAL_CHECK_FAILED] },
+      );
+    } catch (err) {
+      if (isConditionalCheckFailed(err)) return null;
+      throw err;
+    }
+    return getSession(id);
+  }
+
+  /** All keys in the CHAT# partition (session, messages, feedback), deleted in batches. Returns the key list. */
+  async function deletePartition(id: string, op: string): Promise<Array<{ PK: string; SK: string }>> {
+    const keys = await queryAll<{ PK: string; SK: string }>(
+      ctx,
+      {
+        KeyConditionExpression: '#pk = :pk',
+        ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
+        ExpressionAttributeValues: { ':pk': chatPk(id) },
+        ProjectionExpression: '#pk, #sk',
+        ConsistentRead: true,
+      },
+      op,
+    );
+    if (keys.length) await batchWriteAll(ctx, keys.map((k) => ({ delete: { PK: k.PK, SK: k.SK } })), op);
+    return keys;
+  }
+
+  async function deleteSession(sessionId: string): Promise<boolean> {
+    const id = parseReadId(sessionId);
+    const keys = await deletePartition(id, 'chat.deleteSession');
+    return keys.some((k) => k.SK === CHAT_SESSION_SK);
+  }
+
+  async function deleteFeedback(sessionId: string, messageId: string): Promise<boolean> {
+    const res = await send(
+      ctx,
+      new DeleteCommand({
+        TableName: ctx.tableName,
+        Key: chatFeedbackKey(parseReadId(sessionId), parseReadId(messageId)),
+        ReturnValues: 'ALL_OLD',
+      }),
+      'chat.deleteFeedback',
+    );
+    return res.Attributes !== undefined;
+  }
+
+  const SCAN_CAP = 20_000;
+
+  /** Filtered Scan (no GSI for time-range reads of chat data). Fine for a low-volume quality view; see docs/CHAT.md. */
+  async function scanItems(filter: string, names: Record<string, string>, values: Record<string, unknown>, op: string, cap = SCAN_CAP): Promise<StoredItem[]> {
+    const out: StoredItem[] = [];
+    let startKey: Record<string, unknown> | undefined;
+    do {
+      const res = await send(
+        ctx,
+        new ScanCommand({
+          TableName: ctx.tableName,
+          FilterExpression: filter,
+          ExpressionAttributeNames: names,
+          ExpressionAttributeValues: values,
+          ExclusiveStartKey: startKey,
+          ConsistentRead: true,
+        }),
+        op,
+      );
+      for (const item of res.Items ?? []) out.push(item as StoredItem);
+      startKey = res.LastEvaluatedKey;
+    } while (startKey && out.length < cap);
+    return out.slice(0, cap);
+  }
+
+  async function serviceBySession(sessionIds: string[], op: string): Promise<Map<string, string | null>> {
+    const unique = [...new Set(sessionIds)];
+    const items = unique.length ? await batchGetAll<StoredItem>(ctx, unique.map((id) => chatSessionKey(id)), { projection: ['id', 'service'] }, op) : [];
+    return new Map(items.map((i) => [i.id as string, (i.service ?? null) as string | null]));
+  }
+
+  async function listFeedbackRecords(from: string, to: string): Promise<ChatFeedbackRecord[]> {
+    const op = 'chat.listFeedbackRecords';
+    const items = await scanItems(
+      '#et = :et AND #u BETWEEN :from AND :to',
+      { '#et': 'entityType', '#u': 'updatedAt' },
+      { ':et': 'CHAT_FEEDBACK', ':from': from, ':to': to },
+      op,
+    );
+    const services = await serviceBySession(items.map((i) => i.sessionId as string), op);
+    return items
+      .map((i) => ({
+        messageId: i.messageId as string,
+        sessionId: i.sessionId as string,
+        rating: i.rating as ChatFeedbackRecord['rating'],
+        comment: (i.comment ?? null) as string | null,
+        updatedAt: i.updatedAt as string,
+        service: services.get(i.sessionId as string) ?? null,
+      }))
+      .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
+  }
+
+  async function listLatencySamples(from: string, to: string): Promise<ChatLatencySample[]> {
+    const op = 'chat.listLatencySamples';
+    const items = await scanItems(
+      '#et = :et AND #r = :assistant AND attribute_exists(#l) AND #c BETWEEN :from AND :to',
+      { '#et': 'entityType', '#r': 'role', '#l': 'latencyMs', '#c': 'createdAt' },
+      { ':et': 'CHAT_MESSAGE', ':assistant': 'assistant', ':from': from, ':to': to },
+      op,
+    );
+    const ok = items.filter((i) => i.latencyMs !== null && i.latencyMs !== undefined && !(i.meta as ChatMessageMeta | null | undefined)?.error);
+    const services = await serviceBySession(ok.map((i) => i.sessionId as string), op);
+    return ok.map((i) => ({
+      createdAt: i.createdAt as string,
+      service: services.get(i.sessionId as string) ?? null,
+      totalMs: i.latencyMs as number,
+      providerMs: ((i.meta as ChatMessageMeta | null | undefined)?.providerMs ?? null) as number | null,
+    }));
+  }
+
+  async function purgeOlderThan(cutoff: string): Promise<ChatPurgeResult> {
+    const op = 'chat.purge';
+    const sessions = await scanItems('#et = :et AND #u < :cutoff', { '#et': 'entityType', '#u': 'updatedAt' }, { ':et': 'CHAT_SESSION', ':cutoff': cutoff }, op, Number.MAX_SAFE_INTEGER);
+    const out: ChatPurgeResult = { sessions: 0, messages: 0, feedback: 0 };
+    for (const s of sessions) {
+      const keys = await deletePartition(s.id as string, op);
+      out.sessions += keys.filter((k) => k.SK === CHAT_SESSION_SK).length;
+      out.messages += keys.filter((k) => k.SK.startsWith(CHAT_MESSAGE_PREFIX)).length;
+      out.feedback += keys.filter((k) => k.SK.startsWith(CHAT_FEEDBACK_PREFIX)).length;
+    }
+    return out;
+  }
+
+  return {
+    createSession, getSession, listSessionsByUser, appendMessage, listMessages, setFeedback, listFeedback,
+    renameSession, deleteSession, deleteFeedback, listFeedbackRecords, listLatencySamples, purgeOlderThan,
+  };
 }
