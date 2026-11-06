@@ -9,6 +9,7 @@ import type {
   UsageRecord,
   BudgetStatus,
   AuditEvent,
+  UserRole,
 } from '@urbani/shared';
 import { api, setToken, clearToken } from './client';
 
@@ -19,6 +20,9 @@ export interface AuthUser {
   email: string;
   displayName: string;
   role: string;
+  /** RBAC role (DPI 2 item 2) and display name. `permissions` is the effective list. */
+  rbacRole: UserRole;
+  rbacRoleName: string;
   permissions: string[];
 }
 
@@ -36,6 +40,28 @@ export const authApi = {
     }
   },
   me: () => api.get<{ user: AuthUser }>('/auth/me').then((r) => r.user),
+};
+
+export interface ManagedUser {
+  id: string;
+  email: string;
+  displayName: string;
+  role: UserRole;
+  roleName: string;
+  isActive: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+}
+
+export const usersApi = {
+  list: () => api.get<{ data: ManagedUser[] }>('/users').then((r) => r.data),
+  create: (u: { email: string; displayName: string; role: UserRole; password: string }) =>
+    api.post<{ data: ManagedUser }>('/users', u).then((r) => r.data),
+  changeRole: (id: string, role: UserRole) =>
+    api.put<{ data: ManagedUser }>(`/users/${id}/role`, { role }).then((r) => r.data),
+  setActive: (id: string, active: boolean) =>
+    api.post<{ data: ManagedUser }>(`/users/${id}/${active ? 'activate' : 'deactivate'}`).then((r) => r.data),
+  resetPassword: (id: string, password: string) => api.post(`/users/${id}/reset-password`, { password }),
 };
 
 export const dashboardApi = {

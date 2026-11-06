@@ -13,6 +13,8 @@ import {
   CONDITIONAL_CHECK_FAILED,
   errorName,
   isConditionalCheckFailed,
+  partitionQuery,
+  queryAll,
   send,
   TRANSACTION_CANCELED,
   TRANSACTION_CONFLICT,
@@ -63,6 +65,17 @@ export function dynamoUserRepository(ctx: DynamoRepositoryContext): UserReposito
     if (!fitsKey(USER_PK, id)) return null;
     const user = await getItem(userKey(id), 'users.findById');
     return user?.isActive ? itemToUser(user) : null;
+  }
+
+  async function getById(id: string): Promise<UserRow | null> {
+    if (!fitsKey(USER_PK, id)) return null;
+    const user = await getItem(userKey(id), 'users.getById');
+    return user ? itemToUser(user) : null;
+  }
+
+  async function list(): Promise<UserRow[]> {
+    const items = await queryAll<StoredItem>(ctx, partitionQuery(USER_PK), 'users.list');
+    return items.map(itemToUser).sort((a, b) => (a.email < b.email ? -1 : a.email > b.email ? 1 : 0));
   }
 
   async function getRole(roleId: string): Promise<RoleRow | null> {
@@ -223,5 +236,5 @@ export function dynamoUserRepository(ctx: DynamoRepositoryContext): UserReposito
     }
   }
 
-  return { findByEmail, findById, getRole, toAuthUser, recordLogin, upsertRole, upsertUser };
+  return { findByEmail, findById, getById, list, getRole, toAuthUser, recordLogin, upsertRole, upsertUser };
 }

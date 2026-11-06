@@ -10,3 +10,13 @@ export {
   parseInline,
 } from './markdown';
 export type { InlineToken, BlockToken } from './markdown';
+export type { Permission } from './rbac';
+export {
+  PERMISSIONS,
+  ROLES,
+  ROLE_DISPLAY_NAMES,
+  ROLE_PERMISSIONS,
+  isUserRole,
+  permissionsForRole,
+  roleHasPermission,
+} from './rbac';

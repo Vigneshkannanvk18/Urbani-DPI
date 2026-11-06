@@ -14,6 +14,8 @@ import { Services } from './pages/Services';
 import { Usage } from './pages/Usage';
 import { Audit } from './pages/Audit';
 import { Settings } from './pages/Settings';
+import { Users } from './pages/Users';
+import { RequirePermission } from './auth/RequirePermission';
 
 /** App router. All dashboard routes are nested under the authenticated Layout. */
 export function App() {
@@ -29,17 +31,18 @@ export function App() {
               </RequireAuth>
             }
           >
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/alerts" element={<Alerts />} />
-            <Route path="/alerts/:id" element={<AlertDetail />} />
-            <Route path="/logs" element={<Logs />} />
-            <Route path="/metrics" element={<Metrics />} />
-            <Route path="/ai" element={<AIInsights />} />
-            <Route path="/assistant" element={<Assistant />} />
-            <Route path="/services" element={<Services />} />
-            <Route path="/usage" element={<Usage />} />
-            <Route path="/audit" element={<Audit />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/" element={<RequirePermission permission="dashboard:view"><Dashboard /></RequirePermission>} />
+            <Route path="/alerts" element={<RequirePermission permission="alerts:view"><Alerts /></RequirePermission>} />
+            <Route path="/alerts/:id" element={<RequirePermission permission="alerts:view"><AlertDetail /></RequirePermission>} />
+            <Route path="/logs" element={<RequirePermission permission="logs:view"><Logs /></RequirePermission>} />
+            <Route path="/metrics" element={<RequirePermission permission="metrics:view"><Metrics /></RequirePermission>} />
+            <Route path="/ai" element={<RequirePermission permission="ai:view"><AIInsights /></RequirePermission>} />
+            <Route path="/assistant" element={<RequirePermission permission="chat:use"><Assistant /></RequirePermission>} />
+            <Route path="/services" element={<RequirePermission permission="services:view"><Services /></RequirePermission>} />
+            <Route path="/usage" element={<RequirePermission permission="usage:view"><Usage /></RequirePermission>} />
+            <Route path="/audit" element={<RequirePermission permission="audit:view"><Audit /></RequirePermission>} />
+            <Route path="/users" element={<RequirePermission permission="users:manage"><Users /></RequirePermission>} />
+            <Route path="/settings" element={<RequirePermission permission="settings:view"><Settings /></RequirePermission>} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

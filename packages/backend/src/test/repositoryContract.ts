@@ -1145,6 +1145,13 @@ export function defineRepositoryContract(harness: RepositoryHarness): void {
     expect((await repos.users.findByEmail(other))?.id).toBe('u2');
   });
 
+  it('C-UR-12 getById and list include inactive users; list is ordered by email', async () => {
+    await addUser('u1', 'b@urbani.test');
+    await addUser('u2', 'a@urbani.test', { is_active: 0 });
+    expect((await repos.users.getById('u2'))?.is_active).toBe(0);
+    expect(await repos.users.getById('u-missing')).toBeNull();
+    expect((await repos.users.list()).map((u) => u.email)).toEqual(['a@urbani.test', 'b@urbani.test']);
+  });
   it('C-UR-11 two concurrent creates of one new id leave exactly one of the emails', async () => {
     await repos.users.upsertRole(ADMIN_ROLE);
     const results = await Promise.allSettled([

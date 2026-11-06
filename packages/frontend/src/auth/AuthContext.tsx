@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import type { Permission } from '@urbani/shared';
 import { authApi, type AuthUser } from '../api/endpoints';
 import { getToken } from '../api/client';
 
@@ -7,6 +8,8 @@ interface AuthState {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** True if the signed-in user's role holds the permission (UI gating only; the API enforces it). */
+  can: (permission: Permission) => boolean;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -37,8 +40,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const can = (permission: Permission) => !!user && user.permissions.includes(permission);
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ user, loading, login, logout, can }}>{children}</AuthContext.Provider>
   );
 }
 

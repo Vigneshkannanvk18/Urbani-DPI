@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { useApi } from '../hooks/useApi';
+import { useAuth } from '../auth/AuthContext';
 import { alertsApi } from '../api/endpoints';
 import {
   PageHeader, Card, Button, SeverityBadge, StatusBadge, Confidence, fmtTime, AsyncView,
@@ -10,6 +11,7 @@ import { IconChevronLeft, IconWarn } from '../components/icons';
  *  Human-in-the-loop — the only action is acknowledge; no automated remediation. */
 export function AlertDetail() {
   const { id = '' } = useParams();
+  const { can } = useAuth();
   const alert = useApi(() => alertsApi.get(id), [id]);
 
   const acknowledge = async () => {
@@ -35,7 +37,7 @@ export function AlertDetail() {
                 subtitle={<span className="cell-mono">{a.alertId}</span>}
                 source={res.source}
                 actions={
-                  a.status === 'OPEN' ? (
+                  a.status === 'OPEN' && can('alerts:acknowledge') ? (
                     <Button onClick={acknowledge}>Acknowledge (human review)</Button>
                   ) : (
                     <StatusBadge status={a.status} />

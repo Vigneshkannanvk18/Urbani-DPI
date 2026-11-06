@@ -15,22 +15,23 @@ import { AssistantWidget } from './assistant/AssistantWidget';
  * navigation destinations from Phase 1.
  */
 export function Layout() {
-  const { user, logout } = useAuth();
+  const { user, logout, can } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Live active-alert count drives the sidebar badge.
-  const summary = useApi(() => dashboardApi.summary(), []);
+  const summary = useApi(() => (can('dashboard:view') ? dashboardApi.summary() : Promise.reject(new Error('no access'))), []);
   const activeAlerts = summary.data?.data.activeAlerts ?? 0;
 
   // Live log count drives the Logs sidebar badge. Uses the same live window as
   // the Logs page (/logs/latest), so it shows the number of current entries and
   // disappears when the window is empty.
-  const logsSummary = useApi(() => logsApi.list({ page: 1 }), []);
+  const logsSummary = useApi(() => (can('logs:view') ? logsApi.list({ page: 1 }) : Promise.reject(new Error('no access'))), []);
   const liveLogCount = logsSummary.data?.data.total ?? 0;
 
+  const visibleSections = NAV_SECTIONS.filter((s) => s.enabled && can(s.permission));
   const current =
     NAV_SECTIONS.find((s) => s.path !== '/' && location.pathname.startsWith(s.path)) ??
     NAV_SECTIONS.find((s) => s.path === location.pathname) ??
@@ -64,7 +65,7 @@ export function Layout() {
         </div>
 
         <nav className="nav">
-          {NAV_SECTIONS.filter((s) => s.enabled).map((s) => {
+          {visibleSections.map((s) => {
             const Icon = s.icon;
             return (
               <NavLink
@@ -114,7 +115,7 @@ export function Layout() {
             <div className="avatar" aria-hidden>{initials}</div>
             <div style={{ lineHeight: 1.2 }}>
               <div style={{ fontWeight: 600, fontSize: 13 }}>{user?.displayName}</div>
-              <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{user?.role}</div>
+              <div className="role-badge" title="Your role">{user?.rbacRoleName ?? user?.role}</div>
             </div>
             <Button variant="ghost" size="sm" onClick={onLogout} aria-label="Log out">
               <IconLogout size={16} /> Logout
@@ -129,7 +130,7 @@ export function Layout() {
 
       {/* Floating AI Log Assistant — mounted once; every authenticated page gets
           it, Login (outside Layout) never does. */}
-      <AssistantWidget />
+      {can('chat:use') && <AssistantWidget />}
     </div>
     </AssistantChatProvider>
   );

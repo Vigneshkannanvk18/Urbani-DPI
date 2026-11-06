@@ -27,6 +27,8 @@
       "user.id",
       "user.permissions",
       "user.permissions[]",
+      "user.rbacRole",
+      "user.rbacRoleName",
       "user.role"
     ]
   },
@@ -39,6 +41,8 @@
       "user.id",
       "user.permissions",
       "user.permissions[]",
+      "user.rbacRole",
+      "user.rbacRoleName",
       "user.role"
     ]
   },

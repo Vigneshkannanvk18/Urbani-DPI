@@ -80,6 +80,13 @@ export const AUDIT_ACTIONS = [
   'ALERT_ACKNOWLEDGED',
   'CONFIG_CHANGED',
   'INTEGRATION_UPDATED',
+  'auth.login_failed',
+  'access.denied',
+  'user.create',
+  'user.role_change',
+  'user.activate',
+  'user.deactivate',
+  'user.password_reset',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

@@ -122,6 +122,10 @@ export interface AuthUser { id: string; email: string; displayName: string; role
 export interface UserRepository {
   findByEmail(email: string): Promise<UserRow | null>;
   findById(id: string): Promise<UserRow | null>;
+  /** Item 2: includes inactive users (findBy* return active users only). */
+  getById(id: string): Promise<UserRow | null>;
+  /** Item 2: all users, active and inactive, ordered by email. */
+  list(): Promise<UserRow[]>;
   getRole(roleId: string): Promise<RoleRow | null>;
   toAuthUser(user: UserRow): Promise<AuthUser>;
   recordLogin(id: string): Promise<void>;

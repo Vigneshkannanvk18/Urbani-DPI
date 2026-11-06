@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../lib/asyncHandler';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, requirePermission } from '../middleware/auth';
 import { dashboardService } from '../services/dashboardService';
 import { alertService } from '../services/alertService';
 import { telemetryService } from '../services/telemetryService';
@@ -11,6 +11,7 @@ import { usageService } from '../services/usageService';
 import { settingsService } from '../services/settingsService';
 import { getRepositories } from '../repositories';
 import { rateLimit } from '../middleware/rateLimit';
+import { userRoutes } from './userRoutes';
 
 /**
  * Protected API routes (Epic 10). Every route here requires authentication
@@ -29,10 +30,12 @@ const pageSchema = z.object({
 // -------------------- DASHBOARD --------------------
 apiRoutes.get(
   '/dashboard/summary',
+  requirePermission('dashboard:view'),
   asyncHandler(async (_req, res) => res.json(await dashboardService.summary())),
 );
 apiRoutes.get(
   '/dashboard/health',
+  requirePermission('dashboard:view'),
   asyncHandler(async (_req, res) => res.json(await dashboardService.health())),
 );
 
@@ -50,6 +53,7 @@ const alertQuerySchema = pageSchema.extend({
 
 apiRoutes.get(
   '/alerts',
+  requirePermission('alerts:view'),
   asyncHandler(async (req, res) => {
     const filter = alertQuerySchema.parse(req.query);
     res.json(await alertService.list(filter));
@@ -57,12 +61,14 @@ apiRoutes.get(
 );
 apiRoutes.get(
   '/alerts/:id',
+  requirePermission('alerts:view'),
   asyncHandler(async (req, res) => {
     res.json(await alertService.get(req.params.id, req.auth!.email));
   }),
 );
 apiRoutes.post(
   '/alerts/:id/acknowledge',
+  requirePermission('alerts:acknowledge'),
   asyncHandler(async (req, res) => {
     res.json(await alertService.acknowledge(req.params.id, req.auth!.email));
   }),
@@ -77,6 +83,7 @@ const logQuerySchema = pageSchema.extend({
 });
 apiRoutes.get(
   '/logs',
+  requirePermission('logs:view'),
   asyncHandler(async (req, res) => {
     res.json(await telemetryService.logs(logQuerySchema.parse(req.query)));
   }),
@@ -89,6 +96,7 @@ const metricQuerySchema = z.object({
 });
 apiRoutes.get(
   '/metrics',
+  requirePermission('metrics:view'),
   asyncHandler(async (req, res) => {
     res.json(await telemetryService.metrics(metricQuerySchema.parse(req.query)));
   }),
@@ -97,28 +105,33 @@ apiRoutes.get(
 // -------------------- SERVICES --------------------
 apiRoutes.get(
   '/services',
+  requirePermission('services:view'),
   asyncHandler(async (_req, res) => res.json(await telemetryService.services())),
 );
 apiRoutes.get(
   '/services/:id',
+  requirePermission('services:view'),
   asyncHandler(async (req, res) => res.json(await telemetryService.service(req.params.id))),
 );
 
 // -------------------- AI --------------------
 apiRoutes.get(
   '/ai/analyses',
+  requirePermission('ai:view'),
   asyncHandler(async (req, res) => {
     res.json(await aiService.listAnalyses(pageSchema.parse(req.query)));
   }),
 );
 apiRoutes.get(
   '/ai/analyses/:id',
+  requirePermission('ai:view'),
   asyncHandler(async (req, res) => res.json(await aiService.getAnalysis(req.params.id))),
 );
 // Advisory analysis trigger (still human-in-the-loop; only produces a finding).
 const analyzeSchema = z.object({ service: z.string(), environment: z.string() });
 apiRoutes.post(
   '/ai/analyze',
+  requirePermission('ai:analyze'),
   asyncHandler(async (req, res) => {
     const { service, environment } = analyzeSchema.parse(req.body);
     res.json(await aiService.analyze(service, environment));
@@ -140,6 +153,7 @@ const chatSchema = z.object({
 });
 apiRoutes.post(
   '/chat',
+  requirePermission('chat:use'),
   rateLimit({ windowMs: 60_000, max: 30 }),
   asyncHandler(async (req, res) => {
     const body = chatSchema.parse(req.body);
@@ -155,8 +169,8 @@ apiRoutes.post(
 );
 
 // -------------------- USAGE --------------------
-apiRoutes.get('/usage', asyncHandler(async (_req, res) => res.json(await usageService.usage())));
-apiRoutes.get('/usage/cost', asyncHandler(async (_req, res) => res.json(await usageService.cost())));
+apiRoutes.get('/usage', requirePermission('usage:view'), asyncHandler(async (_req, res) => res.json(await usageService.usage())));
+apiRoutes.get('/usage/cost', requirePermission('usage:view'), asyncHandler(async (_req, res) => res.json(await usageService.cost())));
 
 // -------------------- AUDIT --------------------
 const auditQuerySchema = pageSchema.extend({
@@ -165,6 +179,7 @@ const auditQuerySchema = pageSchema.extend({
 });
 apiRoutes.get(
   '/audit',
+  requirePermission('audit:view'),
   asyncHandler(async (req, res) => {
     const q = auditQuerySchema.parse(req.query);
     const { items, total } = await getRepositories().audit.query(q);
@@ -177,10 +192,14 @@ apiRoutes.get(
 );
 
 // -------------------- SETTINGS --------------------
-apiRoutes.get('/settings', asyncHandler(async (_req, res) => res.json({ data: await settingsService.get() })));
+apiRoutes.get('/settings', requirePermission('settings:view'), asyncHandler(async (_req, res) => res.json({ data: await settingsService.get() })));
 apiRoutes.put(
   '/settings',
+  requirePermission('settings:update'),
   asyncHandler(async (req, res) => {
     res.json(await settingsService.update(req.auth!.email, (req.body ?? {}) as Record<string, unknown>));
   }),
 );
+
+// -------------------- USER MANAGEMENT (Super Admin only; users:manage) --------------------
+apiRoutes.use('/users', requirePermission('users:manage'), userRoutes);

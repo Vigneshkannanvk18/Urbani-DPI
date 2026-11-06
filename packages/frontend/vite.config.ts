@@ -27,6 +27,8 @@ export default defineConfig({
       // alias the subpath to its TypeScript SOURCE — Vite/esbuild compiles it on
       // the fly and reads native ESM exports. (Type-only imports from the barrel
       // are erased and remain unaffected.)
+      // Same for the RBAC role/permission constants (DPI 2 item 2).
+      '@urbani/shared/rbac': fileURLToPath(new URL('../shared/src/rbac.ts', import.meta.url)),
       '@urbani/shared/markdown': fileURLToPath(
         new URL('../shared/src/markdown.ts', import.meta.url),
       ),

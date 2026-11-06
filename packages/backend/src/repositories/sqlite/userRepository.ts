@@ -33,6 +33,14 @@ export function sqliteUserRepository(ctx: SqliteContext): UserRepository {
     );
   }
 
+  async function getById(id: string): Promise<UserRow | null> {
+    return (db().prepare('SELECT * FROM users WHERE id = ?').get(id) as UserRow | undefined) ?? null;
+  }
+
+  async function list(): Promise<UserRow[]> {
+    return db().prepare('SELECT * FROM users ORDER BY email').all() as UserRow[];
+  }
+
   function getRoleSync(roleId: string): RoleRow | null {
     return (
       (db().prepare('SELECT * FROM roles WHERE id = ?').get(roleId) as RoleRow | undefined) ?? null
@@ -89,5 +97,5 @@ export function sqliteUserRepository(ctx: SqliteContext): UserRepository {
       });
   }
 
-  return { findByEmail, findById, getRole, toAuthUser, recordLogin, upsertRole, upsertUser };
+  return { findByEmail, findById, getById, list, getRole, toAuthUser, recordLogin, upsertRole, upsertUser };
 }

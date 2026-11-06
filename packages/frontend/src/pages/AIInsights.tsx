@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApi } from '../hooks/useApi';
+import { useAuth } from '../auth/AuthContext';
 import { aiApi, alertsApi, servicesApi } from '../api/endpoints';
 import {
   PageHeader, Card, Button, Select, AsyncView, Confidence, fmtTime, SourceBadge, SeverityBadge,
@@ -14,6 +15,7 @@ export function AIInsights() {
   const [service, setService] = useState('main');
   const [environment, setEnvironment] = useState('qa');
   const [busy, setBusy] = useState(false);
+  const { can } = useAuth();
 
   const services = useApi(() => servicesApi.list(), []);
   const analyses = useApi(() => aiApi.list({ page }), [page]);
@@ -58,7 +60,7 @@ export function AIInsights() {
           <Select value={environment} onChange={(e) => setEnvironment(e.target.value)} aria-label="Environment">
             <option>qa</option>
           </Select>
-          <Button onClick={runAnalysis} disabled={busy}>{busy ? 'Analyzing…' : 'Analyze telemetry'}</Button>
+          <Button onClick={runAnalysis} disabled={busy || !can('ai:analyze')} title={can('ai:analyze') ? undefined : 'Your role cannot run analyses'}>{busy ? 'Analyzing…' : 'Analyze telemetry'}</Button>
         </div>
         <p className="text-secondary" style={{ fontSize: 12, marginBottom: 0 }}>
           Deterministic (temperature 0.0), evidence-based, guardrailed. Never triggers an automated action.
