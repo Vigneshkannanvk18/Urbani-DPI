@@ -303,3 +303,61 @@ export interface SettingsView {
 export const settingsApi = {
   get: () => api.get<{ data: SettingsView }>('/settings').then((r) => r.data),
 };
+
+// ---- Notifications (DPI 2 item 6) ----
+export type NotifChannel = 'EMAIL' | 'SLACK' | 'TEAMS';
+export type NotifSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export interface NotifChannelStatus {
+  channel: NotifChannel;
+  status: 'CONFIGURED' | 'NOT_CONFIGURED' | 'DRY_RUN';
+  destination: string | null;
+  reason: string | null;
+}
+export interface NotifRule {
+  id: string;
+  name: string;
+  enabled: boolean;
+  minSeverity: NotifSeverity;
+  services: string[];
+  anomalyTypes: string[];
+  channels: NotifChannel[];
+  createdBy: string;
+  updatedBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export type NotifRuleInput = Pick<NotifRule, 'name' | 'enabled' | 'minSeverity' | 'services' | 'anomalyTypes' | 'channels'>;
+export interface NotifSettings {
+  dedupWindowMinutes: number;
+  maxPerHourPerChannel: number;
+  updatedBy: string | null;
+  updatedAt: string | null;
+}
+export interface NotifLogEntry {
+  id: string;
+  timestamp: string;
+  alertId: string | null;
+  ruleId: string | null;
+  channel: NotifChannel;
+  status: string;
+  attempts: number;
+  error: string | null;
+  providerMessageId: string | null;
+  isTest: boolean;
+  summary: string | null;
+}
+export const notificationsApi = {
+  channels: () => api.get<{ data: NotifChannelStatus[] }>('/notifications/channels').then((r) => r.data),
+  rules: () => api.get<{ data: NotifRule[] }>('/notifications/rules').then((r) => r.data),
+  createRule: (b: NotifRuleInput) => api.post<{ data: NotifRule }>('/notifications/rules', b).then((r) => r.data),
+  updateRule: (id: string, b: Partial<NotifRuleInput>) =>
+    api.put<{ data: NotifRule }>(`/notifications/rules/${encodeURIComponent(id)}`, b).then((r) => r.data),
+  deleteRule: (id: string) => api.delete(`/notifications/rules/${encodeURIComponent(id)}`),
+  settings: () => api.get<{ data: NotifSettings }>('/notifications/settings').then((r) => r.data),
+  updateSettings: (b: { dedupWindowMinutes: number; maxPerHourPerChannel: number }) =>
+    api.put<{ data: NotifSettings }>('/notifications/settings', b).then((r) => r.data),
+  log: (params: { channel?: string; status?: string; alertId?: string; page?: number; pageSize?: number } = {}) =>
+    api.get<{ data: { items: NotifLogEntry[]; page: number; pageSize: number; total: number } }>(`/notifications/log${qs(params)}`).then((r) => r.data),
+  test: (channel: NotifChannel, severity: NotifSeverity = 'CRITICAL') =>
+    api.post<{ data: NotifLogEntry }>('/notifications/test', { channel, severity }).then((r) => r.data),
+};

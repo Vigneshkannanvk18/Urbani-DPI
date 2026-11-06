@@ -13,6 +13,7 @@ import { Assistant } from './pages/Assistant';
 import { Services } from './pages/Services';
 import { Usage } from './pages/Usage';
 import { Audit } from './pages/Audit';
+import { Notifications } from './pages/Notifications';
 import { Settings } from './pages/Settings';
 import { Users } from './pages/Users';
 import { Security } from './pages/Security';
@@ -42,6 +43,7 @@ export function App() {
             <Route path="/ai" element={<RequirePermission permission="ai:view"><AIInsights /></RequirePermission>} />
             <Route path="/assistant" element={<RequirePermission permission="chat:use"><Assistant /></RequirePermission>} />
             <Route path="/services" element={<RequirePermission permission="services:view"><Services /></RequirePermission>} />
+            <Route path="/notifications" element={<RequirePermission permission="alerts:view"><Notifications /></RequirePermission>} />
             <Route path="/usage" element={<RequirePermission permission="usage:view"><Usage /></RequirePermission>} />
             <Route path="/audit" element={<RequirePermission permission="audit:view"><Audit /></RequirePermission>} />
             <Route path="/users" element={<RequirePermission permission="users:manage"><Users /></RequirePermission>} />

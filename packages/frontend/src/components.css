@@ -442,3 +442,16 @@ td.mono, .cell-mono { font-family: var(--font-mono); font-size: var(--text-capti
 .role-badge { display: inline-block; font-size: 11px; font-weight: 600; color: var(--color-text-secondary); background: var(--color-surface-2); border-radius: var(--radius-pill); padding: 1px 8px; margin-top: 2px; }
 .user-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-3); align-items: end; }
 .form-error { color: var(--color-danger, #b3261e); font-size: var(--text-caption); }
+
+/* Notifications (DPI 2 item 6) */
+.st-SENT, .st-CONFIGURED { color: var(--color-success); }
+.st-DRY_RUN, .st-SKIPPED_DEDUP, .st-SKIPPED_RATE_LIMIT { color: var(--color-warning); }
+.st-FAILED, .st-NOT_CONFIGURED { color: var(--color-danger); }
+.st-SKIPPED_NOT_CONFIGURED { color: var(--color-text-muted); }
+.channel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-4); }
+.channel-card-body { display: flex; flex-direction: column; gap: var(--space-2); }
+.notif-dialog { border: 1px solid var(--color-border, #ccc); border-radius: var(--radius-lg); padding: var(--space-5); max-width: 520px; width: 92vw; }
+.notif-dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
+.notif-dialog form { display: flex; flex-direction: column; gap: var(--space-3); }
+.check-row { display: flex; gap: var(--space-4); flex-wrap: wrap; }
+.check-row label { display: inline-flex; align-items: center; gap: var(--space-1); }
