@@ -107,6 +107,9 @@ const schema = z.object({
   COST_HARD_ALERT_USD: z.coerce.number().default(100),
 
   COLLECTOR_SCHEDULE_MINUTES: z.coerce.number().default(5),
+  // Audit retention (DPI 2 item 3). Placeholder default; the period is a client decision. 0 = keep forever.
+  AUDIT_RETENTION_DAYS: z.coerce.number().int().min(0).default(365),
+  AUDIT_RETENTION_JOB: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -256,6 +259,10 @@ export const config = {
 
   scheduler: {
     collectorMinutes: env.COLLECTOR_SCHEDULE_MINUTES,
+  },
+  audit: {
+    retentionDays: env.AUDIT_RETENTION_DAYS,
+    retentionJobEnabled: boolFromEnv(env.AUDIT_RETENTION_JOB, true),
   },
 } as const;
 

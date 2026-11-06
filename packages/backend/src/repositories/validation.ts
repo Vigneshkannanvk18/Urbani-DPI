@@ -75,6 +75,10 @@ const auditRangeQuerySchema = z
     from: isoInstantSchema.optional(),
     to: isoInstantSchema.optional(),
     actor: z.string().min(1).max(320).optional(),
+    actions: z.array(z.string().min(1).max(64)).max(64).optional(),
+    result: auditResultSchema.optional(),
+    text: z.string().min(1).max(200).optional(),
+    metadataContains: z.string().min(1).max(200).optional(),
     limit: z.number().int().optional(),
     cursor: z.string().optional(),
   })
@@ -88,6 +92,11 @@ export interface ParsedAuditRangeQuery {
   from: string | null;
   to: string | null;
   actor: string | null;
+  actions: string[] | null;
+  result: AuditResult | null;
+  /** Lower-cased. */
+  text: string | null;
+  metadataContains: string | null;
   /** Clamped to 1..200, default 50. */
   limit: number;
   /** Still encoded: decode with decodeCursor(cursor, auditCursorSchema(from, to)) before querying. */
@@ -100,6 +109,10 @@ export function parseAuditRangeQuery(opts: AuditRangeQuery): ParsedAuditRangeQue
     from: q.from ?? null,
     to: q.to ?? null,
     actor: q.actor ?? null,
+    actions: q.actions ?? null,
+    result: q.result ?? null,
+    text: q.text ? q.text.toLowerCase() : null,
+    metadataContains: q.metadataContains ?? null,
     limit: Math.min(Math.max(q.limit ?? 50, 1), 200),
     cursor: q.cursor,
   };

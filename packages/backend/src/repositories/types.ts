@@ -87,7 +87,11 @@ export interface AIAnalysisRepository {
 // ---- Audit ----
 export interface AuditEventRecord extends AuditEvent { result: AuditResult }
 export interface AuditQuery { action?: string; actor?: string; page?: number; pageSize?: number }
-export interface AuditRangeQuery extends CursorOptions { from?: string; to?: string; actor?: string }
+export interface AuditRangeQuery extends CursorOptions {
+  from?: string; to?: string; actor?: string;
+  /** Item 3 filters: action IN (...), exact result, case-insensitive text on target + metadata JSON, case-sensitive metadata substring. */
+  actions?: string[]; result?: AuditResult; text?: string; metadataContains?: string;
+}
 export interface AuditRepository {
   /** result defaults to 'SUCCESS'. */
   record(actor: string, action: AuditAction, target?: string,
@@ -96,6 +100,8 @@ export interface AuditRepository {
   query(opts: AuditQuery): Promise<PageResult<AuditEvent>>;
   /** New (item 3): newest first, inclusive bounds, optional actor (= by user). limit 1..200, default 50. */
   listByTimeRange(opts: AuditRangeQuery): Promise<CursorPage<AuditEventRecord>>;
+  /** Retention (item 3): deletes events with timestamp < cutoff (ISO). Returns the number deleted. The only delete. */
+  purgeOlderThan(cutoff: string): Promise<number>;
 }
 
 // ---- Integrations ----

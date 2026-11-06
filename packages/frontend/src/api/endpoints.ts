@@ -171,9 +171,33 @@ export const usageApi = {
   cost: () => api.get<Sourced<BudgetStatus>>('/usage/cost'),
 };
 
+export interface AuditRecord extends AuditEvent {
+  result: 'SUCCESS' | 'FAILURE' | 'DENIED';
+}
+export interface AuditSearchParams {
+  from?: string;
+  to?: string;
+  actor?: string;
+  action?: string;
+  result?: string;
+  category?: string;
+  text?: string;
+  cursor?: string;
+  limit?: number;
+}
+export interface AuditActionInfo {
+  action: string;
+  category: 'CONFIG' | 'SENSITIVE_QUERY';
+  description: string;
+}
+
 export const auditApi = {
   list: (params: { action?: string; page?: number } = {}) =>
     api.get<Sourced<Paginated<AuditEvent>>>(`/audit${qs(params)}`),
+  search: (params: AuditSearchParams) =>
+    api.get<Sourced<{ items: AuditRecord[]; nextCursor: string | null; limit: number }>>(`/audit${qs({ limit: 50, ...params })}`),
+  actions: () =>
+    api.get<Sourced<{ actions: AuditActionInfo[]; categories: string[]; results: string[] }>>('/audit/actions'),
 };
 
 export interface SettingsView {

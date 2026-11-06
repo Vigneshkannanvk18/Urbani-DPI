@@ -12,6 +12,13 @@ import type {
   CursorPage,
 } from '../types';
 import type { SqliteContext } from './index';
+import { buildAuditMetadata } from '../../lib/auditMetadata';
+
+/** Redacted metadata plus request context, serialized (null when empty). */
+function storedMetadata(metadata?: Record<string, unknown>): string | null {
+  const m = buildAuditMetadata(metadata);
+  return m ? JSON.stringify(m) : null;
+}
 
 /** Audit repository (Epic 11), SQLite driver. Precursor to CloudTrail integration. */
 
@@ -57,7 +64,7 @@ export function sqliteAuditRepository(ctx: SqliteContext): AuditRepository {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       // Never persist secrets/PII in metadata — callers pass safe fields only.
-      .run(randomUUID(), now, actor, action, target ?? null, metadata ? JSON.stringify(metadata) : null, now, outcome);
+      .run(randomUUID(), now, actor, action, target ?? null, storedMetadata(metadata), now, outcome);
   }
 
   async function query(opts: AuditQuery): Promise<{
@@ -85,12 +92,22 @@ export function sqliteAuditRepository(ctx: SqliteContext): AuditRepository {
   async function listByTimeRange(opts: AuditRangeQuery): Promise<CursorPage<AuditEventRecord>> {
     const q = parseAuditRangeQuery(opts);
     const after = q.cursor === undefined ? null : decodeCursor(q.cursor, auditCursorSchema(q.from, q.to));
+    const actionParams: Record<string, string> = {};
+    const actionList = (q.actions ?? []).map((a, i) => {
+      actionParams[`a${i}`] = a;
+      return `@a${i}`;
+    });
+    const actionSql = q.actions ? (actionList.length ? `AND action IN (${actionList.join(',')})` : 'AND 0') : '';
     const rows = db()
       .prepare(
         `SELECT * FROM audit_events
           WHERE (@from IS NULL OR timestamp >= @from)
             AND (@to IS NULL OR timestamp <= @to)
             AND (@actor IS NULL OR actor = @actor)
+            AND (@result IS NULL OR result = @result)
+            AND (@text IS NULL OR instr(lower(coalesce(target, '') || ' ' || coalesce(metadata, '')), @text) > 0)
+            AND (@mc IS NULL OR instr(coalesce(metadata, ''), @mc) > 0)
+            ${actionSql}
             ${after ? 'AND (timestamp < @cts OR (timestamp = @cts AND id < @cid))' : ''}
           ORDER BY timestamp DESC, id DESC
           LIMIT @limit + 1`,
@@ -99,6 +116,10 @@ export function sqliteAuditRepository(ctx: SqliteContext): AuditRepository {
         from: q.from,
         to: q.to,
         actor: q.actor,
+        result: q.result,
+        text: q.text,
+        mc: q.metadataContains,
+        ...actionParams,
         limit: q.limit,
         ...(after ? { cts: after[0], cid: after[1] } : {}),
       }) as AuditRow[];
@@ -112,5 +133,8 @@ export function sqliteAuditRepository(ctx: SqliteContext): AuditRepository {
     };
   }
 
-  return { record, query, listByTimeRange };
+  async function purgeOlderThan(cutoff: string): Promise<number> {
+    return db().prepare('DELETE FROM audit_events WHERE timestamp < ?').run(cutoff).changes;
+  }
+  return { record, query, listByTimeRange, purgeOlderThan };
 }

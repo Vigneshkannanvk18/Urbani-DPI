@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { permissionsForRole, ROLE_DISPLAY_NAMES, type UserRole } from '@urbani/shared';
 import { config } from '../config';
+import { setAuditActor } from '../lib/auditMetadata';
 import { UnauthorizedError } from '../lib/errors';
 import { getRepositories, type AuthUser, type UserRow } from '../repositories';
 
@@ -58,6 +59,7 @@ export const authService = {
     }
     await repos.users.recordLogin(user.id);
     const authUser = await toSessionUser(user);
+    setAuditActor({ userId: user.id, email: user.email, role: user.role });
     await repos.audit.record(user.email, 'LOGIN');
     const payload: TokenPayload = { sub: user.id, email: user.email, role: user.role };
     const token = jwt.sign(payload, config.auth.jwtSecret, {

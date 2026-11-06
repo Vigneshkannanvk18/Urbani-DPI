@@ -1,5 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { PutCommand } from '@aws-sdk/lib-dynamodb';
+import { buildAuditMetadata } from '../../lib/auditMetadata';
+
+/** Redacted metadata plus request context, serialized (null when empty). */
+function storedMetadata(metadata?: Record<string, unknown>): string | null {
+  const m = buildAuditMetadata(metadata);
+  return m ? JSON.stringify(m) : null;
+}
 import type { AuditAction, AuditEvent, AuditResult } from '@urbani/shared';
 import { PersistenceError } from '../../lib/errors';
 import { clampPage, decodeCursor, encodeCursor } from '../common';
@@ -10,9 +17,11 @@ import { auditItem, itemToAuditEvent, itemToAuditRecord, type StoredItem } from 
 import { AUDIT_PK, auditActorPk, auditSortKey, fitsPartitionKey } from './keys';
 import {
   CONDITIONAL_CHECK_FAILED,
+  batchWriteAll,
   isConditionalCheckFailed,
   partitionQuery,
   queryAll,
+  queryPage,
   queryUpTo,
   send,
   type QueryInput,
@@ -42,7 +51,7 @@ export function dynamoAuditRepository(ctx: DynamoRepositoryContext): AuditReposi
         action,
         target: target ?? null,
         // Never persist secrets/PII in metadata — callers pass safe fields only.
-        metadataJson: metadata ? JSON.stringify(metadata) : null,
+        metadataJson: storedMetadata(metadata),
         result: outcome,
         createdAt: now,
       });
@@ -125,7 +134,29 @@ export function dynamoAuditRepository(ctx: DynamoRepositoryContext): AuditReposi
         ? { PK: AUDIT_PK, SK: sk, GSI1PK: auditActorPk(q.actor as string), GSI1SK: sk }
         : { PK: AUDIT_PK, SK: sk };
     }
-    const items = await queryUpTo<StoredItem>(ctx, input, q.limit + 1, 'audit.listByTimeRange');
+    const actionSet = q.actions ? new Set(q.actions) : null;
+    const filtered = actionSet !== null || q.result !== null || q.text !== null || q.metadataContains !== null;
+    const matches = (it: StoredItem): boolean =>
+      (actionSet === null || actionSet.has(it.action)) &&
+      (q.result === null || it.result === q.result) &&
+      (q.text === null || `${it.target ?? ''} ${it.metadata ?? ''}`.toLowerCase().includes(q.text)) &&
+      (q.metadataContains === null || (it.metadata ?? '').includes(q.metadataContains));
+    let items: StoredItem[];
+    if (!filtered) {
+      items = await queryUpTo<StoredItem>(ctx, input, q.limit + 1, 'audit.listByTimeRange');
+    } else {
+      // Filters on non-key attributes are applied in memory while paging the same key range
+      // (newest first), so the keyset cursor keeps working. Cost is bounded by the retention window.
+      items = [];
+      let startKey = input.ExclusiveStartKey;
+      while (items.length < q.limit + 1) {
+        const page = await queryPage<StoredItem>(ctx, { ...input, ExclusiveStartKey: startKey }, 200, 'audit.listByTimeRange');
+        for (const it of page.items) if (matches(it)) items.push(it);
+        startKey = page.lastKey;
+        if (!startKey) break;
+      }
+      items = items.slice(0, q.limit + 1);
+    }
     // The extra item only decides whether another page exists.
     const more = items.length > q.limit;
     const page = more ? items.slice(0, q.limit) : items;
@@ -136,5 +167,26 @@ export function dynamoAuditRepository(ctx: DynamoRepositoryContext): AuditReposi
     };
   }
 
-  return { record, query, listByTimeRange };
+  /** Retention purge: queries the AUDIT partition below the cutoff (SK = `<timestamp>#<id>`) and batch-deletes. */
+  async function purgeOlderThan(cutoff: string): Promise<number> {
+    let deleted = 0;
+    for (;;) {
+      const { items: keys } = await queryPage<{ PK: string; SK: string }>(
+        ctx,
+        {
+          KeyConditionExpression: '#pk = :pk AND #sk < :cutoff',
+          ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
+          ExpressionAttributeValues: { ':pk': AUDIT_PK, ':cutoff': cutoff },
+          ProjectionExpression: '#pk, #sk',
+          ConsistentRead: true,
+        },
+        200,
+        'audit.purge',
+      );
+      if (keys.length === 0) return deleted;
+      await batchWriteAll(ctx, keys.map((k) => ({ delete: { PK: k.PK, SK: k.SK } })), 'audit.purge');
+      deleted += keys.length;
+    }
+  }
+  return { record, query, listByTimeRange, purgeOlderThan };
 }

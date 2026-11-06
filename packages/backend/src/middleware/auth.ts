@@ -4,6 +4,7 @@ import { authService, type TokenPayload } from '../services/authService';
 import { UnauthorizedError, ForbiddenError } from '../lib/errors';
 import { getRepositories } from '../repositories';
 import { logger } from '../lib/logger';
+import { setAuditActor } from '../lib/auditMetadata';
 
 /**
  * Auth middleware (Epic 2 / Task 2.3, RBAC in DPI 2 item 2). All administrative APIs require a
@@ -30,6 +31,7 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
     const payload = authService.verify(token);
     const user = await authService.activeUser(payload.sub);
     req.auth = { sub: user.id, email: user.email, role: user.role };
+    setAuditActor({ userId: user.id, email: user.email, role: user.role });
     next();
   } catch (err) {
     next(err);

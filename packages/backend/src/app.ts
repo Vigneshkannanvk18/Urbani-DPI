@@ -2,6 +2,7 @@ import express, { type Express } from 'express';
 import cors from 'cors';
 import { config } from './config';
 import { correlationId } from './middleware/correlationId';
+import { auditRequestContext } from './lib/auditMetadata';
 import { securityHeaders } from './middleware/securityHeaders';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { authRoutes } from './routes/authRoutes';
@@ -34,6 +35,7 @@ export function createApp(): Express {
 
   app.use(express.json({ limit: '1mb' }));
   app.use(correlationId);
+  app.use(auditRequestContext);
 
   // Health & readiness probes (unauthenticated, no secrets). Mounted at both the
   // root and under /api so they work whether or not the proxy strips the prefix.

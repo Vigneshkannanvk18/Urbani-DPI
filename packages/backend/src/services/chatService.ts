@@ -5,6 +5,7 @@ import type { ChatTurn } from '../integrations/ai/AIProvider';
 import { getRepositories } from '../repositories';
 import { ServiceUnavailableError } from '../lib/errors';
 import { logger } from '../lib/logger';
+import { preview } from '../lib/auditMetadata';
 
 /**
  * Chat service (AI Log Chatbot).
@@ -79,9 +80,11 @@ export const chatService = {
       // Record a safe audit of the failed turn (no secrets, no key).
       await repos.audit.record(
         opts.actor,
-        'ALERT_VIEWED',
+        'chat.query',
         'chat',
         {
+          service,
+          questionPreview: preview(question),
           questionChars: question.length,
           logsSource: logsRes.meta.source,
           outcome: 'unavailable',
@@ -109,7 +112,9 @@ export const chatService = {
       outputTokens: result.outputTokens,
       dataSource: result.meta.source,
     });
-    await repos.audit.record(opts.actor, 'ALERT_VIEWED', 'chat', {
+    await repos.audit.record(opts.actor, 'chat.query', 'chat', {
+      service,
+      questionPreview: preview(question),
       // Safe metadata only — never log secrets/PII.
       questionChars: question.length,
       logsSource: logsRes.meta.source,

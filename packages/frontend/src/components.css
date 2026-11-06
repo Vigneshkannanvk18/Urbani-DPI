@@ -205,9 +205,12 @@
 .sev-HIGH { background: var(--sev-high-soft); color: var(--sev-high); }
 .sev-CRITICAL { background: var(--sev-critical-soft); color: var(--sev-critical); }
 
-.st-HEALTHY, .st-OK, .st-ok, .st-RESOLVED { color: var(--color-success); }
-.st-DEGRADED, .st-APPROACHING, .st-ACKNOWLEDGED { color: var(--color-warning); }
-.st-DOWN, .st-OVER, .st-OPEN { color: var(--color-danger); }
+.st-HEALTHY, .st-OK, .st-ok, .st-RESOLVED, .st-SUCCESS { color: var(--color-success); }
+.st-DEGRADED, .st-APPROACHING, .st-ACKNOWLEDGED, .st-DENIED { color: var(--color-warning); }
+.st-DOWN, .st-OVER, .st-OPEN, .st-FAILURE { color: var(--color-danger); }
+
+.audit-details { margin: 0; padding: var(--space-3); white-space: pre-wrap; word-break: break-word; font-size: var(--text-caption); background: var(--color-surface-alt, transparent); }
+.audit-pager { display: flex; gap: var(--space-3); align-items: center; justify-content: flex-end; padding: var(--space-3) 0; }
 .st-UNKNOWN, .st-DISMISSED { color: var(--color-text-muted); }
 
 .status-badge {

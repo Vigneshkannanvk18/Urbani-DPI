@@ -1,4 +1,5 @@
 import { createApp } from './app';
+import { startAuditRetentionJob } from './services/auditService';
 import { config } from './config';
 import { logger } from './lib/logger';
 import { runMigrations } from './db/migrate';
@@ -21,6 +22,7 @@ async function main(): Promise<void> {
     await assertDynamoReachable(repos);
   }
   const app = createApp();
+  startAuditRetentionJob();
   const server = app.listen(config.port, '0.0.0.0', () => {
     logger.info('Urbani Observability API listening', {
       port: config.port,

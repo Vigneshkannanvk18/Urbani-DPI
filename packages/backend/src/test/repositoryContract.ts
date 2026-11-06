@@ -990,6 +990,35 @@ export function defineRepositoryContract(harness: RepositoryHarness): void {
     expect((await repos.audit.listByTimeRange({})).items).toHaveLength(50);
   });
 
+  it('C-AU-08 listByTimeRange filters by actions, result, text and metadata substring; cursor works with filters', async () => {
+    await repos.audit.record('a@urbani.test', 'LOGIN');
+    await repos.audit.record('a@urbani.test', 'auth.login_failed', undefined, undefined, 'FAILURE');
+    await repos.audit.record('b@urbani.test', 'chat.query', 'chat', { questionPreview: 'Why is Main failing?' });
+    await repos.audit.record('b@urbani.test', 'logs.search', 'logs', { level: 'ERROR', ctx: { userId: 'u-1' } });
+    await repos.audit.record('b@urbani.test', 'logs.search', 'logs', { level: 'INFO', ctx: { userId: 'u-2' } });
+    const actions = (p: CursorPage<AuditEventRecord>) => p.items.map((e) => e.action);
+    expect(actions(await repos.audit.listByTimeRange({ actions: ['logs.search', 'LOGIN'] }))).toEqual(['logs.search', 'logs.search', 'LOGIN']);
+    expect((await repos.audit.listByTimeRange({ actions: [] })).items).toEqual([]);
+    expect(actions(await repos.audit.listByTimeRange({ result: 'FAILURE' }))).toEqual(['auth.login_failed']);
+    expect(actions(await repos.audit.listByTimeRange({ text: 'WHY IS MAIN' }))).toEqual(['chat.query']);
+    expect(actions(await repos.audit.listByTimeRange({ text: 'chat' }))).toEqual(['chat.query']);
+    expect(actions(await repos.audit.listByTimeRange({ metadataContains: '"userId":"u-2"' }))).toEqual(['logs.search']);
+    expect(actions(await repos.audit.listByTimeRange({ actor: 'b@urbani.test', actions: ['logs.search'], result: 'SUCCESS' }))).toEqual(['logs.search', 'logs.search']);
+    const { pages } = await collectPages((cursor) => repos.audit.listByTimeRange({ actions: ['logs.search', 'LOGIN'], limit: 1, cursor }));
+    expect(pages.flat().map((e) => e.action)).toEqual(['logs.search', 'logs.search', 'LOGIN']);
+  });
+
+  it('C-AU-09 purgeOlderThan deletes only events strictly before the cutoff and returns the count', async () => {
+    const s: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      const r = await withStamps(() => repos.audit.record('a@urbani.test', 'LOGIN', `t-${i}`));
+      s.push(r.stamps[r.stamps.length - 1]);
+    }
+    expect(await repos.audit.purgeOlderThan(s[2])).toBe(2);
+    expect((await repos.audit.listByTimeRange({})).items.map((e) => e.target)).toEqual(['t-3', 't-2']);
+    expect(await repos.audit.purgeOlderThan(s[2])).toBe(0);
+  });
+
   // ---------------------------------------------------------------- Integrations
 
   it('C-IN-01 integrations.upsert then all sorted by kind; same id replaces; delete removes', async () => {

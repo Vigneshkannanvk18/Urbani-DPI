@@ -200,6 +200,18 @@ export async function queryUpTo<T = Record<string, unknown>>(
   return items.slice(0, want);
 }
 
+/** One Query page (at most `limit` evaluated items) with its continuation key; callers loop. */
+export async function queryPage<T = Record<string, unknown>>(
+  ctx: DynamoContext,
+  input: Omit<QueryInput, 'Select' | 'Limit'>,
+  limit: number,
+  op: string,
+): Promise<{ items: T[]; lastKey: StartKey }> {
+  const { ExclusiveStartKey: first, ...rest } = input;
+  const page = await send(ctx, new QueryCommand({ ...pageInput(ctx, rest, first), Limit: limit }), op);
+  return { items: (page.Items ?? []) as T[], lastKey: page.LastEvaluatedKey };
+}
+
 const BATCH_GET_CHUNK = 100;
 const BATCH_WRITE_CHUNK = 25;
 const BATCH_MAX_RETRIES = 5;

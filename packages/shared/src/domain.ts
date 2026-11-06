@@ -87,8 +87,43 @@ export const AUDIT_ACTIONS = [
   'user.activate',
   'user.deactivate',
   'user.password_reset',
+  'chat.query',
+  'logs.search',
+  'ai.analyze',
+  'audit.view',
+  'audit.purge',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+
+/**
+ * Audit classification (DPI 2 item 3). The ONE place that lists audited actions.
+ * CONFIG = changes system state. SENSITIVE_QUERY = read of sensitive data, plus access/auth events.
+ * DRAFT: the client confirms which actions it considers sensitive (see docs/AUDIT.md).
+ */
+export const AUDIT_CATEGORIES = ['CONFIG', 'SENSITIVE_QUERY'] as const;
+export type AuditCategory = (typeof AUDIT_CATEGORIES)[number];
+export const AUDIT_ACTION_CATALOG: Record<AuditAction, { category: AuditCategory; description: string }> = {
+  LOGIN: { category: 'SENSITIVE_QUERY', description: 'Successful sign-in' },
+  LOGOUT: { category: 'SENSITIVE_QUERY', description: 'Sign-out' },
+  'auth.login_failed': { category: 'SENSITIVE_QUERY', description: 'Failed sign-in attempt' },
+  'access.denied': { category: 'SENSITIVE_QUERY', description: 'Request refused by the permission check' },
+  ALERT_VIEWED: { category: 'SENSITIVE_QUERY', description: 'Alert detail viewed' },
+  ALERT_ACKNOWLEDGED: { category: 'CONFIG', description: 'Alert acknowledged' },
+  CONFIG_CHANGED: { category: 'CONFIG', description: 'Settings update requested' },
+  INTEGRATION_UPDATED: { category: 'CONFIG', description: 'Integration status changed' },
+  'user.create': { category: 'CONFIG', description: 'User created' },
+  'user.role_change': { category: 'CONFIG', description: 'User role changed' },
+  'user.activate': { category: 'CONFIG', description: 'User activated' },
+  'user.deactivate': { category: 'CONFIG', description: 'User deactivated' },
+  'user.password_reset': { category: 'CONFIG', description: 'User password reset' },
+  'ai.analyze': { category: 'CONFIG', description: 'AI analysis triggered' },
+  'audit.purge': { category: 'CONFIG', description: 'Retention purge of old audit events' },
+  'chat.query': { category: 'SENSITIVE_QUERY', description: 'Assistant question asked (preview only, no answer)' },
+  'logs.search': { category: 'SENSITIVE_QUERY', description: 'Log search or filter performed (parameters only)' },
+  'audit.view': { category: 'SENSITIVE_QUERY', description: 'Audit log viewed or searched' },
+};
+export const auditActionsForCategory = (c: AuditCategory): AuditAction[] =>
+  AUDIT_ACTIONS.filter((a) => AUDIT_ACTION_CATALOG[a].category === c);
 
 export interface AuditEvent {
   id: string;

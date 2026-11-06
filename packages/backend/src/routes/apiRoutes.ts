@@ -12,6 +12,8 @@ import { settingsService } from '../services/settingsService';
 import { getRepositories } from '../repositories';
 import { rateLimit } from '../middleware/rateLimit';
 import { userRoutes } from './userRoutes';
+import { auditService } from '../services/auditService';
+import { AUDIT_CATEGORIES, AUDIT_RESULTS } from '@urbani/shared';
 
 /**
  * Protected API routes (Epic 10). Every route here requires authentication
@@ -85,7 +87,11 @@ apiRoutes.get(
   '/logs',
   requirePermission('logs:view'),
   asyncHandler(async (req, res) => {
-    res.json(await telemetryService.logs(logQuerySchema.parse(req.query)));
+    const filter = logQuerySchema.parse(req.query);
+    const out = await telemetryService.logs(filter);
+    // Filter parameters only; never the log content.
+    await getRepositories().audit.record(req.auth!.email, 'logs.search', 'logs', { ...filter });
+    res.json(out);
   }),
 );
 
@@ -134,7 +140,9 @@ apiRoutes.post(
   requirePermission('ai:analyze'),
   asyncHandler(async (req, res) => {
     const { service, environment } = analyzeSchema.parse(req.body);
-    res.json(await aiService.analyze(service, environment));
+    const out = await aiService.analyze(service, environment);
+    await getRepositories().audit.record(req.auth!.email, 'ai.analyze', `${service}/${environment}`, { service, environment });
+    res.json(out);
   }),
 );
 
@@ -176,21 +184,55 @@ apiRoutes.get('/usage/cost', requirePermission('usage:view'), asyncHandler(async
 const auditQuerySchema = pageSchema.extend({
   action: z.string().optional(),
   actor: z.string().optional(),
+  // DPI 2 item 3 (cursor mode): presence of any of these switches to the cursor response.
+  from: z.string().datetime({ offset: true }).optional(),
+  to: z.string().datetime({ offset: true }).optional(),
+  userId: z.string().min(1).max(128).optional(),
+  result: z.enum(AUDIT_RESULTS).optional(),
+  category: z.enum(AUDIT_CATEGORIES).optional(),
+  text: z.string().trim().min(1).max(200).optional(),
+  cursor: z.string().max(1024).optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
 });
+const AUDIT_NOTE = 'Application-level audit events (append-only). CloudTrail integration is a later phase.';
+apiRoutes.get(
+  '/audit/actions',
+  requirePermission('audit:view'),
+  asyncHandler(async (_req, res) =>
+    res.json({
+      source: 'MOCK',
+      sourceNote: AUDIT_NOTE,
+      data: { actions: auditService.actions(), categories: auditService.categories, results: auditService.results },
+    }),
+  ),
+);
 apiRoutes.get(
   '/audit',
   requirePermission('audit:view'),
   asyncHandler(async (req, res) => {
     const q = auditQuerySchema.parse(req.query);
+    const cursorMode = ['from', 'to', 'userId', 'result', 'category', 'text', 'cursor', 'limit'].some(
+      (k) => (q as Record<string, unknown>)[k] !== undefined,
+    );
+    const { page: _page, pageSize: _pageSize, ...filters } = q;
+    if (cursorMode) {
+      const out = await auditService.search({ ...filters, action: q.action });
+      await getRepositories().audit.record(req.auth!.email, 'audit.view', 'audit', { ...filters });
+      return res.json({
+        source: 'MOCK',
+        sourceNote: AUDIT_NOTE,
+        data: { items: out.items, nextCursor: out.nextCursor, limit: q.limit ?? 50 },
+      });
+    }
     const { items, total } = await getRepositories().audit.query(q);
+    await getRepositories().audit.record(req.auth!.email, 'audit.view', 'audit', { ...filters });
     res.json({
       source: 'MOCK',
-      sourceNote: 'Application-level audit events (Phase 1). CloudTrail integration in Phase 2.',
+      sourceNote: AUDIT_NOTE,
       data: { items, page: q.page ?? 1, pageSize: q.pageSize ?? 50, total },
     });
   }),
 );
-
 // -------------------- SETTINGS --------------------
 apiRoutes.get('/settings', requirePermission('settings:view'), asyncHandler(async (_req, res) => res.json({ data: await settingsService.get() })));
 apiRoutes.put(
