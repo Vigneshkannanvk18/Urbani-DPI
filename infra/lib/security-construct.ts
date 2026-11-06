@@ -1,5 +1,5 @@
 import { Construct } from 'constructs';
-import { aws_kms as kms, aws_iam as iam, aws_cloudtrail as cloudtrail, RemovalPolicy } from 'aws-cdk-lib';
+import { aws_kms as kms, aws_iam as iam, aws_cloudtrail as cloudtrail, RemovalPolicy, Stack } from 'aws-cdk-lib';
 import type { UrbaniConfig } from '../config';
 
 /**
@@ -16,6 +16,7 @@ export class SecurityConstruct extends Construct {
   readonly key: kms.Key;
   readonly collectorRole: iam.Role;
   readonly writerRole: iam.Role;
+  readonly dashboardTaskRole: iam.Role;
 
   constructor(scope: Construct, id: string, cfg: UrbaniConfig) {
     super(scope, id);
@@ -72,5 +73,15 @@ export class SecurityConstruct extends Construct {
     this.writerRole.addManagedPolicy(
       iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
     );
+
+    // Dashboard backend task role (DPI 2). Its only permissions are granted by
+    // PersistenceConstruct.grantAppDataAccess (the UrbaniApp table and its key).
+    this.dashboardTaskRole = new iam.Role(this, 'UrbaniDashboardTaskRole', {
+      roleName: 'UrbaniDashboardTaskRole',
+      assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com', {
+        conditions: { StringEquals: { 'aws:SourceAccount': Stack.of(this).account } }, // confused-deputy guard
+      }),
+      description: 'Dashboard backend task role: least-privilege data access to the UrbaniApp DynamoDB table only.',
+    });
   }
 }

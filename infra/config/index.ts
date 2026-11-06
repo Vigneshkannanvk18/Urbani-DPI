@@ -27,6 +27,9 @@ export interface UrbaniConfig {
   /** DynamoDB table + GSI. */
   alertsTable: string;
   anomalyTypeGsi: string;
+  /** App data table (DPI 2): one DynamoDB table named `${dynamoTablePrefix}App`. */
+  dynamoTablePrefix: string;
+  appTableName: string;
   /** AWS Budgets soft/hard alert thresholds (USD). */
   budgetSoftUsd: number;
   budgetHardUsd: number;
@@ -55,6 +58,8 @@ function ctx<T extends string | number>(
 }
 
 export function loadConfig(scope: Construct): UrbaniConfig {
+  // Must match the backend's DYNAMODB_TABLE_PREFIX (the app table is `${prefix}App`).
+  const dynamoTablePrefix = ctx(scope, 'dynamoTablePrefix', process.env.URBANI_DYNAMODB_TABLE_PREFIX, 'Urbani');
   return {
     // Account/region resolved from context or the standard CDK env vars.
     account: scope.node.tryGetContext('account') ?? process.env.CDK_DEFAULT_ACCOUNT,
@@ -77,6 +82,8 @@ export function loadConfig(scope: Construct): UrbaniConfig {
     maxLogLines: ctx(scope, 'maxLogLines', process.env.URBANI_MAX_LOG_LINES, 100),
     alertsTable: ctx(scope, 'alertsTable', process.env.URBANI_ALERTS_TABLE, 'UrbaniAlerts'),
     anomalyTypeGsi: ctx(scope, 'anomalyTypeGsi', process.env.URBANI_ANOMALY_GSI, 'anomaly_type-index'),
+    dynamoTablePrefix,
+    appTableName: `${dynamoTablePrefix}App`,
     budgetSoftUsd: ctx(scope, 'budgetSoftUsd', process.env.URBANI_BUDGET_SOFT, 50),
     budgetHardUsd: ctx(scope, 'budgetHardUsd', process.env.URBANI_BUDGET_HARD, 100),
     // ECS Fargate dashboard hosting. Defaults sized for a low-footprint

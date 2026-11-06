@@ -5,6 +5,7 @@ import {
   aws_ec2 as ec2,
   aws_ecs as ecs,
   aws_elasticloadbalancingv2 as elbv2,
+  aws_iam as iam,
   aws_logs as logs,
 } from 'aws-cdk-lib';
 import type { UrbaniConfig } from '../config';
@@ -30,18 +31,19 @@ import type { UrbaniConfig } from '../config';
  * backend over 127.0.0.1 (awsvpc networking shares the task's network
  * namespace) — matching how nginx proxies /api to backend:4000 locally.
  *
- * NOTE on persistence: the backend uses SQLite on a local path. Fargate task
- * storage is ephemeral per task, so for data that must survive deploys either
- * attach EFS to the task (mount at /data) or migrate alerts to the DynamoDB
- * table this stack already provisions. Left as a deploy-time decision rather
- * than silently changing the data layer.
+ * NOTE on persistence: the backend still uses SQLite on a local path
+ * (DB_DRIVER=sqlite). Fargate task storage is ephemeral per task, so that data
+ * does not survive a deploy. The durable target is the UrbaniApp DynamoDB table
+ * (PersistenceConstruct.appTable); the task role passed in here already holds
+ * least-privilege access to it. Switching DB_DRIVER is a deploy-time step
+ * (DPI 2 item 14; see docs/adr/0001-dynamodb-persistence.md).
  */
 export class DashboardConstruct extends Construct {
   readonly cluster: ecs.Cluster;
   readonly service: ecs.FargateService;
   readonly loadBalancer: elbv2.ApplicationLoadBalancer;
 
-  constructor(scope: Construct, id: string, cfg: UrbaniConfig) {
+  constructor(scope: Construct, id: string, cfg: UrbaniConfig, taskRole?: iam.IRole) {
     super(scope, id);
 
     // Minimal 2-AZ VPC with public + private subnets. Fargate tasks run in
@@ -62,6 +64,7 @@ export class DashboardConstruct extends Construct {
     const taskDef = new ecs.FargateTaskDefinition(this, 'DashboardTaskDef', {
       cpu: cfg.dashboardCpu,
       memoryLimitMiB: cfg.dashboardMemoryMiB,
+      taskRole,
     });
 
     const logGroup = new logs.LogGroup(this, 'DashboardLogs', {
@@ -78,6 +81,7 @@ export class DashboardConstruct extends Construct {
       environment: {
         NODE_ENV: 'production',
         PORT: '4000',
+        // DPI 2 item 14: set DB_DRIVER=dynamodb, DYNAMODB_TABLE_PREFIX, remove the /data volume, raise desiredCount >= 2.
         DB_DRIVER: 'sqlite',
         DATABASE_URL: '/data/urbani.sqlite',
         // INTEGRATION_MODE and the URBANI_* / JWT_SECRET secrets are injected at
