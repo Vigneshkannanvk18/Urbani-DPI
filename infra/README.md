@@ -9,8 +9,8 @@ once AWS access is confirmed.
 
 | Construct | Resources |
 |---|---|
-| `SecurityConstruct` | KMS CMK (rotating), CloudTrail, least-privilege collector role (read-only CloudWatch + `bedrock:InvokeModel`), writer role |
-| `PersistenceConstruct` | DynamoDB `UrbaniAlerts` (PK `service_id`, SK `timestamp`, GSI `anomaly_type-index`), CMK-encrypted, PITR |
+| `SecurityConstruct` | KMS CMK (rotating), CloudTrail, least-privilege collector role (read-only CloudWatch + `bedrock:InvokeModel`), writer role, `UrbaniDashboardTaskRole` (ECS task role trusted by `ecs-tasks.amazonaws.com` under `aws:SourceAccount`; least-privilege data access to the `UrbaniApp` table only, no Scan) |
+| `PersistenceConstruct` | DynamoDB `UrbaniAlerts` (PK `service_id`, SK `timestamp`, GSI `anomaly_type-index`), CMK-encrypted, PITR. DPI 2 app table `UrbaniApp` (`<dynamoTablePrefix>App`; PK `PK`, SK `SK`, GSI `GSI1` on `GSI1PK`/`GSI1SK`, projection ALL), on-demand, shared CMK, PITR, RETAIN; see `docs/adr/0001-dynamodb-persistence.md` |
 | `OrchestrationConstruct` | EventBridge rule (`rate(5 minutes)`), `UrbaniTelemetryCollectorFn`, `UrbaniAlertWriterFn` |
 | `CostConstruct` | AWS Budgets monthly budget with soft ($50) / hard ($100) alerts |
 | `DashboardConstruct` | Boundary for the **custom** React+Node dashboard hosting (ECS Fargate / App Runner) — NOT Grafana/CloudWatch |
@@ -28,6 +28,7 @@ once AWS access is confirmed.
 cd infra
 npm install
 npm run build            # type-check the CDK app
+npm run check   # offline template assertions (no AWS)
 
 # Synthesize CloudFormation (no deploy). Provide account/region/model via context:
 npx cdk synth \
