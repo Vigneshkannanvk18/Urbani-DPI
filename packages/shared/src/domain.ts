@@ -103,6 +103,11 @@ export const AUDIT_ACTIONS = [
   'auth.sso_login',
   'sso.denied',
   'user.provisioned',
+  'notification.rule_create',
+  'notification.rule_update',
+  'notification.rule_delete',
+  'notification.settings_update',
+  'notification.test_send',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
@@ -143,6 +148,11 @@ export const AUDIT_ACTION_CATALOG: Record<AuditAction, { category: AuditCategory
   'auth.sso_login': { category: 'SENSITIVE_QUERY', description: 'Successful SSO sign-in' },
   'sso.denied': { category: 'SENSITIVE_QUERY', description: 'SSO sign-in denied' },
   'user.provisioned': { category: 'CONFIG', description: 'User auto-provisioned from SSO' },
+  'notification.rule_create': { category: 'CONFIG', description: 'Notification rule created' },
+  'notification.rule_update': { category: 'CONFIG', description: 'Notification rule updated' },
+  'notification.rule_delete': { category: 'CONFIG', description: 'Notification rule deleted' },
+  'notification.settings_update': { category: 'CONFIG', description: 'Notification dedup/rate settings updated' },
+  'notification.test_send': { category: 'CONFIG', description: 'Notification test message sent' },
 };
 export const auditActionsForCategory = (c: AuditCategory): AuditAction[] =>
   AUDIT_ACTIONS.filter((a) => AUDIT_ACTION_CATALOG[a].category === c);

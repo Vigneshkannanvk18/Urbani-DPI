@@ -12,6 +12,7 @@ import { settingsService } from '../services/settingsService';
 import { getRepositories } from '../repositories';
 import { rateLimit } from '../middleware/rateLimit';
 import { userRoutes } from './userRoutes';
+import { notificationRoutes } from './notificationRoutes';
 import { auditService } from '../services/auditService';
 import { AUDIT_CATEGORIES, AUDIT_RESULTS } from '@urbani/shared';
 import { config } from '../config';
@@ -246,6 +247,9 @@ apiRoutes.put(
     res.json(await settingsService.update(req.auth!.email, (req.body ?? {}) as Record<string, unknown>));
   }),
 );
+
+// -------------------- NOTIFICATIONS (DPI 2 item 6; per-route permissions) --------------------
+apiRoutes.use('/notifications', notificationRoutes);
 
 // -------------------- USER MANAGEMENT (Super Admin only; users:manage) --------------------
 apiRoutes.use('/users', requirePermission('users:manage'), userRoutes);

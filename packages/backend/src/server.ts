@@ -1,5 +1,7 @@
 import { createApp } from './app';
 import { startAuditRetentionJob } from './services/auditService';
+import { startNotificationRetentionJob } from './services/notificationService';
+import { startNotificationPoller } from './notifications/poller';
 import { config } from './config';
 import { logger } from './lib/logger';
 import { runMigrations } from './db/migrate';
@@ -23,6 +25,8 @@ async function main(): Promise<void> {
   }
   const app = createApp();
   startAuditRetentionJob();
+  startNotificationRetentionJob();
+  const stopPoller = await startNotificationPoller();
   const server = app.listen(config.port, '0.0.0.0', () => {
     logger.info('Urbani Observability API listening', {
       port: config.port,
@@ -35,6 +39,7 @@ async function main(): Promise<void> {
   // Graceful shutdown for container orchestration (SIGTERM from Docker/K8s).
   const shutdown = (signal: string) => {
     logger.info('Shutting down', { signal });
+    stopPoller();
     server.close(() => process.exit(0));
     // Failsafe: force-exit if connections don't drain in time.
     setTimeout(() => process.exit(0), 10_000).unref();

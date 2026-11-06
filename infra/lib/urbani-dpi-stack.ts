@@ -7,6 +7,7 @@ import { OrchestrationConstruct } from './orchestration-construct';
 import { CostConstruct } from './cost-construct';
 import { DashboardConstruct } from './dashboard-construct';
 import { CognitoConstruct } from './cognito-construct';
+import { NotificationsConstruct } from './notifications-construct';
 
 const truthy = (v: unknown): boolean => v === true || (typeof v === 'string' && ['1', 'true', 'yes'].includes(v.toLowerCase()));
 
@@ -49,6 +50,17 @@ export class UrbaniDpiStack extends Stack {
         googleSecretArn: this.node.tryGetContext('cognitoGoogleSecretArn') || undefined,
       });
     }
+    // Alert notifier (DPI 2 item 6): authored only; off unless `-c enableNotifications=true`. The engine runs in the backend.
+    if (truthy(this.node.tryGetContext('enableNotifications'))) {
+      new NotificationsConstruct(this, 'Notifications', {
+        key: security.key,
+        taskRole: security.dashboardTaskRole,
+        alertEmails: String(this.node.tryGetContext('alertEmails') ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+        slackWebhookSecretName: this.node.tryGetContext('slackWebhookSecretName') || undefined,
+        teamsWebhookSecretName: this.node.tryGetContext('teamsWebhookSecretName') || undefined,
+      });
+    }
+
     // Consistent tagging for cost allocation + governance.
     Tags.of(this).add('project', 'urbani-observability');
     Tags.of(this).add('managed-by', 'cdk');

@@ -94,6 +94,7 @@ export function dynamoAlertRepository(ctx: DynamoRepositoryContext): AlertReposi
         (!filter.severity || a.severity === filter.severity) &&
         (!filter.anomalyType || a.anomalyType === filter.anomalyType) &&
         (!filter.status || a.status === filter.status) &&
+        (!filter.dataSource || a.dataSource === filter.dataSource) &&
         (!filter.from || compareBinary(a.timestamp, filter.from) >= 0) &&
         (!filter.to || compareBinary(a.timestamp, filter.to) <= 0) &&
         (!like || like(a.summary) || like(a.anomalyType) || like(a.probableCause)),

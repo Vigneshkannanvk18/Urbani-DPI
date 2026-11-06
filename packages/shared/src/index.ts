@@ -20,3 +20,4 @@ export {
   permissionsForRole,
   roleHasPermission,
 } from './rbac';
+export * from './notifications';

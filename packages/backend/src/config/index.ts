@@ -119,6 +119,21 @@ const schema = z.object({
   LOGS_INSIGHTS_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(15_000),
   LOGS_INSIGHTS_MAX_RESULTS: z.coerce.number().int().min(1).max(10_000).default(1000),
   LOGS_REGEX_MAX_LENGTH: z.coerce.number().int().min(10).max(1000).default(200),
+
+  // Automatic alert notifications (DPI 2 item 6). Off by default. Webhook URLs and the topic ARN are secrets /
+  // deployment values: env only, never logged, audited or returned by the API.
+  NOTIFICATIONS_ENABLED: z.string().optional(),
+  NOTIFICATIONS_DRY_RUN: z.string().optional(),
+  NOTIFICATIONS_ALLOW_MOCK: z.string().optional(),
+  ALERT_POLL_MINUTES: z.coerce.number().min(1).max(1440).default(5),
+  NOTIFICATIONS_MAX_ALERT_AGE_MINUTES: z.coerce.number().int().min(1).default(60),
+  NOTIFICATIONS_LOG_RETENTION_DAYS: z.coerce.number().int().min(0).default(90),
+  NOTIFICATIONS_WEBHOOK_HOST_ALLOWLIST: z.string().optional(),
+  SLACK_WEBHOOK_URL: z.string().optional(),
+  TEAMS_WEBHOOK_URL: z.string().optional(),
+  TEAMS_WEBHOOK_FORMAT: z.enum(['adaptive', 'messagecard']).default('adaptive'),
+  ALERT_SNS_TOPIC_ARN: z.string().optional(),
+  DASHBOARD_BASE_URL: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -293,6 +308,21 @@ export const config = {
   audit: {
     retentionDays: env.AUDIT_RETENTION_DAYS,
     retentionJobEnabled: boolFromEnv(env.AUDIT_RETENTION_JOB, true),
+  },
+  notifications: {
+    enabled: boolFromEnv(env.NOTIFICATIONS_ENABLED, false),
+    dryRun: boolFromEnv(env.NOTIFICATIONS_DRY_RUN, false),
+    allowMock: boolFromEnv(env.NOTIFICATIONS_ALLOW_MOCK, false),
+    pollMinutes: env.ALERT_POLL_MINUTES,
+    maxAlertAgeMinutes: env.NOTIFICATIONS_MAX_ALERT_AGE_MINUTES,
+    logRetentionDays: env.NOTIFICATIONS_LOG_RETENTION_DAYS,
+    webhookHostAllowlist: env.NOTIFICATIONS_WEBHOOK_HOST_ALLOWLIST?.trim() || null,
+    slackWebhookUrl: env.SLACK_WEBHOOK_URL?.trim() || null,
+    teamsWebhookUrl: env.TEAMS_WEBHOOK_URL?.trim() || null,
+    teamsFormat: env.TEAMS_WEBHOOK_FORMAT,
+    snsTopicArn: env.ALERT_SNS_TOPIC_ARN?.trim() || null,
+    /** Base URL for deep links: DASHBOARD_BASE_URL, else FRONTEND_URL. Null = no link in messages. */
+    dashboardBaseUrl: env.DASHBOARD_BASE_URL?.trim() || env.FRONTEND_URL?.trim() || null,
   },
 } as const;
 

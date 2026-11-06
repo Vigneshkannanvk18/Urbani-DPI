@@ -15,6 +15,7 @@ import { dynamoAuditRepository } from './auditRepository';
 import { dynamoIntegrationRepository } from './integrationRepository';
 import { dynamoChatRepository } from './chatRepository';
 import { dynamoHealthRepository } from './healthRepository';
+import { dynamoNotificationRepository } from './notificationRepository';
 
 /**
  * DynamoDB driver (DB_DRIVER=dynamodb): one table `${DYNAMODB_TABLE_PREFIX}App` with keys PK/SK and one
@@ -44,6 +45,7 @@ export function createDynamoRepositories(ctx: DynamoContext, opts: RepositoryOpt
     preferences: dynamoPreferencesRepository(rctx),
     chat: dynamoChatRepository(rctx),
     health: dynamoHealthRepository(rctx),
+    notifications: dynamoNotificationRepository(rctx),
     close: async () => ctx.destroy(),
   };
 }

@@ -1,4 +1,5 @@
 import type {
+  NotificationChannelName, NotificationLogEntry, NotificationRule, NotificationSettings, NotificationStatus,
   AlertStatus, AuditAction, AuditEvent, AuditResult, ChatMessageRole, ChatRating, DataSource,
   LogEntry, MetricSnapshot, PersistedAlert, ServiceSummary, Theme, UrbaniIncidentAlert,
   UsageRecord, UserRole,
@@ -17,6 +18,8 @@ export interface RepositoryOptions { now?: () => string }
 export interface AlertFilter {
   service?: string; environment?: string; severity?: string; anomalyType?: string; status?: string;
   search?: string; from?: string; to?: string; page?: number; pageSize?: number;
+  /** Item 6: restrict to one provenance (the notifier only sends LIVE, or MOCK for demos). */
+  dataSource?: DataSource;
 }
 export interface AlertRepository {
   /** Full replace (REPLACE semantics, §2.5-1). Defaults: source 'MOCK', status 'OPEN'. */
@@ -211,6 +214,48 @@ export interface ChatRepository {
   listFeedback(sessionId: string): Promise<ChatFeedback[]>;   // ordered by messageId
 }
 
+// ---- Notifications (DPI 2 item 6) ----
+export type NewNotificationRule = Omit<NotificationRule, 'id' | 'createdAt' | 'updatedAt' | 'updatedBy'> & { id?: string };
+export type NotificationRulePatch = Partial<Pick<NotificationRule,
+  'name' | 'enabled' | 'minSeverity' | 'services' | 'anomalyTypes' | 'channels'>>;
+export interface NotificationSettingsPatch {
+  dedupWindowMinutes?: number; maxPerHourPerChannel?: number; defaultRuleSeeded?: boolean;
+}
+export interface NotificationSettingsRecord extends NotificationSettings {
+  /** Watermark: the instant the engine first ran. Alerts older than this (and older than the max age) are never notified. */
+  engineEnabledAt: string | null;
+  defaultRuleSeeded: boolean;
+}
+export type NewNotificationLog = Omit<NotificationLogEntry, 'id' | 'timestamp'>;
+export interface NotificationLogQuery {
+  channel?: NotificationChannelName; status?: NotificationStatus; alertId?: string;
+  from?: string; to?: string; page?: number; pageSize?: number;
+}
+export interface NotificationRepository {
+  listRules(): Promise<NotificationRule[]>;
+  getRule(id: string): Promise<NotificationRule | null>;
+  /** An explicit id that already exists raises DUPLICATE. */
+  createRule(input: NewNotificationRule): Promise<NotificationRule>;
+  updateRule(id: string, patch: NotificationRulePatch, actor: string): Promise<NotificationRule | null>;
+  deleteRule(id: string): Promise<boolean>;
+  getSettings(): Promise<NotificationSettingsRecord>;
+  updateSettings(patch: NotificationSettingsPatch, actor: string): Promise<NotificationSettingsRecord>;
+  /** Sets the watermark only if unset; returns the effective value (atomic). */
+  setEngineEnabledAtIfUnset(iso: string): Promise<string>;
+  /**
+   * Atomic conditional claim of (dedupKey, channel). Succeeds (true) only when no claim exists or the existing one
+   * is older than `windowMs`. windowMs = null means the claim is permanent. Exactly one concurrent caller wins.
+   */
+  claim(dedupKey: string, channel: NotificationChannelName, windowMs: number | null): Promise<boolean>;
+  appendLog(entry: NewNotificationLog): Promise<NotificationLogEntry>;
+  /** Newest first. */
+  listLog(q: NotificationLogQuery): Promise<PageResult<NotificationLogEntry>>;
+  /** Non-test deliveries that were attempted (SENT, FAILED, DRY_RUN) on the channel since `sinceIso`. */
+  countDeliveries(channel: NotificationChannelName, sinceIso: string): Promise<number>;
+  /** Retention: deletes log entries and claims older than the cutoff. Returns the number of log entries deleted. */
+  purgeOlderThan(cutoff: string): Promise<number>;
+}
+
 // ---- Health ----
 export interface HealthRepository { ping(): Promise<void> }
 
@@ -220,6 +265,7 @@ export interface Repositories {
   logs: LogRepository; metrics: MetricRepository; usage: UsageRepository; aiAnalyses: AIAnalysisRepository;
   audit: AuditRepository; integrations: IntegrationRepository; users: UserRepository;
   preferences: PreferencesRepository; chat: ChatRepository; health: HealthRepository;
+  notifications: NotificationRepository;
   /** SQLite: closeDb(); DynamoDB: client.destroy(). Used by CLIs and tests. */
   close(): Promise<void>;
 }

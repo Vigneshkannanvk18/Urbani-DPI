@@ -15,6 +15,7 @@ import { sqliteIntegrationRepository } from './integrationRepository';
 import { sqlitePreferencesRepository } from './preferencesRepository';
 import { sqliteChatRepository } from './chatRepository';
 import { sqliteHealthRepository } from './healthRepository';
+import { sqliteNotificationRepository } from './notificationRepository';
 
 /**
  * SQLite driver (DB_DRIVER=sqlite, the default). Every repository calls getDb() per
@@ -45,6 +46,7 @@ export function createSqliteRepositories(opts: RepositoryOptions = {}): Reposito
     preferences: sqlitePreferencesRepository(ctx),
     chat: sqliteChatRepository(ctx),
     health: sqliteHealthRepository(ctx),
+    notifications: sqliteNotificationRepository(ctx),
     close: async () => closeDb(),
   };
 }

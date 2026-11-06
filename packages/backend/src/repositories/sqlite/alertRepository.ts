@@ -209,6 +209,7 @@ export function sqliteAlertRepository(ctx: SqliteContext): AlertRepository {
     if (filter.anomalyType)
       (where.push('anomaly_type = @anomalyType'), (params.anomalyType = filter.anomalyType));
     if (filter.status) (where.push('status = @status'), (params.status = filter.status));
+    if (filter.dataSource) (where.push('data_source = @dataSource'), (params.dataSource = filter.dataSource));
     if (filter.from) (where.push('timestamp >= @from'), (params.from = filter.from));
     if (filter.to) (where.push('timestamp <= @to'), (params.to = filter.to));
     if (filter.search) {

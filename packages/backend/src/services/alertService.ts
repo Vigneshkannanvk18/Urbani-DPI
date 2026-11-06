@@ -5,6 +5,7 @@ import { MOCK_NOTE } from '../integrations/mock/mockData';
 import { config } from '../config';
 import { getIntegrations } from '../integrations';
 import { logger } from '../lib/logger';
+import { triggerEngineAfterSync } from '../notifications/runtime';
 
 /**
  * Alert service (Epic 5). Read + acknowledge only — NO automated remediation.
@@ -121,6 +122,9 @@ async function syncLiveAlerts(): Promise<void> {
     // relatedLogs are backed by real data (never fabricated). This is best-effort:
     // a correlation failure must not 500 the Alerts page.
     await correlateLiveAlerts([...byId.values()], cloudwatch);
+
+    // DPI 2 item 6: alerts are now in the store; let the notifier look at them (no-op unless NOTIFICATIONS_ENABLED).
+    triggerEngineAfterSync();
   } catch (err) {
     const message = err instanceof Error ? err.message : 'unknown error';
     logger.warn('Live alert sync failed; serving previously stored alerts', { message });
@@ -189,6 +193,11 @@ function sourceLabel(): { source: Sourced<unknown>['source']; note: string } {
 }
 
 export const alertService = {
+  /** Pulls the live alerts into the store (used by the notification poller). No-op outside live mode. */
+  async sync(): Promise<void> {
+    await syncLiveAlerts();
+  },
+
   async list(filter: AlertFilter): Promise<Sourced<Paginated<PersistedAlert>>> {
     await syncLiveAlerts();
     const repos = getRepositories();

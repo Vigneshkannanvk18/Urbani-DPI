@@ -183,6 +183,32 @@ function main(): void {
   const idp = JSON.stringify(ct.findResources('AWS::Cognito::UserPoolIdentityProvider'));
   assert.ok(idp.includes('resolve:secretsmanager'), 'Google credentials must be Secrets Manager dynamic references');
   for (const o of ['OidcIssuer', 'OidcClientId']) assert.ok(JSON.stringify(ct.toJSON().Outputs).includes(o), `missing output ${o}`);
+  // 9. Notifications (DPI 2 item 6) are OFF by default and leave the 2-statement task role untouched.
+  assert.deepEqual(Object.keys(template.findResources('AWS::SNS::Topic')), [], 'SNS topic must be off by default');
+  // 10. With enableNotifications: encrypted topic, e-mail subscriptions, publish limited to that one topic.
+  const nt = Template.fromStack(
+    new UrbaniDpiStack(
+      new App({
+        context: {
+          enableNotifications: 'true',
+          alertEmails: 'ops@example.test, oncall@example.test',
+          slackWebhookSecretName: 'urbani/slack-webhook-url',
+        },
+      }),
+      'UrbaniDpiNotificationsCheck',
+    ),
+  );
+  const [topicId, topic] = only(nt.findResources('AWS::SNS::Topic'), 'AWS::SNS::Topic');
+  assert.ok(topic.Properties.KmsMasterKeyId, 'the alert topic must be KMS encrypted');
+  const emails = Object.values(nt.findResources('AWS::SNS::Subscription')).map((s: Resource) => s.Properties.Endpoint);
+  assert.deepEqual(emails.sort(), ['oncall@example.test', 'ops@example.test']);
+  const nStatements: Statement[] = Object.values(nt.findResources('AWS::IAM::Policy')).flatMap((p) => p.Properties.PolicyDocument.Statement);
+  const publish = nStatements.find((s) => s.Sid === 'UrbaniAlertTopicPublish');
+  assert.ok(publish, 'sns:Publish statement is missing');
+  assert.deepEqual(publish.Action, 'sns:Publish');
+  assert.deepEqual(publish.Resource, { Ref: topicId });
+  assert.ok(!JSON.stringify(nt.toJSON()).includes('hooks.slack.com'), 'no webhook URL may appear in the template');
+  assert.ok(JSON.stringify(nt.toJSON().Outputs).includes('AlertTopicArn'), 'missing output AlertTopicArn');
   console.log(
     'app-table check passed: UrbaniApp table (PK/SK, GSI1, CMK, PITR, Retain), UrbaniAlerts unchanged, ' +
       'UrbaniDashboardTaskRole (ecs-tasks + aws:SourceAccount, 2 statements, no Scan), backend DB_DRIVER=sqlite',

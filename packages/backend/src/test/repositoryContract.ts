@@ -1532,6 +1532,124 @@ export function defineRepositoryContract(harness: RepositoryHarness): void {
     }
   });
 
+  // ---------------------------------------------------------------- Notifications (DPI 2 item 6)
+
+  const ntRule = (over: Partial<Parameters<Repositories['notifications']['createRule']>[0]> = {}) => ({
+    name: 'Rule', enabled: true, minSeverity: 'HIGH' as const, services: [], anomalyTypes: [], channels: ['SLACK' as const],
+    createdBy: 'admin@urbani.test', ...over,
+  });
+  const ntLog = (over: Partial<Parameters<Repositories['notifications']['appendLog']>[0]> = {}) => ({
+    alertId: 'A1', ruleId: 'r1', channel: 'SLACK' as const, status: 'SENT' as const, attempts: 1, error: null,
+    providerMessageId: null, isTest: false, summary: 's', ...over,
+  });
+
+  it('C-NT-01 rules: create, get, list in creation order, update, delete', async () => {
+    const n = repos.notifications;
+    const a = await n.createRule(ntRule({ name: 'A', services: ['main'], channels: ['SLACK', 'TEAMS'] }));
+    const b = await n.createRule(ntRule({ name: 'B', enabled: false, anomalyTypes: ['X'] }));
+    expect(a).toMatchObject({ name: 'A', enabled: true, services: ['main'], channels: ['SLACK', 'TEAMS'], createdBy: 'admin@urbani.test', updatedBy: 'admin@urbani.test' });
+    expect((await n.listRules()).map((r) => r.name)).toEqual(['A', 'B']);
+    expect(await n.getRule(b.id)).toMatchObject({ enabled: false, anomalyTypes: ['X'] });
+    const upd = await n.updateRule(a.id, { enabled: false, minSeverity: 'CRITICAL' }, 'other@urbani.test');
+    expect(upd).toMatchObject({ name: 'A', enabled: false, minSeverity: 'CRITICAL', services: ['main'], updatedBy: 'other@urbani.test', createdBy: 'admin@urbani.test' });
+    expect(upd!.updatedAt > a.updatedAt).toBe(true);
+    expect(await n.updateRule('missing', { enabled: true }, 'x')).toBeNull();
+    expect(await n.deleteRule(a.id)).toBe(true);
+    expect(await n.deleteRule(a.id)).toBe(false);
+    expect(await n.getRule(a.id)).toBeNull();
+    expect((await n.listRules()).map((r) => r.name)).toEqual(['B']);
+  });
+
+  it('C-NT-02 createRule with an existing explicit id raises DUPLICATE', async () => {
+    await repos.notifications.createRule({ ...ntRule(), id: 'fixed-id' });
+    await expectReason(repos.notifications.createRule({ ...ntRule(), id: 'fixed-id' }), 'DUPLICATE');
+  });
+
+  it('C-NT-03 settings: defaults, partial update, watermark is set once', async () => {
+    const n = repos.notifications;
+    expect(await n.getSettings()).toMatchObject({ dedupWindowMinutes: 30, maxPerHourPerChannel: 30, engineEnabledAt: null, defaultRuleSeeded: false });
+    await n.updateSettings({ dedupWindowMinutes: 5 }, 'admin@urbani.test');
+    expect(await n.getSettings()).toMatchObject({ dedupWindowMinutes: 5, maxPerHourPerChannel: 30, updatedBy: 'admin@urbani.test' });
+    await n.updateSettings({ defaultRuleSeeded: true, maxPerHourPerChannel: 7 }, 'system');
+    expect(await n.getSettings()).toMatchObject({ dedupWindowMinutes: 5, maxPerHourPerChannel: 7, defaultRuleSeeded: true });
+    expect(await n.setEngineEnabledAtIfUnset('2026-10-02T00:00:00.000Z')).toBe('2026-10-02T00:00:00.000Z');
+    expect(await n.setEngineEnabledAtIfUnset('2026-11-02T00:00:00.000Z')).toBe('2026-10-02T00:00:00.000Z');
+    expect((await n.getSettings()).engineEnabledAt).toBe('2026-10-02T00:00:00.000Z');
+  });
+
+  it('C-NT-04 claim: one winner per window, per channel; expires after the window; permanent claims never expire', async () => {
+    const n = repos.notifications;
+    expect(await n.claim('k', 'SLACK', 1500)).toBe(true);
+    expect(await n.claim('k', 'SLACK', 1500)).toBe(false);
+    expect(await n.claim('k', 'TEAMS', 1500)).toBe(true);
+    expect(await n.claim('k', 'SLACK', 1500)).toBe(true);
+    expect(await n.claim('p', 'EMAIL', null)).toBe(true);
+    for (let i = 0; i < 5; i++) expect(await n.claim('p', 'EMAIL', null)).toBe(false);
+    expect(await n.claim('p', 'EMAIL', 1)).toBe(true); // a window claim can take over once the old one is older than the window
+  });
+
+  it('C-NT-05 concurrent claims: exactly one wins', async () => {
+    const results = await Promise.all(Array.from({ length: 8 }, () => repos.notifications.claim('race', 'SLACK', null)));
+    expect(results.filter(Boolean)).toHaveLength(1);
+    const windowed = await Promise.all(Array.from({ length: 8 }, () => repos.notifications.claim('race2', 'TEAMS', 600_000)));
+    expect(windowed.filter(Boolean)).toHaveLength(1);
+  });
+
+  it('C-NT-06 log: append, newest first, filters, pagination', async () => {
+    const n = repos.notifications;
+    const e1 = await n.appendLog(ntLog({ alertId: 'A1', channel: 'SLACK', status: 'SENT' }));
+    await n.appendLog(ntLog({ alertId: 'A2', channel: 'TEAMS', status: 'FAILED', error: 'HTTP 500', attempts: 3 }));
+    await n.appendLog(ntLog({ alertId: 'A3', channel: 'SLACK', status: 'DRY_RUN', attempts: 0 }));
+    const e4 = await n.appendLog(ntLog({ alertId: null, ruleId: null, channel: 'EMAIL', status: 'SENT', isTest: true, providerMessageId: 'm-1' }));
+    expect(e1.id).toBeTruthy();
+    const all = await n.listLog({});
+    expect(all.total).toBe(4);
+    expect(all.items.map((e) => e.alertId)).toEqual([null, 'A3', 'A2', 'A1']);
+    expect(all.items[0]).toMatchObject({ isTest: true, providerMessageId: 'm-1', ruleId: null, channel: 'EMAIL' });
+    expect(all.items[2]).toMatchObject({ status: 'FAILED', error: 'HTTP 500', attempts: 3 });
+    expect((await n.listLog({ channel: 'SLACK' })).items.map((e) => e.alertId)).toEqual(['A3', 'A1']);
+    expect((await n.listLog({ status: 'FAILED' })).total).toBe(1);
+    expect((await n.listLog({ alertId: 'A2' })).items).toHaveLength(1);
+    expect((await n.listLog({ from: e4.timestamp })).items.map((e) => e.id)).toEqual([e4.id]);
+    expect((await n.listLog({ to: e1.timestamp })).items.map((e) => e.id)).toEqual([e1.id]);
+    const p2 = await n.listLog({ page: 2, pageSize: 3 });
+    expect(p2.total).toBe(4);
+    expect(p2.items.map((e) => e.alertId)).toEqual(['A1']);
+  });
+
+  it('C-NT-07 countDeliveries counts attempted non-test deliveries on the channel since the instant', async () => {
+    const n = repos.notifications;
+    await n.appendLog(ntLog({ status: 'SENT' }));
+    await n.appendLog(ntLog({ status: 'FAILED' }));
+    await n.appendLog(ntLog({ status: 'DRY_RUN' }));
+    await n.appendLog(ntLog({ status: 'SKIPPED_DEDUP' }));
+    await n.appendLog(ntLog({ status: 'SENT', isTest: true }));
+    await n.appendLog(ntLog({ status: 'SENT', channel: 'TEAMS' }));
+    expect(await n.countDeliveries('SLACK', '2000-01-01T00:00:00.000Z')).toBe(3);
+    expect(await n.countDeliveries('SLACK', '2999-01-01T00:00:00.000Z')).toBe(0);
+    expect(await n.countDeliveries('EMAIL', '2000-01-01T00:00:00.000Z')).toBe(0);
+  });
+
+  it('C-NT-08 purgeOlderThan deletes old log entries and old claims only', async () => {
+    const n = repos.notifications;
+    const old = await n.appendLog(ntLog({ alertId: 'OLD' }));
+    expect(await n.claim('old-claim', 'SLACK', null)).toBe(true);
+    const cutoff = (await n.appendLog(ntLog({ alertId: 'MID' }))).timestamp;
+    await n.appendLog(ntLog({ alertId: 'NEW' }));
+    expect(await n.purgeOlderThan(cutoff)).toBe(1);
+    expect((await n.listLog({})).items.map((e) => e.alertId)).toEqual(['NEW', 'MID']);
+    expect((await n.listLog({ alertId: 'OLD' })).total).toBe(0);
+    expect(old.id).toBeTruthy();
+    expect(await n.claim('old-claim', 'SLACK', null)).toBe(true); // the old claim was purged
+  });
+
+  it('C-NT-09 alerts.query filters by dataSource', async () => {
+    await repos.alerts.insert(makeAlert('L1'), 'LIVE');
+    await repos.alerts.insert(makeAlert('M1'), 'MOCK');
+    expect((await repos.alerts.query({ dataSource: 'LIVE' })).items.map((a) => a.alertId)).toEqual(['L1']);
+    expect((await repos.alerts.query({ dataSource: 'MOCK', status: 'OPEN' })).items.map((a) => a.alertId)).toEqual(['M1']);
+    expect((await repos.alerts.query({})).total).toBe(2);
+  });
   // ---------------------------------------------------------------- Keys
 
   it('C-KY-01 over-long and empty keys behave as not found', async () => {
