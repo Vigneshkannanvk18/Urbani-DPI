@@ -106,7 +106,7 @@ export function Layout() {
           <button className="menu-btn" onClick={() => setMobileOpen(true)} aria-label="Open navigation">
             <IconMenu size={20} />
           </button>
-          <div className="topbar-title">{current.title}</div>
+          <div className="topbar-title">{location.pathname.startsWith('/security') ? 'Account security' : current.title}</div>
           <div className="spacer" />
           <span className="src src-LIVE" title="Connected to the live Urbani AWS backend">
             ENV · LIVE
@@ -117,6 +117,7 @@ export function Layout() {
               <div style={{ fontWeight: 600, fontSize: 13 }}>{user?.displayName}</div>
               <div className="role-badge" title="Your role">{user?.rbacRoleName ?? user?.role}</div>
             </div>
+            <NavLink to="/security" className="role-badge" title="Account security (two-step verification)">Security</NavLink>
             <Button variant="ghost" size="sm" onClick={onLogout} aria-label="Log out">
               <IconLogout size={16} /> Logout
             </Button>

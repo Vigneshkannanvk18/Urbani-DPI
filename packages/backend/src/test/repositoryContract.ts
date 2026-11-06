@@ -1065,6 +1065,52 @@ export function defineRepositoryContract(harness: RepositoryHarness): void {
     expect(await repos.users.findById('u1')).toBeNull();
   });
 
+  it('C-UR-MFA-01 security state defaults, partial updates, list, and survives upsertUser', async () => {
+    await addUser('u1', 'u1@urbani.test');
+    expect(await repos.users.getSecurity('u1')).toEqual({
+      authSource: 'local', mfaEnabled: false, mfaSecretEncrypted: null, mfaEnrolledAt: null,
+      mfaRecoveryHashes: [], mfaLastStep: null, mfaFailedCount: 0, mfaLockedUntil: null,
+    });
+    expect((await repos.users.getSecurity('nobody')).mfaEnabled).toBe(false);
+    await repos.users.updateSecurity('u1', {
+      mfaEnabled: true, mfaSecretEncrypted: 'v1:a:b:c', mfaEnrolledAt: at(1), mfaRecoveryHashes: ['h1', 'h2'], mfaFailedCount: 2,
+      mfaLockedUntil: at(2), authSource: 'sso',
+    });
+    const s = await repos.users.getSecurity('u1');
+    expect(s).toMatchObject({ authSource: 'sso', mfaEnabled: true, mfaSecretEncrypted: 'v1:a:b:c', mfaRecoveryHashes: ['h1', 'h2'], mfaFailedCount: 2, mfaLockedUntil: at(2) });
+    // upsertUser (e.g. role change) must not wipe MFA state, and UserRow stays free of it.
+    const row = (await repos.users.findById('u1'))!;
+    await repos.users.upsertUser({ ...row, role: 'QA_OPERATOR' });
+    expect(await repos.users.getSecurity('u1')).toEqual(s);
+    expect(Object.keys((await repos.users.findById('u1'))!)).not.toContain('mfa_enabled');
+    // null clears a nullable field; a missing user is a no-op.
+    await repos.users.updateSecurity('u1', { mfaSecretEncrypted: null, mfaLockedUntil: null, mfaRecoveryHashes: [] });
+    expect(await repos.users.getSecurity('u1')).toMatchObject({ mfaSecretEncrypted: null, mfaLockedUntil: null, mfaRecoveryHashes: [], mfaEnabled: true });
+    await expect(repos.users.updateSecurity('u-missing', { mfaEnabled: true })).resolves.toBeUndefined();
+    expect(await repos.users.getById('u-missing')).toBeNull();
+    await addUser('u2', 'u2@urbani.test');
+    const all = await repos.users.listSecurity();
+    expect(all.u1.mfaEnabled).toBe(true);
+    expect(all.u2.mfaEnabled).toBe(false);
+  });
+  it('C-UR-MFA-02 claimTotpStep accepts a step once and only newer steps afterwards', async () => {
+    await addUser('u1', 'u1@urbani.test');
+    expect(await repos.users.claimTotpStep('u1', 100)).toBe(true);
+    expect(await repos.users.claimTotpStep('u1', 100)).toBe(false);
+    expect(await repos.users.claimTotpStep('u1', 99)).toBe(false);
+    expect(await repos.users.claimTotpStep('u1', 101)).toBe(true);
+    expect((await repos.users.getSecurity('u1')).mfaLastStep).toBe(101);
+    expect(await repos.users.claimTotpStep('u-missing', 1)).toBe(false);
+  });
+  it('C-UR-MFA-03 consumeRecoveryHash is one-time', async () => {
+    await addUser('u1', 'u1@urbani.test');
+    await repos.users.updateSecurity('u1', { mfaRecoveryHashes: ['a', 'b', 'c'] });
+    expect(await repos.users.consumeRecoveryHash('u1', 'b')).toBe(true);
+    expect(await repos.users.consumeRecoveryHash('u1', 'b')).toBe(false);
+    expect(await repos.users.consumeRecoveryHash('u1', 'zzz')).toBe(false);
+    expect((await repos.users.getSecurity('u1')).mfaRecoveryHashes).toEqual(['a', 'c']);
+    expect(await repos.users.consumeRecoveryHash('u-missing', 'a')).toBe(false);
+  });
   it('C-UR-04 toAuthUser takes the role name from the roles table and parses permissions', async () => {
     await addUser('u1', 'u1@urbani.test');
     await repos.users.upsertRole({

@@ -6,6 +6,9 @@ import { PersistenceConstruct } from './persistence-construct';
 import { OrchestrationConstruct } from './orchestration-construct';
 import { CostConstruct } from './cost-construct';
 import { DashboardConstruct } from './dashboard-construct';
+import { CognitoConstruct } from './cognito-construct';
+
+const truthy = (v: unknown): boolean => v === true || (typeof v === 'string' && ['1', 'true', 'yes'].includes(v.toLowerCase()));
 
 /**
  * UrbaniDpiStack — composes the documented architecture into one stack:
@@ -33,6 +36,19 @@ export class UrbaniDpiStack extends Stack {
     new CostConstruct(this, 'Cost', cfg);
     new DashboardConstruct(this, 'Dashboard', cfg, security.dashboardTaskRole);
 
+    // SSO (DPI 2 item 5): authored only; off unless `-c enableCognito=true`. Existing stack is unchanged by default.
+    if (truthy(this.node.tryGetContext('enableCognito'))) {
+      const list = (k: string): string[] =>
+        String(this.node.tryGetContext(k) ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+      const callbackUrls = list('cognitoCallbackUrls');
+      if (callbackUrls.length === 0) throw new Error('enableCognito requires context cognitoCallbackUrls (comma-separated)');
+      new CognitoConstruct(this, 'Cognito', {
+        domainPrefix: String(this.node.tryGetContext('cognitoDomainPrefix') ?? 'urbani-radar'),
+        callbackUrls,
+        logoutUrls: list('cognitoLogoutUrls').length ? list('cognitoLogoutUrls') : callbackUrls,
+        googleSecretArn: this.node.tryGetContext('cognitoGoogleSecretArn') || undefined,
+      });
+    }
     // Consistent tagging for cost allocation + governance.
     Tags.of(this).add('project', 'urbani-observability');
     Tags.of(this).add('managed-by', 'cdk');

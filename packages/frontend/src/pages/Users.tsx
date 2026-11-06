@@ -82,7 +82,7 @@ export function Users() {
             <div className="table-wrap">
               <table className="data">
                 <thead>
-                  <tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last login</th><th>Actions</th></tr>
+                  <tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>MFA</th><th>Last login</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                   {list.map((u) => {
@@ -103,9 +103,23 @@ export function Users() {
                           </Select>
                         </td>
                         <td>{u.isActive ? 'Active' : 'Deactivated'}</td>
+                        <td>{u.authSource === 'sso' ? 'SSO' : u.mfaEnabled ? 'Enabled' : 'Off'}</td>
                         <td>{fmtTime(u.lastLoginAt)}</td>
                         <td>
                           <Button size="sm" variant="secondary" onClick={() => onReset(u)}>Reset password</Button>{' '}
+                          {u.mfaEnabled && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => {
+                                  if (window.confirm(`Reset MFA for ${u.email}? They will need to enrol again.`)) void run(() => usersApi.resetMfa(u.id));
+                                }}
+                              >
+                                Reset MFA
+                              </Button>{' '}
+                            </>
+                          )}
                           <Button
                             size="sm"
                             variant="ghost"

@@ -8,3 +8,4 @@ process.env.INTEGRATION_MODE = 'mock';
 process.env.DB_SQLITE_PATH = ':memory:';
 process.env.LOG_LEVEL = 'error';
 process.env.DB_DRIVER = 'sqlite';
+process.env.RATE_LIMIT_DISABLED = '1';

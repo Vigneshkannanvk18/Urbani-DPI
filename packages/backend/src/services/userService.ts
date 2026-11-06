@@ -27,9 +27,12 @@ export interface UserView {
   isActive: boolean;
   lastLoginAt: string | null;
   createdAt: string;
+  /** DPI 2 item 5 */
+  mfaEnabled: boolean;
+  authSource: 'local' | 'sso';
 }
 
-function view(u: UserRow): UserView {
+function view(u: UserRow, sec?: { mfaEnabled: boolean; authSource: 'local' | 'sso' }): UserView {
   return {
     id: u.id,
     email: u.email,
@@ -39,15 +42,17 @@ function view(u: UserRow): UserView {
     isActive: u.is_active === 1,
     lastLoginAt: u.last_login_at,
     createdAt: u.created_at,
+    mfaEnabled: sec?.mfaEnabled ?? false,
+    authSource: sec?.authSource ?? 'local',
   };
 }
 
 /** Legacy `roles` table label kept coherent with the RBAC role (FK target for users.role_id). */
-function legacyRoleId(role: UserRole): string {
+export function legacyRoleId(role: UserRole): string {
   return role === 'SUPER_ADMIN' || role === 'INFRA_ADMIN' ? 'role-admin' : 'role-viewer';
 }
 
-async function ensureLegacyRole(roleId: string): Promise<void> {
+export async function ensureLegacyRole(roleId: string): Promise<void> {
   const repos = getRepositories();
   if (await repos.users.getRole(roleId)) return;
   const admin = roleId === 'role-admin';
@@ -78,7 +83,9 @@ async function assertNotLastSuperAdmin(target: UserRow, action: string): Promise
 
 export const userService = {
   async list(): Promise<UserView[]> {
-    return (await getRepositories().users.list()).map(view);
+    const repos = getRepositories();
+    const [users, sec] = await Promise.all([repos.users.list(), repos.users.listSecurity()]);
+    return users.map((u) => view(u, sec[u.id]));
   },
 
   async create(

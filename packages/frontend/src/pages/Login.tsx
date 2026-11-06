@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { authApi, type AuthConfig } from '../api/endpoints';
+import { MfaEnroll } from '../components/MfaEnroll';
 import {
   IconMail,
   IconLock,
@@ -147,7 +149,7 @@ function DashboardMock() {
 }
 
 export function Login() {
-  const { login } = useAuth();
+  const { login, verifyMfa, acceptSession } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('admin@urbani.local');
   const [password, setPassword] = useState('');
@@ -155,14 +157,29 @@ export function Login() {
   const [remember, setRemember] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null);
+  // Second step (MFA) and forced enrolment, driven by the password step's outcome.
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [enrollToken, setEnrollToken] = useState<string | null>(null);
+  const [code, setCode] = useState('');
+  const [useRecovery, setUseRecovery] = useState(false);
+
+  useEffect(() => {
+    authApi.config().then(setAuthConfig).catch(() => setAuthConfig(null));
+  }, []);
+
+  const localEnabled = authConfig?.localEnabled ?? true;
+  const ssoEnabled = authConfig?.ssoEnabled === true && Boolean(authConfig.ssoLoginUrl);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      await login(email, password);
-      navigate('/');
+      const outcome = await login(email, password);
+      if (outcome.kind === 'mfa') setMfaToken(outcome.mfaToken);
+      else if (outcome.kind === 'enroll') setEnrollToken(outcome.enrollToken);
+      else navigate('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
@@ -170,6 +187,29 @@ export function Login() {
     }
   };
 
+  const submitCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mfaToken) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await verifyMfa(mfaToken, useRecovery ? { recoveryCode: code } : { code });
+      navigate('/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Verification failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const finishEnrolment = async (sessionToken?: string) => {
+    if (sessionToken) {
+      await acceptSession(sessionToken);
+      navigate('/');
+    } else {
+      setEnrollToken(null);
+    }
+  };
   return (
     <div className="login-page">
       <div className="login-orb login-orb-1" aria-hidden />
@@ -206,76 +246,133 @@ export function Login() {
 
       {/* ---- Right: sign-in card ---- */}
       <section className="login-panel">
-        <form className="login-card" onSubmit={submit}>
+        <div className="login-card">
           <Brand variant="card" />
 
-          <h2 className="login-card-title">Sign in</h2>
-          <p className="login-card-sub">
-            Use your administrator credentials to access
-            <br />
-            the dashboard.
-          </p>
-
-          <div className="login-field">
-            <label className="login-label" htmlFor="email">Email</label>
-            <div className="login-input">
-              <span className="login-input-icon"><IconMail size={18} /></span>
-              <input
-                id="email"
-                className="login-input-el"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="username"
-                placeholder="admin@urbani.local"
-              />
-            </div>
-          </div>
-
-          <div className="login-field">
-            <label className="login-label" htmlFor="password">Password</label>
-            <div className="login-input">
-              <span className="login-input-icon"><IconLock size={18} /></span>
-              <input
-                id="password"
-                className="login-input-el"
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                placeholder="Enter your password"
-              />
-              <button
-                type="button"
-                className="login-eye"
-                onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-                aria-pressed={showPassword}
-              >
-                {showPassword ? <IconEye size={18} /> : <IconEyeOff size={18} />}
+          {enrollToken ? (
+            <>
+              <h2 className="login-card-title">Set up two-step verification</h2>
+              <p className="login-card-sub">Your role requires an authenticator app before you can continue.</p>
+              <MfaEnroll token={enrollToken} onEnrolled={(t) => void finishEnrolment(t)} />
+            </>
+          ) : mfaToken ? (
+            <form onSubmit={submitCode}>
+              <h2 className="login-card-title">Two-step verification</h2>
+              <p className="login-card-sub">
+                {useRecovery ? 'Enter one of your recovery codes.' : 'Enter the 6-digit code from your authenticator app.'}
+              </p>
+              <div className="login-field">
+                <label className="login-label" htmlFor="mfa-code">{useRecovery ? 'Recovery code' : 'Verification code'}</label>
+                <div className="login-input">
+                  <span className="login-input-icon"><IconLock size={18} /></span>
+                  <input
+                    id="mfa-code"
+                    className="login-input-el"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    inputMode={useRecovery ? 'text' : 'numeric'}
+                    autoComplete="one-time-code"
+                    autoFocus
+                    placeholder={useRecovery ? 'XXXXX-XXXXX' : '123456'}
+                  />
+                </div>
+              </div>
+              <div className="login-row">
+                <button type="button" className="login-forgot" onClick={() => { setUseRecovery((v) => !v); setCode(''); setError(null); }}>
+                  {useRecovery ? 'Use authenticator code' : 'Use a recovery code'}
+                </button>
+                <button type="button" className="login-forgot" onClick={() => { setMfaToken(null); setCode(''); setError(null); }}>
+                  Back
+                </button>
+              </div>
+              {error && <div className="login-error" role="alert">{error}</div>}
+              <button type="submit" className="login-submit" disabled={busy || code.trim() === ''}>
+                <span>{busy ? 'Verifying…' : 'Verify'}</span>
+                <IconArrowRight size={20} className="login-submit-arrow" />
               </button>
-            </div>
-          </div>
+            </form>
+          ) : (
+            <form onSubmit={submit}>
+              <h2 className="login-card-title">Sign in</h2>
+              <p className="login-card-sub">
+                {localEnabled ? 'Use your administrator credentials to access the dashboard.' : 'Sign in with your company account.'}
+              </p>
 
-          <div className="login-row">
-            <label className="login-check">
-              <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
-              <span>Keep me signed in</span>
-            </label>
-            <a className="login-forgot" href="#">Forgot password?</a>
-          </div>
+              {ssoEnabled && (
+                <a className="login-submit" href={authConfig!.ssoLoginUrl as string} style={{ textDecoration: 'none', marginBottom: 12 }}>
+                  <span>Sign in with SSO</span>
+                  <IconArrowRight size={20} className="login-submit-arrow" />
+                </a>
+              )}
 
-          {error && <div className="login-error" role="alert">{error}</div>}
+              {localEnabled && (
+                <>
+                  <div className="login-field">
+                    <label className="login-label" htmlFor="email">Email</label>
+                    <div className="login-input">
+                      <span className="login-input-icon"><IconMail size={18} /></span>
+                      <input
+                        id="email"
+                        className="login-input-el"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        autoComplete="username"
+                        placeholder="admin@urbani.local"
+                      />
+                    </div>
+                  </div>
 
-          <button type="submit" className="login-submit" disabled={busy}>
-            <span>{busy ? 'Signing inâ€¦' : 'Sign in'}</span>
-            <IconArrowRight size={20} className="login-submit-arrow" />
-          </button>
+                  <div className="login-field">
+                    <label className="login-label" htmlFor="password">Password</label>
+                    <div className="login-input">
+                      <span className="login-input-icon"><IconLock size={18} /></span>
+                      <input
+                        id="password"
+                        className="login-input-el"
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        autoComplete="current-password"
+                        placeholder="Enter your password"
+                      />
+                      <button
+                        type="button"
+                        className="login-eye"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        aria-pressed={showPassword}
+                      >
+                        {showPassword ? <IconEye size={18} /> : <IconEyeOff size={18} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="login-row">
+                    <label className="login-check">
+                      <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+                      <span>Keep me signed in</span>
+                    </label>
+                    <a className="login-forgot" href="#">Forgot password?</a>
+                  </div>
+
+                  {error && <div className="login-error" role="alert">{error}</div>}
+
+                  <button type="submit" className="login-submit" disabled={busy}>
+                    <span>{busy ? 'Signing in…' : 'Sign in'}</span>
+                    <IconArrowRight size={20} className="login-submit-arrow" />
+                  </button>
+                </>
+              )}
+            </form>
+          )}
+
+          {error && enrollToken && <div className="login-error" role="alert">{error}</div>}
 
           <div className="login-foot">
             <IconShield size={14} />
             <span>Secure access to your observability platform</span>
           </div>
-        </form>
+        </div>
       </section>
     </div>
   );

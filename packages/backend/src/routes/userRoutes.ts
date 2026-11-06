@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { USER_ROLES } from '@urbani/shared';
 import { asyncHandler } from '../lib/asyncHandler';
 import { MIN_PASSWORD_LENGTH, userService } from '../services/userService';
+import { mfaService } from '../services/mfaService';
 
 /**
  * User management API (DPI 2 item 2). Mounted at /api/users behind
@@ -60,6 +61,15 @@ userRoutes.post(
   asyncHandler(async (req, res) => {
     const body = z.object({ password }).parse(req.body);
     await userService.resetPassword(req.auth!.email, req.params.id, body.password);
+    res.json({ ok: true });
+  }),
+);
+
+// DPI 2 item 5: clears MFA so a locked-out user can enrol again. Audited as mfa.reset.
+userRoutes.post(
+  '/:id/mfa/reset',
+  asyncHandler(async (req, res) => {
+    await mfaService.reset(req.auth!.email, req.params.id);
     res.json({ ok: true });
   }),
 );

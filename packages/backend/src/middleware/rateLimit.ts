@@ -15,6 +15,8 @@ export function rateLimit(opts: { windowMs: number; max: number }) {
   const buckets = new Map<string, Bucket>();
 
   return (req: Request, res: Response, next: NextFunction): void => {
+    // Test-suite switch only (set in test/setup.ts); never set in a real environment.
+    if (process.env.RATE_LIMIT_DISABLED === '1') return next();
     const key = req.ip ?? 'unknown';
     const now = Date.now();
     const bucket = buckets.get(key);

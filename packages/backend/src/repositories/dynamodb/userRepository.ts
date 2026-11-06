@@ -4,7 +4,7 @@ import { PersistenceError } from '../../lib/errors';
 import { logger } from '../../lib/logger';
 import { buildAuthUser } from '../common';
 import { parseUserRole } from '../validation';
-import type { AuthUser, RoleRow, UserRepository, UserRow, UserUpsert } from '../types';
+import { DEFAULT_USER_SECURITY, type AuthUser, type RoleRow, type UserRepository, type UserRow, type UserSecurity, type UserUpsert } from '../types';
 import type { DynamoRepositoryContext } from './index';
 import { assertKeyFits, emailLockItem, itemToRole, itemToUser, roleItem, userItem, type DynamoItem, type StoredItem } from './items';
 import { fitsKey, ROLE_PK, roleKey, USER_EMAIL_PK, USER_PK, userEmailKey, userKey } from './keys';
@@ -27,6 +27,25 @@ import {
  */
 
 const OP_UPSERT = 'users.upsertUser';
+
+/** DPI 2 item 5: security attributes stored on the user item; upsertUser carries them over. */
+const SECURITY_ATTRS = [
+  'authSource', 'mfaEnabled', 'mfaSecretEncrypted', 'mfaEnrolledAt', 'mfaRecoveryHashes', 'mfaLastStep', 'mfaFailedCount', 'mfaLockedUntil',
+] as const;
+
+function itemToSecurity(item: StoredItem | undefined): UserSecurity {
+  if (!item) return { ...DEFAULT_USER_SECURITY };
+  return {
+    authSource: item.authSource === 'sso' ? 'sso' : 'local',
+    mfaEnabled: item.mfaEnabled === true,
+    mfaSecretEncrypted: typeof item.mfaSecretEncrypted === 'string' ? item.mfaSecretEncrypted : null,
+    mfaEnrolledAt: typeof item.mfaEnrolledAt === 'string' ? item.mfaEnrolledAt : null,
+    mfaRecoveryHashes: Array.isArray(item.mfaRecoveryHashes) ? (item.mfaRecoveryHashes as string[]) : [],
+    mfaLastStep: typeof item.mfaLastStep === 'number' ? item.mfaLastStep : null,
+    mfaFailedCount: typeof item.mfaFailedCount === 'number' ? item.mfaFailedCount : 0,
+    mfaLockedUntil: typeof item.mfaLockedUntil === 'string' ? item.mfaLockedUntil : null,
+  };
+}
 
 /** Which items of the upsert transaction failed: [0] user Put, [1] lock Put, [2] old-lock Delete. */
 interface TxFailure {
@@ -207,6 +226,7 @@ export function dynamoUserRepository(ctx: DynamoRepositoryContext): UserReposito
       const current = await getItem(userKey(row.id), OP_UPSERT);
       const role: UserRole = requestedRole ?? (current?.role as UserRole | undefined) ?? 'SUPER_ADMIN';
       const user = userItem({ ...row, role });
+      if (current) for (const a of SECURITY_ATTRS) if (current[a] !== undefined) user[a] = current[a];
       const prevEmail = current ? (current.email as string) : null;
       const emailChanged = prevEmail !== null && prevEmail !== row.email;
 
@@ -236,5 +256,105 @@ export function dynamoUserRepository(ctx: DynamoRepositoryContext): UserReposito
     }
   }
 
-  return { findByEmail, findById, getById, list, getRole, toAuthUser, recordLogin, upsertRole, upsertUser };
+  async function getSecurity(id: string): Promise<UserSecurity> {
+    if (!fitsKey(USER_PK, id)) return { ...DEFAULT_USER_SECURITY };
+    return itemToSecurity(await getItem(userKey(id), 'users.getSecurity'));
+  }
+
+  async function listSecurity(): Promise<Record<string, UserSecurity>> {
+    const items = await queryAll<StoredItem>(ctx, partitionQuery(USER_PK), 'users.listSecurity');
+    return Object.fromEntries(items.map((i) => [i.id as string, itemToSecurity(i)]));
+  }
+
+  async function updateSecurity(id: string, patch: Partial<UserSecurity>): Promise<void> {
+    if (!fitsKey(USER_PK, id)) return;
+    const names: Record<string, string> = { '#pk': 'PK' };
+    const values: Record<string, unknown> = {};
+    const sets: string[] = [];
+    const removes: string[] = [];
+    for (const a of SECURITY_ATTRS) {
+      const v = patch[a];
+      if (v === undefined) continue;
+      names['#' + a] = a;
+      if (v === null) {
+        removes.push('#' + a);
+      } else {
+        values[':' + a] = v;
+        sets.push('#' + a + ' = :' + a);
+      }
+    }
+    if (sets.length === 0 && removes.length === 0) return;
+    const expr = (sets.length ? 'SET ' + sets.join(', ') : '') + (removes.length ? ' REMOVE ' + removes.join(', ') : '');
+    try {
+      await send(
+        ctx,
+        new UpdateCommand({
+          TableName: ctx.tableName,
+          Key: userKey(id),
+          UpdateExpression: expr.trim(),
+          ConditionExpression: 'attribute_exists(#pk)',
+          ExpressionAttributeNames: names,
+          ...(Object.keys(values).length ? { ExpressionAttributeValues: values } : {}),
+        }),
+        'users.updateSecurity',
+        { handled: [CONDITIONAL_CHECK_FAILED] },
+      );
+    } catch (err) {
+      if (!isConditionalCheckFailed(err)) throw err;
+    }
+  }
+
+  async function claimTotpStep(id: string, step: number): Promise<boolean> {
+    if (!fitsKey(USER_PK, id)) return false;
+    try {
+      await send(
+        ctx,
+        new UpdateCommand({
+          TableName: ctx.tableName,
+          Key: userKey(id),
+          UpdateExpression: 'SET #s = :step',
+          ConditionExpression: 'attribute_exists(#pk) AND (attribute_not_exists(#s) OR #s < :step)',
+          ExpressionAttributeNames: { '#s': 'mfaLastStep', '#pk': 'PK' },
+          ExpressionAttributeValues: { ':step': step },
+        }),
+        'users.claimTotpStep',
+        { handled: [CONDITIONAL_CHECK_FAILED] },
+      );
+      return true;
+    } catch (err) {
+      if (isConditionalCheckFailed(err)) return false;
+      throw err;
+    }
+  }
+
+  async function consumeRecoveryHash(id: string, hash: string): Promise<boolean> {
+    if (!fitsKey(USER_PK, id)) return false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const hashes = itemToSecurity(await getItem(userKey(id), 'users.consumeRecoveryHash')).mfaRecoveryHashes;
+      const idx = hashes.indexOf(hash);
+      if (idx < 0) return false;
+      try {
+        // Conditional on the element still being at idx, so two concurrent uses cannot both succeed.
+        await send(
+          ctx,
+          new UpdateCommand({
+            TableName: ctx.tableName,
+            Key: userKey(id),
+            UpdateExpression: 'REMOVE #h[' + idx + ']',
+            ConditionExpression: '#h[' + idx + '] = :hash',
+            ExpressionAttributeNames: { '#h': 'mfaRecoveryHashes' },
+            ExpressionAttributeValues: { ':hash': hash },
+          }),
+          'users.consumeRecoveryHash',
+          { handled: [CONDITIONAL_CHECK_FAILED] },
+        );
+        return true;
+      } catch (err) {
+        if (!isConditionalCheckFailed(err)) throw err;
+      }
+    }
+    return false;
+  }
+
+  return { getSecurity, listSecurity, updateSecurity, claimTotpStep, consumeRecoveryHash, findByEmail, findById, getById, list, getRole, toAuthUser, recordLogin, upsertRole, upsertUser };
 }

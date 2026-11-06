@@ -125,7 +125,36 @@ export interface UserRow {
 /** role omitted: new user → SUPER_ADMIN; existing user → stored role kept. */
 export type UserUpsert = Omit<UserRow, 'role'> & { role?: UserRole };
 export interface AuthUser { id: string; email: string; displayName: string; role: string; permissions: string[] }
+/** DPI 2 item 5: authentication state kept beside (not inside) UserRow. Secrets are stored encrypted / hashed only. */
+export type AuthSource = 'local' | 'sso';
+export interface UserSecurity {
+  authSource: AuthSource;
+  mfaEnabled: boolean;
+  /** AES-256-GCM envelope; decrypted only by the MFA service. */
+  mfaSecretEncrypted: string | null;
+  mfaEnrolledAt: string | null;
+  /** SHA-256 hex hashes of unused recovery codes. */
+  mfaRecoveryHashes: string[];
+  /** Last accepted TOTP time-step (replay protection). */
+  mfaLastStep: number | null;
+  mfaFailedCount: number;
+  mfaLockedUntil: string | null;
+}
+export const DEFAULT_USER_SECURITY: UserSecurity = {
+  authSource: 'local', mfaEnabled: false, mfaSecretEncrypted: null, mfaEnrolledAt: null,
+  mfaRecoveryHashes: [], mfaLastStep: null, mfaFailedCount: 0, mfaLockedUntil: null,
+};
 export interface UserRepository {
+  /** Item 5: defaults for a missing user. */
+  getSecurity(id: string): Promise<UserSecurity>;
+  /** Item 5: security state for every user, keyed by user id. */
+  listSecurity(): Promise<Record<string, UserSecurity>>;
+  /** Item 5: partial update; a missing user is a no-op. */
+  updateSecurity(id: string, patch: Partial<UserSecurity>): Promise<void>;
+  /** Item 5: atomically accepts a TOTP step only if it is newer than the last accepted one. */
+  claimTotpStep(id: string, step: number): Promise<boolean>;
+  /** Item 5: atomically removes one recovery hash; false if it was not present (already used). */
+  consumeRecoveryHash(id: string, hash: string): Promise<boolean>;
   findByEmail(email: string): Promise<UserRow | null>;
   findById(id: string): Promise<UserRow | null>;
   /** Item 2: includes inactive users (findBy* return active users only). */

@@ -150,6 +150,39 @@ function main(): void {
   const env: Array<{ Name: string; Value: string }> = backend.Environment ?? [];
   assert.equal(env.find((e) => e.Name === 'DB_DRIVER')?.Value, 'sqlite');
 
+  // 7. Cognito (DPI 2 item 5) is OFF by default and fully absent from the existing stack.
+  assert.deepEqual(Object.keys(template.findResources('AWS::Cognito::UserPool')), [], 'Cognito must be off by default');
+  // 8. With enableCognito: TOTP MFA required, 4 groups, code grant + PKCE-capable client, hosted domain, Google IdP.
+  const cog = new UrbaniDpiStack(
+    new App({
+      context: {
+        enableCognito: 'true',
+        cognitoCallbackUrls: 'https://radar.example.test/api/auth/sso/callback',
+        cognitoGoogleSecretArn: 'arn:aws:secretsmanager:us-east-1:111111111111:secret:google-oidc-AbCdEf',
+      },
+    }),
+    'UrbaniDpiCognitoCheck',
+  );
+  const ct = Template.fromStack(cog);
+  ct.hasResourceProperties('AWS::Cognito::UserPool', {
+    MfaConfiguration: 'ON',
+    EnabledMfas: ['SOFTWARE_TOKEN_MFA'],
+    AdminCreateUserConfig: Match.objectLike({ AllowAdminCreateUserOnly: true }),
+  });
+  const groups = Object.values(ct.findResources('AWS::Cognito::UserPoolGroup')).map((g: Resource) => g.Properties.GroupName);
+  assert.deepEqual(groups.sort(), ['InfraAdmins', 'QaOperators', 'ReadersAuditors', 'SuperAdmins']);
+  ct.hasResourceProperties('AWS::Cognito::UserPoolClient', {
+    AllowedOAuthFlows: ['code'],
+    AllowedOAuthFlowsUserPoolClient: true,
+    GenerateSecret: true,
+    CallbackURLs: ['https://radar.example.test/api/auth/sso/callback'],
+    SupportedIdentityProviders: Match.arrayWith(['COGNITO', 'Google']),
+  });
+  ct.hasResourceProperties('AWS::Cognito::UserPoolDomain', { Domain: 'urbani-radar' });
+  ct.hasResourceProperties('AWS::Cognito::UserPoolIdentityProvider', { ProviderType: 'Google' });
+  const idp = JSON.stringify(ct.findResources('AWS::Cognito::UserPoolIdentityProvider'));
+  assert.ok(idp.includes('resolve:secretsmanager'), 'Google credentials must be Secrets Manager dynamic references');
+  for (const o of ['OidcIssuer', 'OidcClientId']) assert.ok(JSON.stringify(ct.toJSON().Outputs).includes(o), `missing output ${o}`);
   console.log(
     'app-table check passed: UrbaniApp table (PK/SK, GSI1, CMK, PITR, Retain), UrbaniAlerts unchanged, ' +
       'UrbaniDashboardTaskRole (ecs-tasks + aws:SourceAccount, 2 statements, no Scan), backend DB_DRIVER=sqlite',

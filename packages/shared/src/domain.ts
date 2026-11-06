@@ -92,6 +92,17 @@ export const AUDIT_ACTIONS = [
   'ai.analyze',
   'audit.view',
   'audit.purge',
+  'mfa.enroll',
+  'mfa.verify_success',
+  'mfa.verify_failed',
+  'mfa.disable',
+  'mfa.recovery_used',
+  'mfa.recovery_regenerate',
+  'mfa.reset',
+  'mfa.locked',
+  'auth.sso_login',
+  'sso.denied',
+  'user.provisioned',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
@@ -121,6 +132,17 @@ export const AUDIT_ACTION_CATALOG: Record<AuditAction, { category: AuditCategory
   'chat.query': { category: 'SENSITIVE_QUERY', description: 'Assistant question asked (preview only, no answer)' },
   'logs.search': { category: 'SENSITIVE_QUERY', description: 'Log search or filter performed (parameters only)' },
   'audit.view': { category: 'SENSITIVE_QUERY', description: 'Audit log viewed or searched' },
+  'mfa.enroll': { category: 'CONFIG', description: 'MFA (TOTP) enrolment confirmed' },
+  'mfa.verify_success': { category: 'SENSITIVE_QUERY', description: 'MFA code accepted at sign-in' },
+  'mfa.verify_failed': { category: 'SENSITIVE_QUERY', description: 'MFA code rejected' },
+  'mfa.disable': { category: 'CONFIG', description: 'MFA disabled by the user' },
+  'mfa.recovery_used': { category: 'SENSITIVE_QUERY', description: 'MFA recovery code used' },
+  'mfa.recovery_regenerate': { category: 'CONFIG', description: 'MFA recovery codes regenerated' },
+  'mfa.reset': { category: 'CONFIG', description: 'MFA reset by a Super Admin' },
+  'mfa.locked': { category: 'SENSITIVE_QUERY', description: 'MFA verification locked after repeated failures' },
+  'auth.sso_login': { category: 'SENSITIVE_QUERY', description: 'Successful SSO sign-in' },
+  'sso.denied': { category: 'SENSITIVE_QUERY', description: 'SSO sign-in denied' },
+  'user.provisioned': { category: 'CONFIG', description: 'User auto-provisioned from SSO' },
 };
 export const auditActionsForCategory = (c: AuditCategory): AuditAction[] =>
   AUDIT_ACTIONS.filter((a) => AUDIT_ACTION_CATALOG[a].category === c);

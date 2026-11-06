@@ -15,6 +15,8 @@ import { Usage } from './pages/Usage';
 import { Audit } from './pages/Audit';
 import { Settings } from './pages/Settings';
 import { Users } from './pages/Users';
+import { Security } from './pages/Security';
+import { SsoCallback } from './pages/SsoCallback';
 import { RequirePermission } from './auth/RequirePermission';
 
 /** App router. All dashboard routes are nested under the authenticated Layout. */
@@ -24,6 +26,7 @@ export function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/sso-callback" element={<SsoCallback />} />
           <Route
             element={
               <RequireAuth>
@@ -42,6 +45,7 @@ export function App() {
             <Route path="/usage" element={<RequirePermission permission="usage:view"><Usage /></RequirePermission>} />
             <Route path="/audit" element={<RequirePermission permission="audit:view"><Audit /></RequirePermission>} />
             <Route path="/users" element={<RequirePermission permission="users:manage"><Users /></RequirePermission>} />
+            <Route path="/security" element={<Security />} />
             <Route path="/settings" element={<RequirePermission permission="settings:view"><Settings /></RequirePermission>} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

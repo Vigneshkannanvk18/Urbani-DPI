@@ -17,6 +17,8 @@ declare global {
   namespace Express {
     interface Request {
       auth?: TokenPayload;
+      /** True when the request carries the enrolment-only token (policy-required MFA enrolment). */
+      enrollOnly?: boolean;
     }
   }
 }
@@ -31,6 +33,26 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
     const payload = authService.verify(token);
     const user = await authService.activeUser(payload.sub);
     req.auth = { sub: user.id, email: user.email, role: user.role };
+    setAuditActor({ userId: user.id, email: user.email, role: user.role });
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Accepts a normal session token OR the enrolment-only token ('mfa_enroll'). Used only by the MFA
+ * enrolment endpoints, so a user who must enrol can do so without a full session.
+ */
+export async function requireAuthOrEnroll(req: Request, _res: Response, next: NextFunction): Promise<void> {
+  const header = req.header('authorization');
+  if (!header || !header.startsWith('Bearer ')) return next(new UnauthorizedError('Missing bearer token'));
+  try {
+    const payload = authService.decode(header.slice('Bearer '.length).trim());
+    if (payload.purpose && payload.purpose !== 'mfa_enroll') throw new UnauthorizedError('Invalid or expired token');
+    const user = await authService.activeUser(payload.sub);
+    req.auth = { sub: user.id, email: user.email, role: user.role };
+    req.enrollOnly = payload.purpose === 'mfa_enroll';
     setAuditActor({ userId: user.id, email: user.email, role: user.role });
     next();
   } catch (err) {

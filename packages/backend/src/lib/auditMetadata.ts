@@ -26,7 +26,7 @@ export function setAuditActor(actor: { userId: string; email: string; role: stri
   if (ctx) Object.assign(ctx, actor);
 }
 
-const SECRET_KEY = /(password|passwd|token|authorization|api[-_]?key|secret|cookie)/i;
+const SECRET_KEY = /(password|passwd|token|authorization|api[-_]?key|secret|cookie|totp|recovery|passcode|verifier)/i;
 export const REDACTED = '[REDACTED]';
 
 /** Central redaction: any key that looks like a secret has its value replaced, at any depth. */

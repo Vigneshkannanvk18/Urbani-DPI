@@ -27,9 +27,55 @@ export interface AuthUser {
   permissions: string[];
 }
 
+/** Result of the password step (DPI 2 item 5). */
+export type LoginOutcome =
+  | { kind: 'session'; user: AuthUser }
+  | { kind: 'mfa'; mfaToken: string }
+  | { kind: 'enroll'; enrollToken: string; user: AuthUser };
+
+export interface AuthConfig {
+  provider: 'local' | 'oidc';
+  ssoEnabled: boolean;
+  localEnabled: boolean;
+  ssoLoginUrl: string | null;
+}
+export interface MfaStatus {
+  enabled: boolean;
+  enrolledAt: string | null;
+  recoveryCodesRemaining: number;
+  required: boolean;
+  authSource: 'local' | 'sso';
+}
+export interface MfaEnrolStart {
+  secret: string;
+  otpauthUri: string;
+  qrDataUrl: string;
+}
+export type MfaCredential = { code: string } | { recoveryCode: string };
+
+export const mfaApi = {
+  status: (token?: string) => api.get<MfaStatus>('/auth/mfa/status', { token }),
+  start: (token?: string) => api.post<MfaEnrolStart>('/auth/mfa/enroll/start', {}, { token }),
+  confirm: (code: string, token?: string) =>
+    api.post<{ recoveryCodes: string[]; session?: { token: string; user: AuthUser } }>('/auth/mfa/enroll/confirm', { code }, { token }),
+  disable: (password: string, cred: MfaCredential) => api.post<{ ok: true }>('/auth/mfa/disable', { password, ...cred }),
+  regenerate: (password: string, cred: MfaCredential) =>
+    api.post<{ recoveryCodes: string[] }>('/auth/mfa/recovery-codes/regenerate', { password, ...cred }),
+};
+
 export const authApi = {
-  async login(email: string, password: string): Promise<AuthUser> {
-    const res = await api.post<{ token: string; user: AuthUser }>('/auth/login', { email, password });
+  config: () => api.get<AuthConfig>('/auth/config'),
+  async login(email: string, password: string): Promise<LoginOutcome> {
+    const res = await api.post<{
+      token?: string; user?: AuthUser; mfaRequired?: boolean; mfaToken?: string; mfaEnrollmentRequired?: boolean; enrollToken?: string;
+    }>('/auth/login', { email, password });
+    if (res.mfaRequired && res.mfaToken) return { kind: 'mfa', mfaToken: res.mfaToken };
+    if (res.mfaEnrollmentRequired && res.enrollToken && res.user) return { kind: 'enroll', enrollToken: res.enrollToken, user: res.user };
+    setToken(res.token as string);
+    return { kind: 'session', user: res.user as AuthUser };
+  },
+  async verifyMfa(mfaToken: string, cred: MfaCredential): Promise<AuthUser> {
+    const res = await api.post<{ token: string; user: AuthUser }>('/auth/mfa/verify', { mfaToken, ...cred });
     setToken(res.token);
     return res.user;
   },
@@ -52,6 +98,8 @@ export interface ManagedUser {
   isActive: boolean;
   lastLoginAt: string | null;
   createdAt: string;
+  mfaEnabled: boolean;
+  authSource: 'local' | 'sso';
 }
 
 export const usersApi = {
@@ -63,6 +111,7 @@ export const usersApi = {
   setActive: (id: string, active: boolean) =>
     api.post<{ data: ManagedUser }>(`/users/${id}/${active ? 'activate' : 'deactivate'}`).then((r) => r.data),
   resetPassword: (id: string, password: string) => api.post(`/users/${id}/reset-password`, { password }),
+  resetMfa: (id: string) => api.post(`/users/${id}/mfa/reset`),
 };
 
 export const dashboardApi = {
