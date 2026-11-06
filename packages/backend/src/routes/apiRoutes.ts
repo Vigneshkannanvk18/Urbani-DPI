@@ -22,6 +22,8 @@ import { auditService } from '../services/auditService';
 import { AUDIT_CATEGORIES, AUDIT_RESULTS } from '@urbani/shared';
 import { config } from '../config';
 import { parseLogSearch, appliedFilters } from '../lib/logQuery';
+import { alertFilterSchema } from '../lib/alertQuery';
+import { exportRoutes } from './exportRoutes';
 
 /**
  * Protected API routes (Epic 10). Every route here requires authentication
@@ -37,6 +39,9 @@ const pageSchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(200).optional(),
 });
 
+// Exports (DPI 2 item 11) are mounted first so /alerts/export is not captured by /alerts/:id.
+apiRoutes.use(exportRoutes);
+
 // -------------------- DASHBOARD --------------------
 apiRoutes.get(
   '/dashboard/summary',
@@ -50,16 +55,7 @@ apiRoutes.get(
 );
 
 // -------------------- ALERTS --------------------
-const alertQuerySchema = pageSchema.extend({
-  service: z.string().optional(),
-  environment: z.string().optional(),
-  severity: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).optional(),
-  anomalyType: z.string().optional(),
-  status: z.enum(['OPEN', 'ACKNOWLEDGED', 'RESOLVED', 'DISMISSED']).optional(),
-  search: z.string().optional(),
-  from: z.string().optional(),
-  to: z.string().optional(),
-});
+const alertQuerySchema = pageSchema.merge(alertFilterSchema);
 
 apiRoutes.get(
   '/alerts',

@@ -426,6 +426,125 @@ async function main() {
     }
   }
 
+  // 4b. Exports (DPI 2 item 11) and dashboard personalisation (item 12).
+  const authHeaders = { Authorization: `Bearer ${token}` };
+  const check = (name, theme, problems) => {
+    results.push({ name, route: '', theme, problems, status: problems.length ? 'FAIL' : 'PASS', consoleErrors: [], consoleWarnings: [], exceptions: [], failedRequests: [], externalFailures: [] });
+    log(`${problems.length ? 'FAIL' : 'ok  '} ${name.padEnd(22)} ${problems.join('; ')}`);
+  };
+  /** Fetch a file inside the page (same origin, same proxy) and describe it. */
+  const fetchInfo = (url) => page.eval(`(async () => {
+    const r = await fetch(${JSON.stringify(url)}, { headers: { Authorization: 'Bearer ' + localStorage.getItem('urbani.token') } });
+    const buf = new Uint8Array(await r.arrayBuffer());
+    return { status: r.status, type: r.headers.get('content-type'), size: buf.length, disposition: r.headers.get('content-disposition'),
+      rows: r.headers.get('x-export-rows'), head: Array.from(buf.slice(0, 80)), tail: Array.from(buf.slice(-8)) };
+  })()`);
+  const text = (bytes) => Buffer.from(bytes).toString('utf8');
+  const clickAria = (label) => page.eval(`(() => { const b = document.querySelector('button[aria-label=${JSON.stringify(label)}]'); if (!b || b.disabled) return false; b.click(); return true; })()`);
+  const clickText = (txt) => page.eval(`(() => { const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === ${JSON.stringify(txt)} && !x.disabled); if (!b) return false; b.click(); return true; })()`);
+  const order = () => page.eval(`[...document.querySelectorAll('[data-testid="dash-widgets"] > [data-widget]')].map((e) => e.getAttribute('data-widget'))`);
+  const getLayout = async () => (await (await fetch(`${API}/api/preferences`, { headers: authHeaders })).json()).data.widgetLayout;
+
+  if (!only) {
+    await page.setStorage({ 'urbani.theme': 'dark', 'urbani.token': token });
+    await page.goto('/logs');
+    const exportProblems = [];
+    const menu = await page.eval(`(() => { const b = [...document.querySelectorAll('button[aria-haspopup="menu"]')].find((x) => /Export/.test(x.textContent)); if (!b) return null; b.click(); return true; })()`);
+    if (!menu) exportProblems.push('Logs Export menu missing');
+    else {
+      await sleep(200);
+      const items = await page.eval(`[...document.querySelectorAll('[role="menuitem"]')].map((x) => x.textContent.trim())`);
+      if (items.join(',') !== 'CSV,JSON,PDF') exportProblems.push(`menu items: ${items.join(',')}`);
+      await page.eval(`[...document.querySelectorAll('[role="menuitem"]')][0].click()`); // real UI download path (CSV)
+      await sleep(1500);
+      const msg = await page.eval(`(document.querySelector('.export-menu-msg') || {}).innerText || ''`);
+      if (!/urbani-logs-\d{8}-\d{6}\.csv downloaded/.test(msg)) exportProblems.push(`no download confirmation in the UI: "${msg}"`);
+    }
+    await record('logs-export-menu', '/logs', 'dark');
+    const csv = await fetchInfo('/api/logs/export?format=csv');
+    if (csv.status !== 200 || !/text\/csv/.test(csv.type)) exportProblems.push(`csv status/type ${csv.status} ${csv.type}`);
+    else if (!text(csv.head).replace(/^\uFEFF/, '').startsWith('timestamp,level,service,environment,message,id') || csv.size < 200) exportProblems.push('csv header row missing or file too small');
+    const json = await fetchInfo('/api/logs/export?format=json&levels=ERROR');
+    if (json.status !== 200 || !/application\/json/.test(json.type) || !text(json.head).startsWith('{"meta":')) exportProblems.push(`json ${json.status} ${json.type}`);
+    const pdf = await fetchInfo('/api/logs/export?format=pdf');
+    if (pdf.status !== 200 || pdf.type !== 'application/pdf' || text(pdf.head.slice(0, 5)) !== '%PDF-' || !text(pdf.tail).includes('%%EOF') || pdf.size < 1500) exportProblems.push(`pdf ${pdf.status} ${pdf.type} ${pdf.size}B`);
+    check('logs-export', 'dark', exportProblems);
+    log(`      csv ${csv.size}B rows=${csv.rows}, json ${json.size}B, pdf ${pdf.size}B`);
+
+    // Alerts export + incident report
+    const alertProblems = [];
+    await page.goto('/alerts');
+    const aMenu = await page.eval(`!![...document.querySelectorAll('button[aria-haspopup="menu"]')].find((x) => /Export/.test(x.textContent))`);
+    if (!aMenu) alertProblems.push('Alerts Export menu missing');
+    const aCsv = await fetchInfo('/api/alerts/export?format=csv');
+    if (aCsv.status !== 200 || !text(aCsv.head).replace(/^\uFEFF/, '').startsWith('alertId,timestamp,service')) alertProblems.push(`alerts csv ${aCsv.status}`);
+    const aJson = await fetchInfo('/api/alerts/export?format=json');
+    if (aJson.status !== 200 || !/application\/json/.test(aJson.type)) alertProblems.push(`alerts json ${aJson.status}`);
+    if (alertId) {
+      await page.goto(`/alerts/${encodeURIComponent(alertId)}`);
+      const dl = await page.eval(`!![...document.querySelectorAll('button')].find((x) => /Download incident report/.test(x.textContent))`);
+      if (!dl) alertProblems.push('incident report button missing');
+      const rep = await fetchInfo(`/api/alerts/${encodeURIComponent(alertId)}/report?format=pdf`);
+      if (rep.status !== 200 || rep.type !== 'application/pdf' || text(rep.head.slice(0, 5)) !== '%PDF-' || !text(rep.tail).includes('%%EOF')) alertProblems.push(`incident pdf ${rep.status} ${rep.type}`);
+      const nf = await fetchInfo('/api/alerts/nope/report?format=pdf');
+      if (nf.status !== 404) alertProblems.push(`unknown incident gave ${nf.status}, expected 404`);
+    }
+    check('alerts-export-report', 'dark', alertProblems);
+
+    // Dashboard customize flow
+    const dashProblems = [];
+    await fetch(`${API}/api/preferences`, { method: 'PUT', headers: { ...authHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({ widgetLayout: null }) });
+    await page.eval(`Object.keys(localStorage).filter((k) => k.startsWith('urbani.dashboardLayout.')).forEach((k) => localStorage.removeItem(k))`);
+    await page.goto('/');
+    const order0 = await order();
+    if (order0.length < 5) dashProblems.push(`default dashboard has ${order0.length} widgets`);
+    if (!(await clickAria('Customize dashboard'))) dashProblems.push('Customize button missing');
+    await sleep(300);
+    if (!(await clickAria('Move Service health down'))) dashProblems.push('move button missing');
+    await sleep(200);
+    const live = await page.eval(`document.querySelector('[data-testid="dash-live"]').innerText`);
+    if (!/Service health moved to position 3 of \d+/.test(live)) dashProblems.push(`live region says "${live}"`);
+    const moved = await order();
+    if (moved[2] !== 'service-health' || moved[1] !== order0[2] || moved[0] !== order0[0]) dashProblems.push(`order after move: ${moved.join(',')}`);
+    if (!(await clickAria('Hide AI cost & budget'))) dashProblems.push('hide button missing');
+    await sleep(200);
+    const trayHas = await page.eval(`!!document.querySelector('button[aria-label="Show AI cost & budget"]')`);
+    if (!trayHas) dashProblems.push('hidden widget not in the tray');
+    if (!(await page.eval(`/Unsaved changes/.test(document.body.innerText)`))) dashProblems.push('no unsaved-changes indicator');
+    await record('dashboard-customize', '/', 'dark');
+    if (!(await clickText('Save'))) dashProblems.push('Save button missing');
+    await sleep(1200);
+    const savedLayout = await getLayout();
+    if (!savedLayout || savedLayout.widgets.find((w) => w.id === 'ai-cost')?.visible !== false) dashProblems.push('server layout does not have ai-cost hidden');
+    await page.goto('/'); // reload: the saved layout must persist
+    const afterReload = await order();
+    if (afterReload.join(',') !== moved.filter((x) => x !== 'ai-cost').join(',')) dashProblems.push(`after reload: ${afterReload.join(',')}`);
+    if (afterReload.includes('ai-cost')) dashProblems.push('hidden widget visible after reload');
+    // light mode, customize view
+    await fetch(`${API}/api/preferences`, { method: 'PUT', headers: { ...authHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({ theme: 'light' }) });
+    await page.setStorage({ 'urbani.theme': 'light', 'urbani.token': token });
+    await page.goto('/');
+    await clickAria('Customize dashboard');
+    await sleep(300);
+    await record('dashboard-customize', '/', 'light');
+    // narrow viewport: reorder with buttons still works
+    await cdp.send('Emulation.setDeviceMetricsOverride', { width: 420, height: 800, deviceScaleFactor: 1, mobile: true });
+    await sleep(400);
+    const narrowOk = await page.eval(`!!document.querySelector('button[aria-label="Move Recent alerts up"]') && document.documentElement.scrollWidth <= window.innerWidth + 4`);
+    if (!narrowOk) dashProblems.push('narrow viewport: move buttons missing or horizontal overflow');
+    await page.screenshot(path.join(OUT, 'dashboard-customize.narrow.png'));
+    await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+    // reset to default
+    if (!(await clickText('Reset to default'))) dashProblems.push('Reset button missing');
+    await sleep(1200);
+    if ((await getLayout()) !== null) dashProblems.push('reset did not clear the server layout');
+    await page.goto('/');
+    const afterReset = await order();
+    if (afterReset.join(',') !== order0.join(',')) dashProblems.push(`after reset: ${afterReset.join(',')}`);
+    check('dashboard-customize-flow', 'light', dashProblems);
+    await fetch(`${API}/api/preferences`, { method: 'PUT', headers: { ...authHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({ theme: 'dark' }) });
+  }
+
   // 5. Theme toggle: operable by keyboard / click, sets data-theme, persists to localStorage and the API.
   await page.setStorage({ 'urbani.theme': 'light', 'urbani.token': token });
   await fetch(`${API}/api/preferences`, { method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ theme: 'light' }) });

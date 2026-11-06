@@ -11,13 +11,14 @@ interface Bucket {
   resetAt: number;
 }
 
-export function rateLimit(opts: { windowMs: number; max: number }) {
+export function rateLimit(opts: { windowMs: number; max: number | (() => number); key?: (req: Request) => string }) {
   const buckets = new Map<string, Bucket>();
 
   return (req: Request, res: Response, next: NextFunction): void => {
     // Test-suite switch only (set in test/setup.ts); never set in a real environment.
     if (process.env.RATE_LIMIT_DISABLED === '1') return next();
-    const key = req.ip ?? 'unknown';
+    const key = opts.key ? opts.key(req) : (req.ip ?? 'unknown');
+    const max = typeof opts.max === 'function' ? opts.max() : opts.max;
     const now = Date.now();
     const bucket = buckets.get(key);
 
@@ -27,7 +28,7 @@ export function rateLimit(opts: { windowMs: number; max: number }) {
     }
 
     bucket.count += 1;
-    if (bucket.count > opts.max) {
+    if (bucket.count > max) {
       const retryAfter = Math.ceil((bucket.resetAt - now) / 1000);
       res.setHeader('Retry-After', String(retryAfter));
       res.status(429).json({

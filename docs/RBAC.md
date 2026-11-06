@@ -21,7 +21,7 @@ Existing DPI 1 users became `SUPER_ADMIN` through the item 1 migration default, 
 | alerts:acknowledge | yes | yes | yes | no |
 | ai:analyze | yes | yes | yes | no |
 | chat:use (read-only advisory) | yes | yes | yes | yes (judgment call) |
-| logs:export (placeholder, item 11) | yes | yes | yes | yes |
+| logs:export (covers ALL exports: logs, alerts, incident report; item 11) | yes | yes | yes | yes |
 | alerts:rules (placeholder, item 6) | yes | yes | no | no |
 | settings:update | yes | yes | no | no |
 | audit:view | yes | yes | no | yes |

@@ -232,6 +232,33 @@ export const alertService = {
     };
   },
 
+  /** All alerts matching the filter, up to max (pages of 200). Used by the export; no audit side effects. */
+  async listForExport(
+    filter: Omit<AlertFilter, 'page' | 'pageSize'>,
+    max: number,
+  ): Promise<{ source: Sourced<unknown>['source']; sourceNote: string; items: PersistedAlert[]; total: number; truncated: boolean }> {
+    await syncLiveAlerts();
+    const repos = getRepositories();
+    const items: PersistedAlert[] = [];
+    let total = 0;
+    for (let page = 1; items.length < max; page++) {
+      const res = await repos.alerts.query({ ...filter, page, pageSize: 200 });
+      total = res.total;
+      items.push(...res.items);
+      if (res.items.length < 200 || items.length >= total) break;
+    }
+    const { source, note } = sourceLabel();
+    return { source, sourceNote: note, items: items.slice(0, max), total, truncated: total > max };
+  },
+  /** One alert plus related logs for the incident report; no audit side effects (the route audits incident.report). */
+  async getForReport(alertId: string) {
+    await syncLiveAlerts();
+    const repos = getRepositories();
+    const alert = await repos.alerts.findById(alertId);
+    if (!alert) throw new NotFoundError(`Alert not found: ${alertId}`);
+    const { source, note } = sourceLabel();
+    return { source, sourceNote: note, alert, relatedLogs: await repos.logs.byAlert(alertId) };
+  },
   async acknowledge(alertId: string, actor: string): Promise<Sourced<PersistedAlert>> {
     // Ensure the alert exists locally (live rows are ingested on read/ack).
     await syncLiveAlerts();

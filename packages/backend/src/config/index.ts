@@ -122,6 +122,11 @@ const schema = z.object({
   LOGS_INSIGHTS_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(15_000),
   LOGS_INSIGHTS_MAX_RESULTS: z.coerce.number().int().min(1).max(10_000).default(1000),
   LOGS_REGEX_MAX_LENGTH: z.coerce.number().int().min(10).max(1000).default(200),
+  // Export (DPI 2 item 11; docs/EXPORT.md).
+  EXPORT_MAX_ROWS: z.coerce.number().int().min(1).max(100_000).default(10_000),
+  EXPORT_PDF_MAX_ROWS: z.coerce.number().int().min(1).max(20_000).default(2000),
+  EXPORT_RATE_LIMIT_PER_MIN: z.coerce.number().int().min(1).max(1000).default(10),
+  EXPORT_TIMEOUT_MS: z.coerce.number().int().min(1000).max(600_000).default(60_000),
 
   // Automatic alert notifications (DPI 2 item 6). Off by default. Webhook URLs and the topic ARN are secrets /
   // deployment values: env only, never logged, audited or returned by the API.
@@ -316,6 +321,12 @@ export const config = {
     insightsTimeoutMs: env.LOGS_INSIGHTS_TIMEOUT_MS,
     insightsMaxResults: env.LOGS_INSIGHTS_MAX_RESULTS,
     regexMaxLength: env.LOGS_REGEX_MAX_LENGTH,
+  },
+  export: {
+    maxRows: env.EXPORT_MAX_ROWS,
+    pdfMaxRows: env.EXPORT_PDF_MAX_ROWS,
+    rateLimitPerMin: env.EXPORT_RATE_LIMIT_PER_MIN,
+    timeoutMs: env.EXPORT_TIMEOUT_MS,
   },
   chat: {
     historyEnabled: boolFromEnv(env.CHAT_HISTORY_ENABLED, true),

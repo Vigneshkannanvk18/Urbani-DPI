@@ -13,6 +13,22 @@ import { config } from '../config';
  * here too so Phase 2 can flip the source without changing the API surface:
  * the service decides mock-vs-live, the route never touches an SDK.
  */
+/** Adapter query for a LogSearch (shared by the search API and the export). Adapters clamp limit to their own cap. */
+function logQuery(filter: LogSearch, limit: number) {
+  return {
+    services: filter.services,
+    environment: filter.environment,
+    levels: filter.levels,
+    search: filter.search,
+    regex: filter.regex,
+    regexMaxLength: config.logs.regexMaxLength,
+    startTime: filter.from,
+    endTime: filter.to,
+    sort: filter.sort,
+    limit,
+  };
+}
+
 export const telemetryService = {
   /**
    * Logs are served through the CloudWatch adapter boundary so the source can be
@@ -23,20 +39,7 @@ export const telemetryService = {
    */
   async logs(filter: LogSearch): Promise<Sourced<Paginated<LogEntry>> & { meta: LogSearchMeta }> {
     const { cloudwatch } = getIntegrations();
-    const res = await cloudwatch.getLogs({
-      services: filter.services,
-      environment: filter.environment,
-      levels: filter.levels,
-      search: filter.search,
-      regex: filter.regex,
-      regexMaxLength: config.logs.regexMaxLength,
-      startTime: filter.from,
-      endTime: filter.to,
-      sort: filter.sort,
-      // Adapters clamp to their own window cap (100 for mock/Urbani API, LOGS_INSIGHTS_MAX_RESULTS for Insights).
-      limit: config.logs.source === 'insights' ? config.logs.insightsMaxResults : 100,
-    });
-
+    const res = await cloudwatch.getLogs(logQuery(filter, config.logs.source === 'insights' ? config.logs.insightsMaxResults : 100));
     const all = res.value;
     const page = Math.max(filter.page ?? 1, 1);
     const pageSize = Math.min(Math.max(filter.pageSize ?? 50, 1), 200);
@@ -58,6 +61,23 @@ export const telemetryService = {
     };
   },
 
+  /**
+   * Export rows for the current filters (DPI 2 item 11): same adapter + filters as logs(), no pagination, at
+   * most maxRows rows. Nothing is added or invented: the rows are what the source returned.
+   */
+  async exportLogs(filter: LogSearch, maxRows: number) {
+    const { cloudwatch } = getIntegrations();
+    const res = await cloudwatch.getLogs(logQuery(filter, config.logs.source === 'insights' ? maxRows : 100));
+    const all = res.value;
+    return {
+      source: res.meta.source,
+      sourceNote: res.meta.note,
+      scope: res.meta.scope ?? 'Latest log window from the configured source.',
+      windowCap: res.meta.windowCap ?? 100,
+      truncated: (res.meta.truncated ?? all.length >= 100) || all.length > maxRows,
+      rows: all.slice(0, maxRows),
+    };
+  },
   async metrics(filter: { service?: string; environment?: string }): Promise<Sourced<MetricSnapshot[]>> {
     const repos = getRepositories();
     return {

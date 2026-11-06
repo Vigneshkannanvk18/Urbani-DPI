@@ -548,3 +548,28 @@ td.mono, .cell-mono { font-family: var(--font-mono); font-size: var(--text-capti
 .health-strip-name { font-weight: 600; font-size: var(--text-body); }
 .health-strip-sub { font-size: var(--text-micro); color: var(--color-text-secondary); }
 .health-alerts { display: flex; gap: var(--space-2); flex-wrap: wrap; font-size: var(--text-micro); }
+
+/* ---- Export menu (DPI 2 item 11) ---- */
+.export-menu { position: relative; display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-1); max-width: 360px; }
+.export-menu-list { position: absolute; top: 100%; right: 0; z-index: 20; min-width: 120px; margin-top: 4px; padding: var(--space-1); background: var(--color-surface); border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.15)); display: flex; flex-direction: column; }
+.export-menu-item { text-align: left; padding: var(--space-2) var(--space-3); background: transparent; border: 0; border-radius: var(--radius-sm, 4px); color: var(--color-text-primary); cursor: pointer; font: inherit; }
+.export-menu-item:hover, .export-menu-item:focus-visible { background: var(--color-primary-soft); }
+.export-menu-note { font-size: var(--text-micro); text-align: right; }
+.export-menu-msg { font-size: var(--text-micro); text-align: right; min-height: 0; }
+
+/* ---- Dashboard widgets + customize mode (DPI 2 item 12) ---- */
+.dash-widgets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.dash-widget { min-width: 0; }
+.dash-full { grid-column: 1 / -1; }
+@media (max-width: 900px) { .dash-widgets { grid-template-columns: 1fr; } }
+.dash-frame { border: 1px dashed var(--color-primary-border); border-radius: var(--radius-md); padding: var(--space-2); background: var(--color-surface-2); }
+.dash-frame.dash-over { outline: 2px solid var(--color-primary); }
+.dash-frame-body { pointer-events: none; opacity: 0.85; }
+.dash-toolbar { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-2) var(--space-2); flex-wrap: wrap; }
+.dash-toolbar-title { flex: 1; min-width: 120px; color: var(--color-text-primary); }
+.dash-toolbar-actions { display: inline-flex; gap: var(--space-1); }
+.dash-handle { cursor: grab; user-select: none; font-size: 18px; line-height: 1; padding: 2px 6px; color: var(--color-text-secondary); }
+.dash-customize-bar { flex-wrap: wrap; justify-content: flex-end; }
+.dash-unsaved { font-size: var(--text-caption); color: var(--color-warning); font-weight: 600; }
+.dash-tray-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.dash-tray-list li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }

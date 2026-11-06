@@ -5,8 +5,11 @@ import { logsApi, servicesApi, type LogQueryParams } from '../api/endpoints';
 import {
   PageHeader, Card, FilterBar, SearchInput, Select, Button, AsyncView, SkeletonTable, Pagination, fmtTime,
 } from '../components/ui';
+import { ExportMenu } from '../components/ExportMenu';
+import { useAuth } from '../auth/AuthContext';
 
 const PAGE_SIZE = 50;
+const EXPORT_NOTE_ROWS = '10,000';
 const LEVELS = ['DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL'] as const;
 const DEBOUNCE_MS = 400;
 
@@ -34,6 +37,7 @@ function regexError(pattern: string): string | null {
 
 /** Logs module: severity / server / date-range / text / regex filters, URL-synced and shareable. */
 export function Logs() {
+  const { can } = useAuth();
   const [params, setParams] = useSearchParams();
 
   // Applied filters live in the URL so a filtered view can be bookmarked or shared.
@@ -105,6 +109,18 @@ export function Logs() {
   if (applied.search) chips.push({ key: 'q', label: `${applied.regex ? 'Regex' : 'Text'}: ${applied.search}`, clear: () => { setText(''); setRegex(false); update({ search: null, regex: null }); } });
 
   const meta = logs.data?.meta;
+  // Export uses exactly the applied filters (page / pageSize are ignored by the API).
+  const exportPath = (format: string) => {
+    const q = new URLSearchParams({ format });
+    if (applied.levels.length) q.set('levels', applied.levels.join(','));
+    if (applied.service) q.set('services', applied.service);
+    if (applied.from) q.set('from', applied.from);
+    if (applied.to) q.set('to', applied.to);
+    if (applied.search) q.set('search', applied.search);
+    if (applied.regex) q.set('regex', 'true');
+    q.set('sort', applied.sort);
+    return `/logs/export?${q.toString()}`;
+  };
   const serverError = logs.error && applied.regex ? logs.error : null;
 
   return (
@@ -113,6 +129,10 @@ export function Logs() {
         title="Logs"
         subtitle="Search Urbani logs by severity, server, date range, text or regex."
         source={(logs.data?.source ?? 'MOCK') as 'LIVE' | 'MOCK' | 'WAITING_FOR_INTEGRATION'}
+        actions={can('logs:export') ? (
+          <ExportMenu formats={['csv', 'json', 'pdf']} buildPath={(f) => exportPath(f)}
+            note={`Exports up to ${EXPORT_NOTE_ROWS} rows of the current filtered view (scope: ${meta?.scope ?? 'configured log source'}). PDF is limited to the first 2,000 rows.`} />
+        ) : undefined}
       />
       <Card>
         <FilterBar>

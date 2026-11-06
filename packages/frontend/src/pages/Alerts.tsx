@@ -6,6 +6,8 @@ import {
   PageHeader, Card, FilterBar, SearchInput, Select, SeverityBadge, StatusBadge,
   Confidence, fmtTime, AsyncView, SkeletonTable, Pagination,
 } from '../components/ui';
+import { ExportMenu } from '../components/ExportMenu';
+import { useAuth } from '../auth/AuthContext';
 
 const PAGE_SIZE = 15;
 
@@ -13,6 +15,7 @@ const PAGE_SIZE = 15;
  *  pagination, row hover, accessible severity badges. */
 export function Alerts() {
   const navigate = useNavigate();
+  const { can } = useAuth();
   const [severity, setSeverity] = useState('');
   const [service, setService] = useState('');
   const [status, setStatus] = useState('');
@@ -33,6 +36,13 @@ export function Alerts() {
         title="Alerts / Incidents"
         subtitle="Advisory, human-in-the-loop. No automated remediation is ever performed."
         source={(alerts.data?.source ?? 'MOCK') as 'LIVE' | 'MOCK' | 'WAITING_FOR_INTEGRATION'}
+        actions={can('logs:export') ? (
+          <ExportMenu formats={['csv', 'json']} buildPath={(f) => {
+            const q = new URLSearchParams({ format: f });
+            for (const [k, v] of Object.entries({ severity, service, status, search })) if (v) q.set(k, v);
+            return `/alerts/export?${q.toString()}`;
+          }} note="Exports all alerts matching the current filters (up to 10,000)." />
+        ) : undefined}
       />
 
       <Card>

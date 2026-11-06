@@ -6,6 +6,7 @@ import {
   PageHeader, Card, Button, SeverityBadge, StatusBadge, Confidence, fmtTime, AsyncView,
 } from '../components/ui';
 import { IconChevronLeft, IconWarn } from '../components/icons';
+import { DownloadButton } from '../components/ExportMenu';
 
 /** Alert detail (Part 19): a professional incident investigation view.
  *  Human-in-the-loop — the only action is acknowledge; no automated remediation. */
@@ -37,11 +38,18 @@ export function AlertDetail() {
                 subtitle={<span className="cell-mono">{a.alertId}</span>}
                 source={res.source}
                 actions={
-                  a.status === 'OPEN' && can('alerts:acknowledge') ? (
-                    <Button onClick={acknowledge}>Acknowledge (human review)</Button>
-                  ) : (
-                    <StatusBadge status={a.status} />
-                  )
+                  <div className="row">
+                    {can('logs:export') && (
+                      <DownloadButton path={`/alerts/${encodeURIComponent(a.alertId)}/report?format=pdf`}>
+                        Download incident report (PDF)
+                      </DownloadButton>
+                    )}
+                    {a.status === 'OPEN' && can('alerts:acknowledge') ? (
+                      <Button onClick={acknowledge}>Acknowledge (human review)</Button>
+                    ) : (
+                      <StatusBadge status={a.status} />
+                    )}
+                  </div>
                 }
               />
 
