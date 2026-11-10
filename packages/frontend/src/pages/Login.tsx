@@ -134,8 +134,8 @@ function DashboardMock() {
                   <svg className="ld-chart" viewBox="0 0 420 80" preserveAspectRatio="none">
                     <defs>
                       <linearGradient id="ldFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#d1990a" stopOpacity="0.28" />
-                        <stop offset="100%" stopColor="#d1990a" stopOpacity="0" />
+                        <stop offset="0%" stopColor="#6a2eff" stopOpacity="0.28" />
+                        <stop offset="100%" stopColor="#6a2eff" stopOpacity="0" />
                       </linearGradient>
                     </defs>
                     <path
@@ -145,7 +145,7 @@ function DashboardMock() {
                     <polyline
                       points="0,62 30,58 60,60 90,50 120,54 150,44 180,48 210,36 240,42 270,30 300,36 330,24 360,30 390,18 420,22"
                       fill="none"
-                      stroke="#d1990a"
+                      stroke="#6a2eff"
                       strokeWidth="2.5"
                       vectorEffect="non-scaling-stroke"
                     />

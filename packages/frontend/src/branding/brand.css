@@ -1,31 +1,36 @@
-/* ============================================================================
-   BRAND PALETTE  --  *** PLACEHOLDER ***  (DPI 2 item 10)
-   These are the CURRENT look (gold #D1990A / navy), kept as a placeholder until Urbani supplies the official
-   palette (client inputs #8/#9/#10). This is the ONLY file that holds brand colours. To re-brand, replace the
-   hex values below (see docs/BRANDING.md), then run `node scripts/check-contrast.mjs` and rebuild.
+﻿/* ============================================================================
+   BRAND PALETTE  (DPI 2 item 10)
+   Taken from the official Urbani logo: violet gradient (#a321ff -> #6a2eff), cyan dot (#00d1ff), white.
+   Hex values are read off the supplied logo image, not from a brand guideline; adjust them if Urbani publishes
+   exact values. This is the ONLY file that holds brand colours. To re-brand, replace the hex values below
+   (see docs/BRANDING.md), then run `node scripts/check-contrast.mjs` and rebuild.
    Dark values live in the [data-theme='dark'] block.
    ============================================================================ */
 :root {
-  --color-primary: #d1990a;          /* brand fill: buttons, active marks, badges */
-  --color-primary-hover: #b8830a;
-  --color-primary-soft: #fbf3e0;     /* tinted surface for selected / active */
-  --color-primary-border: #e6cf95;
-  --color-primary-active: #7a5800;   /* text and icons on primary-soft (active nav item) */
-  --color-primary-text: #7a5800;     /* brand-coloured text and links on neutral surfaces */
-  --color-on-primary: #172033;       /* text on the primary fill */
-  --color-focus: #8a6100;            /* keyboard focus ring */
-  --color-accent: #1f6fb2;           /* secondary accent (second chart series, info) */
-  --chart-primary: #b8830a;
+  --color-primary: #6a2eff;          /* brand fill: buttons, active marks, badges (logo gradient end) */
+  --color-primary-hover: #5a1fe6;
+  --color-primary-soft: #f1ecff;     /* tinted surface for selected / active */
+  --color-primary-border: #cdbdff;
+  --color-primary-active: #4a15c4;   /* text and icons on primary-soft (active nav item) */
+  --color-primary-text: #5a1fe6;     /* brand-coloured text and links on neutral surfaces */
+  --color-on-primary: #ffffff;       /* text on the primary fill */
+  --color-focus: #5a1fe6;            /* keyboard focus ring */
+  --color-accent: #0b8bb0;           /* secondary accent: logo cyan darkened for contrast on white (charts, info) */
+  --chart-primary: #6a2eff;
+  --brand-gradient: linear-gradient(90deg, #a321ff 0%, #6a2eff 100%);
+  --brand-cyan: #00d1ff;             /* logo dot; decorative use only (low contrast on white) */
 }
 [data-theme='dark'] {
-  --color-primary: #e3ad1f;
-  --color-primary-hover: #f0bd3f;
-  --color-primary-soft: #2b2410;
-  --color-primary-border: #5a4713;
-  --color-primary-active: #f2c75a;
-  --color-primary-text: #f2c75a;
-  --color-on-primary: #1a1300;
-  --color-focus: #f2c75a;
-  --color-accent: #6bb2ea;
-  --chart-primary: #e3ad1f;
+  --color-primary: #8f66ff;
+  --color-primary-hover: #a47fff;
+  --color-primary-soft: #231845;
+  --color-primary-border: #4b3a8c;
+  --color-primary-active: #d2c3ff;
+  --color-primary-text: #c4b0ff;
+  --color-on-primary: #10072b;
+  --color-focus: #c4b0ff;
+  --color-accent: #35d6ff;
+  --chart-primary: #a47fff;
+  --brand-gradient: linear-gradient(90deg, #a321ff 0%, #6a2eff 100%);
+  --brand-cyan: #00d1ff;
 }

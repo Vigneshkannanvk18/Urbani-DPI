@@ -13,7 +13,7 @@ import { BrandMark } from '../branding/BrandLogo';
 import { ThemeToggle } from '../theme/ThemeToggle';
 
 /**
- * App shell (Parts 12, 13): light sidebar with #D1990A active state, alert
+ * App shell (Parts 12, 13): light sidebar with brand-coloured active state, alert
  * badge, collapse toggle + mobile drawer, and a clean top header. Preserves all
  * navigation destinations from Phase 1.
  */

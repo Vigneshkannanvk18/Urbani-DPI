@@ -6,13 +6,14 @@ import logoDark from './assets/logo-dark.svg';
  * Single brand module (DPI 2 item 10). Everything that is "Urbani branding" in the UI comes from here, from
  * ./brand.css (palette) and from ./assets (logos, favicon).
  *
- * *** PLACEHOLDER ***  The values below reproduce the CURRENT look (gold "U" mark, navy/gold palette). Urbani has
- * not supplied official assets or hex codes yet (client inputs #8/#9). docs/BRANDING.md lists exactly what to
- * replace when they do.
+ * The logo and palette follow the official Urbani logo supplied by the client (violet gradient tile, white "U",
+ * cyan dot). The SVGs in ./assets are a vector redraw of that image, and the hex values in ./brand.css are read
+ * off it. Replace the SVGs with Urbani's original vector files, and the hex values with their brand guideline,
+ * if/when those are supplied (docs/BRANDING.md).
  */
 export const BRAND = {
-  /** True while the placeholder logo / palette are in use. Set to false once official assets are in place. */
-  isPlaceholder: true,
+  /** True while placeholder logo / palette are in use. False: the client's logo and colours are applied. */
+  isPlaceholder: false,
   productName: 'Urbani Observability',
   /** Short name next to the logo mark. */
   shortName: 'URBANI',

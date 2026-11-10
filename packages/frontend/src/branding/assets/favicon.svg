@@ -1,11 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- PLACEHOLDER favicon (gold "U"). Replace with the official favicon. -->
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="64" height="64">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ebae2a"/>
-      <stop offset="1" stop-color="#c98b06"/>
+    <linearGradient id="urbani-bg" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a321ff"/>
+      <stop offset="1" stop-color="#6a2eff"/>
     </linearGradient>
-  </defs>
-  <rect width="64" height="64" rx="14" fill="url(#g)"/>
-  <path d="M20 17v19a12 12 0 0 0 24 0V17" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
+    <clipPath id="urbani-left"><rect x="0" y="0" width="247" height="512"/></clipPath>  </defs>
+    <rect width="512" height="512" rx="96" fill="url(#urbani-bg)"/>
+    <circle cx="364" cy="131" r="47" fill="#00d1ff"/>
+    <path d="M318 190H412V275A155 155 0 0 1 256 430V336A61 61 0 0 0 318 275Z" fill="#ffffff"/>
+    <g clip-path="url(#urbani-left)" fill="none" stroke="#ffffff">
+      <path d="M107 113V275A150 150 0 0 0 257 425" stroke-width="10"/>
+      <path d="M147.5 113V275A109.5 109.5 0 0 0 257 384.5" stroke-width="39"/>
+      <path d="M188 113V275A69 69 0 0 0 257 344" stroke-width="14"/>
+    </g></svg>

@@ -1,6 +1,6 @@
 # Branding and dark mode (DPI 2 item 10)
 
-Everything shown below is a **PLACEHOLDER** (the previous gold/navy "U" look). No official assets exist yet (client inputs #8/#9/#10).
+The logo and palette now follow the official Urbani logo supplied by the client (violet gradient #a321ff -> #6a2eff, cyan dot #00d1ff, white "U"). The SVGs in `branding/assets` are a **vector redraw of the supplied image** and the hex values in `branding/brand.css` are **read off that image**, not taken from a brand guideline. Still open with Urbani: the original vector logo files (SVG/PNG, light and dark versions) and the exact palette hex values / dark-mode guidance (client inputs #8/#9/#10). Replacing them follows the checklist below.
 
 ## Replace-and-rebuild checklist (< 10 minutes)
 1. **Logo** (`packages/frontend/src/branding/assets/`): replace `logo-mark.svg` (square mark, sidebar/login card), `logo-light.svg` (full logo for light backgrounds), `logo-dark.svg` (full logo for dark backgrounds). PNG works too: change the three imports at the top of `branding/brand.ts` to the new file names.

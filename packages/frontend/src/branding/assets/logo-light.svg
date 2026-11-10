@@ -1,12 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" width="200" height="48" role="img" aria-label="Urbani">
-  <!-- PLACEHOLDER logo, LIGHT-background variant (dark wordmark). Replace with the official logo. -->
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" width="200" height="48" role="img" aria-label="Urbani">
+  <!-- Urbani logo (LIGHT background variant): mark redrawn from the supplied logo image + wordmark. Replace with the original files when available (docs/BRANDING.md). -->
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ebae2a"/>
-      <stop offset="1" stop-color="#c98b06"/>
+    <linearGradient id="urbani-bg" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a321ff"/>
+      <stop offset="1" stop-color="#6a2eff"/>
     </linearGradient>
-  </defs>
-  <rect width="48" height="48" rx="11" fill="url(#g)"/>
-  <path d="M15 13v14.5a9 9 0 0 0 18 0V13" fill="none" stroke="#ffffff" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="60" y="32" font-family="Inter, 'Segoe UI', Arial, sans-serif" font-size="26" font-weight="800" letter-spacing="1" fill="#172033">URBANI</text>
+    <clipPath id="urbani-left"><rect x="0" y="0" width="247" height="512"/></clipPath>  </defs>
+  <g transform="scale(0.09375)">
+    <rect width="512" height="512" rx="96" fill="url(#urbani-bg)"/>
+    <circle cx="364" cy="131" r="47" fill="#00d1ff"/>
+    <path d="M318 190H412V275A155 155 0 0 1 256 430V336A61 61 0 0 0 318 275Z" fill="#ffffff"/>
+    <g clip-path="url(#urbani-left)" fill="none" stroke="#ffffff">
+      <path d="M107 113V275A150 150 0 0 0 257 425" stroke-width="10"/>
+      <path d="M147.5 113V275A109.5 109.5 0 0 0 257 384.5" stroke-width="39"/>
+      <path d="M188 113V275A69 69 0 0 0 257 344" stroke-width="14"/>
+    </g>  </g>
+  <text x="60" y="32" font-family="Inter, 'Segoe UI', Arial, sans-serif" font-size="26" font-weight="800" letter-spacing="1" fill="#1d1245">URBANI</text>
 </svg>

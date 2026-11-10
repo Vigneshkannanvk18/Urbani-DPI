@@ -75,17 +75,17 @@
 /* ---------- Login page (own artwork; light by default, re-coloured here) ---------- */
 [data-theme='dark'] .login-page {
   background:
-    radial-gradient(55% 60% at 0% 100%, #2b2410 0%, rgba(43, 36, 16, 0) 70%),
+    radial-gradient(55% 60% at 0% 100%, #1a1236 0%, rgba(26, 18, 54, 0) 70%),
     linear-gradient(180deg, #0d1220 0%, #101728 100%);
   color: var(--color-text-primary);
 }
-[data-theme='dark'] .login-orb-1 { background: linear-gradient(215deg, #8a6410 0%, #6b4f12 40%, #3a2e14 75%, #1c1a1a 100%); opacity: 0.8; }
-[data-theme='dark'] .login-orb-2 { background: linear-gradient(160deg, #4a3a14 0%, #2b2410 50%, rgba(43, 36, 16, 0) 100%); opacity: 0.8; }
-[data-theme='dark'] .login-orb-3 { background: radial-gradient(circle, rgba(138, 100, 16, 0.35) 0%, rgba(138, 100, 16, 0) 70%); }
-[data-theme='dark'] .login-dots { background-image: radial-gradient(#6b4f12 1.6px, transparent 1.7px); }
+[data-theme='dark'] .login-orb-1 { background: linear-gradient(215deg, #5b34c9 0%, #432a9a 40%, #2a1d66 75%, #151230 100%); opacity: 0.8; }
+[data-theme='dark'] .login-orb-2 { background: linear-gradient(160deg, #35257a 0%, #1a1236 50%, rgba(26, 18, 54, 0) 100%); opacity: 0.8; }
+[data-theme='dark'] .login-orb-3 { background: radial-gradient(circle, rgba(106, 60, 230, 0.35) 0%, rgba(106, 60, 230, 0) 70%); }
+[data-theme='dark'] .login-dots { background-image: radial-gradient(#3d2c7a 1.6px, transparent 1.7px); }
 [data-theme='dark'] .lg-name, [data-theme='dark'] .login-headline, [data-theme='dark'] .login-card-title,
 [data-theme='dark'] .login-label, [data-theme='dark'] .login-feature-label { color: var(--color-text-primary); }
-[data-theme='dark'] .login-headline .accent { background: linear-gradient(180deg, #f2c75a 0%, #e3ad1f 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+[data-theme='dark'] .login-headline .accent { background: linear-gradient(90deg, #c4b0ff 0%, #8f66ff 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
 [data-theme='dark'] .lg-sub, [data-theme='dark'] .login-lede, [data-theme='dark'] .login-card-sub,
 [data-theme='dark'] .login-foot, [data-theme='dark'] .login-check { color: var(--color-text-secondary); }
 [data-theme='dark'] .login-feature { border-left-color: var(--color-border); }
