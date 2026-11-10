@@ -334,3 +334,7 @@ production app**.
 - The DPI 2 least-privilege **Task Role** (§11.8) covers DynamoDB / SNS /
   CloudWatch Synthetics + Logs Insights / S3.
 - Status: PROPOSED.
+
+### 11.10 Deployment runbook, go-live matrix and integration plan (item 14)
+
+The step-by-step parallel deployment of DPI 2 (scripts `deploy-ecs-dpi2.sh` and `redeploy-dpi2.sh`, configuration in `deploy/dpi2.env.example`), the verification checklist, rollback, cutover to `dpi.urbani.io` and data migration choices are in [DPI2_DEPLOYMENT_RUNBOOK.md](DPI2_DEPLOYMENT_RUNBOOK.md). Everything the client must provide, per item, is in [DPI2_GO_LIVE_MATRIX.md](DPI2_GO_LIVE_MATRIX.md); merging the `dpi2` branch into `main` is in [DPI2_INTEGRATION_PLAN.md](DPI2_INTEGRATION_PLAN.md). The DPI 2 scripts are authored and validated locally only; they have not been run against AWS.
