@@ -15,6 +15,8 @@ export interface NotificationMessage {
   link: string | null;
   isTest: boolean;
   alertId: string | null;
+  /** True when this is a follow-up because the alert's severity rose after it was first notified. */
+  escalated?: boolean;
 }
 
 const MAX_CAUSE = 300;
@@ -30,11 +32,12 @@ export function alertLink(baseUrl: string | null | undefined, alertId: string): 
 
 export function messageFromAlert(
   alert: PersistedAlert,
-  opts: { baseUrl: string | null; source: 'LIVE' | 'MOCK' },
+  opts: { baseUrl: string | null; source: 'LIVE' | 'MOCK'; escalated?: boolean },
 ): NotificationMessage {
   const pct = alert.confidence == null ? null : `${Math.round(alert.confidence * 100)}%`;
   return {
-    title: `[${alert.severity}] ${alert.service}: ${alert.anomalyType}`,
+    title: `${opts.escalated ? '[ESCALATED] ' : ''}[${alert.severity}] ${alert.service}: ${alert.anomalyType}`,
+    escalated: opts.escalated === true,
     severity: alert.severity,
     service: alert.service,
     environment: alert.environment,
@@ -73,6 +76,7 @@ export function plainText(m: NotificationMessage): string {
   const lines = [
     m.title,
     '',
+    ...(m.escalated ? ['Severity increased since the previous notification for this alert.', ''] : []),
     `Severity: ${m.severity}`,
     `Service: ${m.service}`,
     `Environment: ${m.environment}`,

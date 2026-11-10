@@ -124,11 +124,29 @@ export class NotificationEngine {
   ): Promise<NotificationLogEntry | null> {
     const base = { alertId: alert.alertId, ruleId, channel, isTest: false };
     // 1. Per alert: each channel is notified once per alert (silent when already done, so polls do not spam the log).
-    if (!(await repos.notifications.claim(`alert:${alert.alertId}:OPENED`, channel, null))) return null;
-    const message = messageFromAlert(alert, { baseUrl: this.opts.baseUrl, source: source === 'LIVE' ? 'LIVE' : 'MOCK' });
-    // 2. Same service + environment + anomaly type inside the dedup window.
+    const sevKey = (s: Severity) => `alert:${alert.alertId}:SEV:${s}`;
+    const rank = severityRank(alert.severity);
+    // Marks every level up to `upTo` as covered, permanently, so a later fall and rise never re-notifies the same level.
+    const cover = async (upTo: number) => {
+      for (let i = 0; i < upTo; i++) await repos.notifications.claim(sevKey(SEVERITIES[i]), channel, null);
+    };
+    let escalated = false;
+    if (await repos.notifications.claim(`alert:${alert.alertId}:OPENED`, channel, null)) {
+      // First notification for this alert: record its current level (and the ones below) as covered.
+      await repos.notifications.claim(sevKey(alert.severity), channel, null);
+      await cover(rank);
+    } else {
+      // Already notified. Escalation: only a HIGHER level than any covered so far wins this claim (one op per poll
+      // in the steady state; de-escalation and re-escalation to a covered level never win it).
+      if (!(await repos.notifications.claim(sevKey(alert.severity), channel, null))) return null;
+      await cover(rank);
+      escalated = true;
+    }
+    const message = messageFromAlert(alert, { baseUrl: this.opts.baseUrl, source: source === 'LIVE' ? 'LIVE' : 'MOCK', escalated });
+    // 2. Same service + environment + anomaly type inside the dedup window. An escalation is a new event for an alert
+    //    that was already announced, so it bypasses the window (the hourly cap below still applies).
     const typeKey = `type:${alert.service}:${alert.environment}:${alert.anomalyType}`;
-    if (!(await repos.notifications.claim(typeKey, channel, dedupMinutes * 60_000))) {
+    if (!escalated && !(await repos.notifications.claim(typeKey, channel, dedupMinutes * 60_000))) {
       return repos.notifications.appendLog({
         ...base, status: 'SKIPPED_DEDUP', attempts: 0, providerMessageId: null,
         error: `suppressed: same service/anomaly type notified within ${dedupMinutes} min`, summary: logSummary(message),

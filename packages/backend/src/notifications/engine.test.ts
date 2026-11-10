@@ -4,7 +4,7 @@ import { freshTestDb } from '../test/testDb';
 import { getRepositories } from '../repositories';
 import { DeliveryError, type NotificationChannel, type SendResult } from './channels';
 import { NotificationEngine, ensureDefaultRule, ruleMatches, type EngineOptions } from './engine';
-import type { NotificationMessage } from './message';
+import { plainText, type NotificationMessage } from './message';
 
 class FakeChannel implements NotificationChannel {
   sent: NotificationMessage[] = [];
@@ -251,5 +251,85 @@ describe('sendTest', () => {
     expect(ch.SLACK.sent).toHaveLength(0);
     const e = await engineOf(ch).sendTest('EMAIL', 'HIGH');
     expect(e).toMatchObject({ status: 'SKIPPED_NOT_CONFIGURED', error: 'not delivered: channel not configured' });
+  });
+});
+
+describe('escalation (severity rises after the first notification)', () => {
+  // The live sync does INSERT OR REPLACE by alert id, so a re-sync can raise (or lower) an existing alert's severity.
+  const resync = (a: UrbaniIncidentAlert, severity: Severity) =>
+    getRepositories().alerts.upsertLivePreservingStatus({ ...a, severity });
+
+  it('sends one follow-up when HIGH rises to CRITICAL, labelled ESCALATED, and nothing more on later runs', async () => {
+    const a = alert({ alertId: 'E1', severity: 'HIGH' });
+    await getRepositories().alerts.insert(a, 'LIVE');
+    const ch = channelsOf();
+    const engine = engineOf(ch);
+    await engine.run();
+    expect(ch.SLACK.sent).toHaveLength(1);
+    expect(ch.SLACK.sent[0].escalated).toBeFalsy();
+    await resync(a, 'CRITICAL');
+    await engine.run();
+    await engine.run();
+    expect(ch.SLACK.sent).toHaveLength(2);
+    expect(ch.SLACK.sent[1]).toMatchObject({ escalated: true, severity: 'CRITICAL', alertId: 'E1' });
+    expect(ch.SLACK.sent[1].title).toMatch(/^\[ESCALATED\] \[CRITICAL\] main:/);
+    expect(plainText(ch.SLACK.sent[1])).toContain('Severity increased since the previous notification');
+    const sent = (await logOf()).filter((e) => e.channel === 'SLACK' && e.status === 'SENT');
+    expect(sent).toHaveLength(2);
+  });
+
+  it('does not re-notify when the severity falls and rises back to a level that was already covered', async () => {
+    const a = alert({ alertId: 'E2', severity: 'CRITICAL' });
+    await getRepositories().alerts.insert(a, 'LIVE');
+    const ch = channelsOf();
+    const engine = engineOf(ch);
+    await engine.run();
+    await resync(a, 'HIGH');
+    await engine.run();
+    await resync(a, 'CRITICAL');
+    await engine.run();
+    expect(ch.SLACK.sent).toHaveLength(1);
+  });
+
+  it('treats an alert that first matches a rule after rising as a normal opening, not an escalation', async () => {
+    const a = alert({ alertId: 'E3', severity: 'MEDIUM' });
+    await getRepositories().alerts.insert(a, 'LIVE');
+    const ch = channelsOf();
+    const engine = engineOf(ch);
+    await engine.run();
+    expect(ch.SLACK.sent).toHaveLength(0);
+    await resync(a, 'HIGH');
+    await engine.run();
+    expect(ch.SLACK.sent).toHaveLength(1);
+    expect(ch.SLACK.sent[0].escalated).toBe(false);
+    expect(ch.SLACK.sent[0].title.startsWith('[HIGH]')).toBe(true);
+  });
+
+  it('is not held back by the type dedup window, but still obeys the hourly cap', async () => {
+    const repos = getRepositories();
+    const a = alert({ alertId: 'E4', severity: 'HIGH', anomalyType: 'Same' });
+    await repos.alerts.insert(a, 'LIVE');
+    const ch = channelsOf();
+    const engine = engineOf(ch);
+    await engine.run();
+    await resync(a, 'CRITICAL');
+    await engine.run();
+    expect(ch.SLACK.sent.map((m) => m.escalated === true)).toEqual([false, true]);
+    // cap of 2 per hour is now used up: a further escalation is recorded as rate limited, not sent
+    await repos.notifications.updateSettings({ maxPerHourPerChannel: 2 }, 'test');
+    const b = alert({ alertId: 'E5', severity: 'HIGH', anomalyType: 'Other' });
+    await repos.alerts.insert(b, 'LIVE');
+    await engine.run();
+    expect((await logOf()).some((e) => e.alertId === 'E5' && e.status === 'SKIPPED_RATE_LIMIT')).toBe(true);
+  });
+
+  it('two engines racing on the same escalation send exactly once per channel', async () => {
+    const a = alert({ alertId: 'E6', severity: 'HIGH' });
+    await getRepositories().alerts.insert(a, 'LIVE');
+    const ch = channelsOf();
+    await engineOf(ch).run();
+    await resync(a, 'CRITICAL');
+    await Promise.all([engineOf(ch).run(), engineOf(ch).run()]);
+    expect(ch.SLACK.sent.filter((m) => m.escalated)).toHaveLength(1);
   });
 });

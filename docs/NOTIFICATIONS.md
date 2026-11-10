@@ -37,7 +37,7 @@ Alternative if the client prefers the proposed design: a Lambda on the alerts ta
 ## Event types
 
 - **ALERT_OPENED**: an alert id with status OPEN that has not been notified on a channel yet.
-- ALERT_ESCALATED (severity increase) is **not implemented** (it was optional). It can be added by storing the last notified severity.
+- **ALERT_ESCALATED**: when the severity of an alert that was already notified rises (for example HIGH to CRITICAL) and the alert still matches a rule, one follow-up is sent per channel, titled `[ESCALATED] [CRITICAL] ...` with the line "Severity increased since the previous notification for this alert." It uses the same permanent claim mechanism as the first notification (one claim per alert, channel and severity level, so it is safe with several backend tasks and needs no schema change). A fall followed by a rise back to a level that was already covered never re-notifies. An escalation bypasses the type dedup window (it is a new event for an alert that was already announced) but still counts towards the hourly cap. An alert that first matches a rule only after rising is a normal first notification, not an escalation. **It only fires if the upstream source re-sends an existing alert id with a higher severity**; whether the Urbani API does that (rather than issuing a new alert id) has not been confirmed.
 - Never notified: acknowledged, resolved or dismissed alerts, and MOCK alerts (unless `NOTIFICATIONS_ALLOW_MOCK=true`, for demos).
 - First run: alerts older than `NOTIFICATIONS_MAX_ALERT_AGE_MINUTES` (default 60) that predate the moment the engine first ran (the stored watermark) are never notified, so switching it on does not blast history. The newest 200 OPEN alerts per source are evaluated per run.
 
@@ -133,6 +133,31 @@ Fields: id, timestamp, alertId, ruleId, channel, status, attempts, error (redact
 **E-mail (SNS)**: deploy the topic (see IaC below) or create one with a KMS key the task role may use, set `ALERT_SNS_TOPIC_ARN`, and give the backend task role `sns:Publish` on it. Subscribe the e-mail addresses (CDK context `alertEmails` or the console). **Every SNS e-mail subscriber receives a confirmation e-mail from AWS and must click the link; unconfirmed subscribers receive nothing.**
 
 Then set `NOTIFICATIONS_ENABLED=true`, restart the backend, open the Notifications page, press "Send test" for each channel and review the rules.
+
+### Connecting and testing the e-mail (SNS) channel
+
+1. **In AWS (SNS console, same region as `AWS_REGION`)**: Topics > Create topic > type *Standard*, name e.g. `urbani-radar-alerts`. Copy the topic **ARN**.
+2. **Subscribe the recipients**: open the topic > Create subscription > Protocol *Email*, Endpoint = the address. Each recipient gets "AWS Notification - Subscription Confirmation" and must click *Confirm subscription*. Status stays *Pending confirmation* until then, and pending subscribers receive nothing.
+3. **Permissions** for whoever runs the backend (ECS task role in AWS, or an IAM user for local runs), on that topic only:
+   - `sns:Publish` (send)
+   - `sns:GetTopicAttributes` (the read-only "Check connection")
+   - if the topic is encrypted with a customer-managed KMS key: `kms:Decrypt` and `kms:GenerateDataKey*` on that key (the CDK construct adds this). Topics without encryption need nothing extra.
+4. **Environment** (backend `.env` or ECS task definition):
+   ```
+   AWS_REGION=us-east-1                      # region of the topic
+   ALERT_SNS_TOPIC_ARN=arn:aws:sns:us-east-1:<account-id>:urbani-radar-alerts
+   DASHBOARD_BASE_URL=https://<dashboard host>   # optional, adds the link in the e-mail
+   NOTIFICATIONS_ENABLED=true                # master switch for automatic sending
+   # local runs only (on ECS the task role is used; do not set keys there):
+   AWS_ACCESS_KEY_ID=...  AWS_SECRET_ACCESS_KEY=...
+   ```
+   `INTEGRATION_MODE=live` is also required for the poller to pick up real alerts.
+5. **Test in the UI** (Super Admin or Infra Admin): *Notifications > E-mail (Amazon SNS)*:
+   - **Check connection** calls `GetTopicAttributes`. It sends nothing and tells you whether the credentials, region and ARN work, and how many subscribers are confirmed or pending. Typical results: "Connected. 2 confirmed subscribers", "Connected, but no subscriber has confirmed yet", or an AWS error with a hint (`sns:GetTopicAttributes` missing, topic not found in this region, no credentials).
+   - **Send test** publishes a clearly labelled `[TEST]` message. The recipients should receive it within about a minute (check spam). The result is also in the delivery log below.
+   - Start with `NOTIFICATIONS_DRY_RUN=true` if you want to see the flow without any AWS call; the connection check still calls AWS (it is read-only).
+
+API equivalents: `POST /api/notifications/check {"channel":"EMAIL"}` and `POST /api/notifications/test {"channel":"EMAIL"}` (both need `alerts:rules`, share a 5-per-minute limit, and are audited as `notification.test_send`; the check has `check: true` in its metadata).
 
 Dry run first: with `NOTIFICATIONS_DRY_RUN=true` the whole flow runs and the log shows what would have been sent.
 
