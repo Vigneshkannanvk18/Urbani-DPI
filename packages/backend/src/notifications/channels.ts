@@ -1,4 +1,4 @@
-import { PublishCommand } from '@aws-sdk/client-sns';
+import { GetTopicAttributesCommand, PublishCommand } from '@aws-sdk/client-sns';
 import type { ChannelConfigStatus, NotificationChannelName } from '@urbani/shared';
 import { maskHost, redactText, validateWebhookUrl, type UrlCheck } from './guard';
 import { plainText, type NotificationMessage } from './message';
@@ -231,7 +231,23 @@ export class TeamsChannel extends WebhookChannel {
 
 // ---------------------------------------------------------------- SNS (e-mail)
 export interface SnsLike {
-  send(command: PublishCommand, options?: { abortSignal?: AbortSignal }): Promise<{ MessageId?: string }>;
+  send(
+    command: PublishCommand | GetTopicAttributesCommand,
+    options?: { abortSignal?: AbortSignal },
+  ): Promise<{ MessageId?: string; Attributes?: Record<string, string> }>;
+}
+
+/** Result of a read-only connection check (no message is published). Never contains the topic ARN. */
+export interface SnsConnectionCheck {
+  ok: boolean;
+  topicName: string | null;
+  /** Subscribers who confirmed. Only these receive e-mail. */
+  subscriptionsConfirmed: number | null;
+  /** Subscribers who have not yet clicked the AWS confirmation e-mail. */
+  subscriptionsPending: number | null;
+  encrypted: boolean | null;
+  /** Why the check failed, or what to do next. */
+  message: string;
 }
 
 /** E-mail through an Amazon SNS topic. Subscriptions (addresses) live in AWS and must be confirmed by each recipient. */
@@ -250,6 +266,53 @@ export class SnsEmailChannel implements NotificationChannel {
     if (!this.isConfigured()) return { status: 'NOT_CONFIGURED', destination: null, reason: 'ALERT_SNS_TOPIC_ARN is not a valid SNS topic ARN' };
     return { status: 'CONFIGURED', destination: this.topicArn.split(':').pop() ?? null, reason: null };
   }
+  /**
+   * Read-only connection test: GetTopicAttributes. Proves the credentials, region and topic ARN work and reports how many
+   * subscribers confirmed. Publishes nothing. Needs sns:GetTopicAttributes on the topic. Never throws and never returns the ARN.
+   */
+  async checkConnection(): Promise<SnsConnectionCheck> {
+    const fail = (message: string): SnsConnectionCheck => ({
+      ok: false, topicName: null, subscriptionsConfirmed: null, subscriptionsPending: null, encrypted: null, message,
+    });
+    if (!this.isConfigured() || !this.client) return fail(this.state().reason ?? 'channel not configured');
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), this.retry.timeoutMs);
+    try {
+      const out = await this.client.send(new GetTopicAttributesCommand({ TopicArn: this.topicArn as string }), { abortSignal: ac.signal });
+      const a = out.Attributes ?? {};
+      const confirmed = Number(a.SubscriptionsConfirmed ?? 0);
+      const pending = Number(a.SubscriptionsPending ?? 0);
+      const message =
+        confirmed > 0
+          ? `Connected. ${confirmed} confirmed subscriber${confirmed === 1 ? '' : 's'}${pending ? `, ${pending} waiting to confirm` : ''}.`
+          : pending > 0
+            ? `Connected, but no subscriber has confirmed yet (${pending} pending). Ask them to click the AWS confirmation e-mail.`
+            : 'Connected, but the topic has no e-mail subscribers. Subscribe an address in the AWS console or with ALERT_EMAILS.';
+      return {
+        ok: true,
+        topicName: this.topicArn?.split(':').pop() ?? null,
+        subscriptionsConfirmed: confirmed,
+        subscriptionsPending: pending,
+        encrypted: Boolean(a.KmsMasterKeyId),
+        message,
+      };
+    } catch (err) {
+      const e = err as { name?: string; message?: string };
+      const name = e.name ?? 'Error';
+      const hint =
+        name === 'AuthorizationErrorException' || name === 'AccessDeniedException'
+          ? ' The backend role needs sns:GetTopicAttributes on the topic.'
+          : name === 'NotFoundException' || name === 'NotFound'
+            ? ' The topic does not exist in this region and account; check ALERT_SNS_TOPIC_ARN and AWS_REGION.'
+            : name === 'CredentialsProviderError'
+              ? ' No AWS credentials found; use a task role or set AWS credentials.'
+              : '';
+      return fail(`${name}: ${redactText(e.message ?? 'check failed')}${hint}`.replace(/arn:aws[a-z-]*:[^\s"')]+/gi, '[redacted-arn]'));
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async send(m: NotificationMessage): Promise<SendResult> {
     if (!this.isConfigured() || !this.client) throw new DeliveryError('channel not configured', 0);
     const client = this.client;

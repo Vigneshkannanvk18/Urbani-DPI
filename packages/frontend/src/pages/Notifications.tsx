@@ -50,6 +50,11 @@ export function Notifications() {
       setTestResult(`Test message for ${CHANNEL_LABEL[channel]}: ${outcome}.`);
     }, () => logState.reload());
 
+  const onCheck = (channel: NotifChannel) =>
+    run(async () => {
+      const r = await notificationsApi.check(channel);
+      setTestResult(`Connection check for ${CHANNEL_LABEL[channel]}: ${r.ok ? 'OK' : 'FAILED'}. ${r.message}`);
+    }, () => undefined);
   // ---- delivery log ----
   const [filters, setFilters] = useState({ channel: '', status: '', alertId: '' });
   const [applied, setApplied] = useState(filters);
@@ -77,7 +82,7 @@ export function Notifications() {
                 </p>
               )}
               <div className="channel-grid">
-                {list.map((c) => <ChannelCard key={c.channel} c={c} canEdit={canEdit} onTest={() => void onTest(c.channel)} />)}
+                {list.map((c) => <ChannelCard key={c.channel} c={c} canEdit={canEdit} onTest={() => void onTest(c.channel)} onCheck={() => void onCheck(c.channel)} />)}
               </div>
             </>
           )}
@@ -155,7 +160,7 @@ export function Notifications() {
   );
 }
 
-function ChannelCard({ c, canEdit, onTest }: { c: NotifChannelStatus; canEdit: boolean; onTest: () => void }) {
+function ChannelCard({ c, canEdit, onTest, onCheck }: { c: NotifChannelStatus; canEdit: boolean; onTest: () => void; onCheck: () => void }) {
   return (
     <Card title={CHANNEL_LABEL[c.channel]} actions={<StatusBadge status={c.status} />}>
       <div className="channel-card-body">
@@ -165,7 +170,8 @@ function ChannelCard({ c, canEdit, onTest }: { c: NotifChannelStatus; canEdit: b
           {c.status === 'NOT_CONFIGURED' && <>Not configured: {c.reason ?? `set ${CHANNEL_ENV[c.channel]}`}.</>}
         </div>
         {canEdit && (
-          <div>
+          <div className="row gap-2">
+            {c.channel === 'EMAIL' && <Button size="sm" variant="secondary" onClick={onCheck}>Check connection</Button>}
             <Button size="sm" variant="secondary" onClick={onTest}>Send test</Button>
           </div>
         )}

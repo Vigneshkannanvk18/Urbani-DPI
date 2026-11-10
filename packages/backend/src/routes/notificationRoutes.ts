@@ -97,6 +97,12 @@ notificationRoutes.get('/log', requirePermission('alerts:view'), asyncHandler(as
   res.json({ data: { items, page: q.page ?? 1, pageSize: q.pageSize ?? 50, total } });
 }));
 
+// Read-only connection check (e-mail / SNS only). Shares the test-send limiter.
+notificationRoutes.post('/check', requirePermission('alerts:rules'), asyncHandler(async (req, res) => {
+  const body = z.object({ channel: z.enum(NOTIFICATION_CHANNELS) }).parse(req.body);
+  checkTestLimit(req.auth!.sub);
+  res.json({ data: await notificationService.checkConnection(req.auth!.email, body.channel) });
+}));
 notificationRoutes.post('/test', requirePermission('alerts:rules'), asyncHandler(async (req, res) => {
   const body = testBody.parse(req.body);
   checkTestLimit(req.auth!.sub);

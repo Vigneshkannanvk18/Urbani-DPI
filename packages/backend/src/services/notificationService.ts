@@ -2,7 +2,8 @@ import type {
   NotificationChannelName, NotificationChannelStatus, NotificationLogEntry, NotificationRule, Severity,
 } from '@urbani/shared';
 import { config } from '../config';
-import { NotFoundError } from '../lib/errors';
+import { NotFoundError, ValidationError } from '../lib/errors';
+import { SnsEmailChannel, type SnsConnectionCheck } from '../notifications/channels';
 import { logger } from '../lib/logger';
 import { ensureDefaultRule } from '../notifications/engine';
 import { getNotificationRuntime } from '../notifications/runtime';
@@ -73,6 +74,26 @@ export const notificationService = {
     return entry;
   },
 
+  /**
+   * Read-only connection check for the e-mail (SNS) channel: proves credentials, region and topic without publishing.
+   * Slack and Teams have no read-only probe (a webhook can only be tested by posting), so they use test-send.
+   */
+  async checkConnection(actor: string, channel: NotificationChannelName): Promise<SnsConnectionCheck> {
+    if (channel !== 'EMAIL') {
+      throw new ValidationError('A connection check is only available for EMAIL. Use "Send test" for Slack and Teams.');
+    }
+    const email = getNotificationRuntime().channels.EMAIL;
+    const result: SnsConnectionCheck =
+      email instanceof SnsEmailChannel
+        ? await email.checkConnection()
+        : { ok: false, topicName: null, subscriptionsConfirmed: null, subscriptionsPending: null, encrypted: null, message: 'E-mail channel is not backed by SNS' };
+    await getRepositories().audit.record(
+      actor, 'notification.test_send', channel,
+      { channel, check: true, ok: result.ok, confirmed: result.subscriptionsConfirmed, pending: result.subscriptionsPending },
+      result.ok ? 'SUCCESS' : 'FAILURE',
+    );
+    return result;
+  },
   /** Retention for the delivery log and the dedup claims. 0 days = keep forever. */
   async purgeExpired(now: Date = new Date(), days = config.notifications.logRetentionDays): Promise<number | null> {
     if (days <= 0) return null;

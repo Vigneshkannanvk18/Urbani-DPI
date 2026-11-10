@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { PublishCommand } from '@aws-sdk/client-sns';
+import { GetTopicAttributesCommand, PublishCommand } from '@aws-sdk/client-sns';
 import {
   DeliveryError, SlackChannel, SnsEmailChannel, TeamsChannel, type FetchLike, type RetryOptions,
 } from './channels';
@@ -178,6 +178,39 @@ describe('SnsEmailChannel', () => {
     expect(c4.send).toHaveBeenCalledTimes(1);
   });
 
+  describe('checkConnection (read-only)', () => {
+    const attrClient = (impl: () => Promise<{ Attributes?: Record<string, string> }>) => ({ send: vi.fn(impl) });
+    it('reports confirmed and pending subscribers without publishing', async () => {
+      const c = attrClient(async () => ({ Attributes: { SubscriptionsConfirmed: '2', SubscriptionsPending: '1', KmsMasterKeyId: 'alias/aws/sns' } }));
+      const r = await new SnsEmailChannel(ARN, c, fast).checkConnection();
+      expect(r).toMatchObject({ ok: true, topicName: 'urbani-alerts', subscriptionsConfirmed: 2, subscriptionsPending: 1, encrypted: true });
+      expect(r.message).toContain('2 confirmed subscribers');
+      expect(c.send.mock.calls[0][0]).toBeInstanceOf(GetTopicAttributesCommand);
+      expect(c.send.mock.calls[0][0]).not.toBeInstanceOf(PublishCommand);
+      expect(JSON.stringify(r)).not.toContain(ARN);
+    });
+    it('warns when nobody has confirmed or subscribed', async () => {
+      const pending = await new SnsEmailChannel(ARN, attrClient(async () => ({ Attributes: { SubscriptionsConfirmed: '0', SubscriptionsPending: '3' } })), fast).checkConnection();
+      expect(pending.ok).toBe(true);
+      expect(pending.message).toContain('no subscriber has confirmed');
+      const none = await new SnsEmailChannel(ARN, attrClient(async () => ({ Attributes: {} })), fast).checkConnection();
+      expect(none.message).toContain('no e-mail subscribers');
+    });
+    it('turns AWS errors into a hint and never leaks the ARN', async () => {
+      const denied = Object.assign(new Error(`User is not authorized to perform: SNS:GetTopicAttributes on resource: ${ARN}`), { name: 'AuthorizationErrorException' });
+      const r = await new SnsEmailChannel(ARN, attrClient(async () => { throw denied; }), fast).checkConnection();
+      expect(r.ok).toBe(false);
+      expect(r.message).toContain('sns:GetTopicAttributes');
+      expect(r.message).not.toContain(ARN);
+      expect(r.message).toContain('[redacted-arn]');
+    });
+    it('does not call AWS when the channel is not configured', async () => {
+      const c = attrClient(async () => ({}));
+      const r = await new SnsEmailChannel(null, c, fast).checkConnection();
+      expect(r).toMatchObject({ ok: false, message: 'ALERT_SNS_TOPIC_ARN is not set' });
+      expect(c.send).not.toHaveBeenCalled();
+    });
+  });
   it('is not configured without a valid topic ARN', () => {
     expect(new SnsEmailChannel(null, null, fast).state()).toMatchObject({ status: 'NOT_CONFIGURED', reason: 'ALERT_SNS_TOPIC_ARN is not set' });
     expect(new SnsEmailChannel('nonsense', client(async () => ({})), fast).isConfigured()).toBe(false);

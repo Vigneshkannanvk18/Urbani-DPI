@@ -62,6 +62,13 @@ export function taskPolicy(entries, kmsArn) {
       Action: ['sns:Publish'],
       Resource: [`arn:aws:sns:${region}:${account}:${m.SNS_TOPIC_NAME}`],
     });
+    // Read-only "Check connection" on the Notifications page (subscriber counts). Publishes nothing.
+    statements.push({
+      Sid: 'CheckAlertTopic',
+      Effect: 'Allow',
+      Action: ['sns:GetTopicAttributes'],
+      Resource: [`arn:aws:sns:${region}:${account}:${m.SNS_TOPIC_NAME}`],
+    });
   }
   if ((m.LOGS_SOURCE ?? 'default') === 'insights') {
     const groups = (m.LOGS_INSIGHTS_LOG_GROUPS ?? '').split(',').map((p) => p.split('=')[1]?.trim()).filter(Boolean);

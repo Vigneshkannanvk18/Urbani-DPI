@@ -229,6 +229,46 @@ describe('test-send', () => {
   });
 });
 
+describe('SNS connection check (read-only)', () => {
+  const ARN = 'arn:aws:sns:us-east-1:123456789012:urbani-alerts';
+  const useSns = (send: ReturnType<typeof vi.fn>) =>
+    setNotificationRuntimeForTesting(
+      buildRuntime({ ...config.notifications, snsTopicArn: ARN, dryRun: false }, { fetchImpl: fetchMock as unknown as FetchLike, sns: { send } as never }),
+    );
+  it('needs alerts:rules (QA Operator and Reader/Auditor are refused)', async () => {
+    for (const role of ['QA_OPERATOR', 'READER_AUDITOR']) {
+      expect((await call('post', '/api/notifications/check', tokens[role], { channel: 'EMAIL' })).status, role).toBe(403);
+    }
+  });
+  it('returns subscriber counts, never the ARN, publishes nothing, and audits the check', async () => {
+    const send = vi.fn(async () => ({ Attributes: { SubscriptionsConfirmed: '1', SubscriptionsPending: '2' } }));
+    useSns(send);
+    const res = await call('post', '/api/notifications/check', tokens.INFRA_ADMIN, { channel: 'EMAIL' });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ ok: true, topicName: 'urbani-alerts', subscriptionsConfirmed: 1, subscriptionsPending: 2 });
+    expect(JSON.stringify(res.body)).not.toContain(ARN);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][0].constructor.name).toBe('GetTopicAttributesCommand');
+    const audit = (await auditActions('notification.test_send'))[0];
+    expect(audit).toMatchObject({ actor: 'infra_admin@urbani.test', target: 'EMAIL', result: 'SUCCESS' });
+  });
+  it('reports a failed check as ok:false with a hint and records FAILURE', async () => {
+    useSns(vi.fn(async () => { throw Object.assign(new Error('nope'), { name: 'AuthorizationErrorException' }); }));
+    const res = await call('post', '/api/notifications/check', tokens.SUPER_ADMIN, { channel: 'EMAIL' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.ok).toBe(false);
+    expect(res.body.data.message).toContain('sns:GetTopicAttributes');
+    expect((await auditActions('notification.test_send'))[0].result).toBe('FAILURE');
+  });
+  it('rejects channels without a read-only probe and unknown channels', async () => {
+    expect((await call('post', '/api/notifications/check', tokens.SUPER_ADMIN, { channel: 'SLACK' })).status).toBe(400);
+    expect((await call('post', '/api/notifications/check', tokens.SUPER_ADMIN, { channel: 'FAX' })).status).toBe(400);
+  });
+  it('says it is not configured without calling AWS', async () => {
+    const res = await call('post', '/api/notifications/check', tokens.SUPER_ADMIN, { channel: 'EMAIL' });
+    expect(res.body.data).toMatchObject({ ok: false, message: 'ALERT_SNS_TOPIC_ARN is not set' });
+  });
+});
 describe('log API', () => {
   it('filters by channel, status, alertId and time and paginates', async () => {
     const n = getRepositories().notifications;

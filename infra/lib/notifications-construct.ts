@@ -52,6 +52,10 @@ export class NotificationsConstruct extends Construct {
     props.taskRole.addToPrincipalPolicy(
       new iam.PolicyStatement({ sid: 'UrbaniAlertTopicPublish', effect: iam.Effect.ALLOW, actions: ['sns:Publish'], resources: [this.topic.topicArn] }),
     );
+    // Read-only "Check connection" on the Notifications page: subscriber counts, publishes nothing.
+    props.taskRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({ sid: 'UrbaniAlertTopicCheck', effect: iam.Effect.ALLOW, actions: ['sns:GetTopicAttributes'], resources: [this.topic.topicArn] }),
+    );
     props.taskRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
         sid: 'UrbaniAlertTopicKmsViaSns',

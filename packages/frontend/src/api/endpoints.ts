@@ -387,6 +387,14 @@ export interface NotifRule {
   createdAt: string;
   updatedAt: string;
 }
+export interface NotifConnectionCheck {
+  ok: boolean;
+  topicName: string | null;
+  subscriptionsConfirmed: number | null;
+  subscriptionsPending: number | null;
+  encrypted: boolean | null;
+  message: string;
+}
 export type NotifRuleInput = Pick<NotifRule, 'name' | 'enabled' | 'minSeverity' | 'services' | 'anomalyTypes' | 'channels'>;
 export interface NotifSettings {
   dedupWindowMinutes: number;
@@ -419,6 +427,9 @@ export const notificationsApi = {
     api.put<{ data: NotifSettings }>('/notifications/settings', b).then((r) => r.data),
   log: (params: { channel?: string; status?: string; alertId?: string; page?: number; pageSize?: number } = {}) =>
     api.get<{ data: { items: NotifLogEntry[]; page: number; pageSize: number; total: number } }>(`/notifications/log${qs(params)}`).then((r) => r.data),
+  /** Read-only connection check (EMAIL / SNS only): subscriber counts, publishes nothing. */
+  check: (channel: NotifChannel) =>
+    api.post<{ data: NotifConnectionCheck }>('/notifications/check', { channel }).then((r) => r.data),
   test: (channel: NotifChannel, severity: NotifSeverity = 'CRITICAL') =>
     api.post<{ data: NotifLogEntry }>('/notifications/test', { channel, severity }).then((r) => r.data),
 };
