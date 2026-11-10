@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // Builds load/k6/dpi-load.standalone.js: dpi-load.js with scenarios.json and thresholds.json inlined, because AWS
 // Distributed Load Testing accepts ONE script file (no open() of sibling files). Run after editing either JSON:
 //   node load/k6/bundle.mjs            (writes the file)
@@ -24,7 +23,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const next = buildStandalone();
   if (process.argv.includes('--check')) {
     const cur = fs.existsSync(out) ? fs.readFileSync(out, 'utf8') : '';
-    if (cur !== next) { console.error('dpi-load.standalone.js is out of date: run node load/k6/bundle.mjs'); process.exit(1); }
+    if (cur.replace(/\r\n/g, '\n') !== next.replace(/\r\n/g, '\n')) { console.error('dpi-load.standalone.js is out of date: run node load/k6/bundle.mjs'); process.exit(1); }
     console.log('standalone bundle is up to date');
   } else {
     fs.writeFileSync(out, next);

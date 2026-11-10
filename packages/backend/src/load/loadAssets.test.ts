@@ -100,6 +100,8 @@ describe('scenario definition', () => {
 describe('k6 assets', () => {
   it('standalone bundle for AWS Distributed Load Testing is in sync with scenarios.json / thresholds.json', () => {
     const file = path.resolve(__dirname, '../../../../load/k6/dpi-load.standalone.js');
-    expect(fs.readFileSync(file, 'utf8')).toBe(buildStandalone());
+    // Line endings differ between checkouts (git core.autocrlf on Windows), so compare content only.
+    const eol = (s: string) => s.replace(/\r\n/g, '\n');
+    expect(eol(fs.readFileSync(file, 'utf8'))).toBe(eol(buildStandalone()));
   });
 });
