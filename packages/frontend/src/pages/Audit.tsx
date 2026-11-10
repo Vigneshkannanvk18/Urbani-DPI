@@ -51,7 +51,7 @@ export function Audit() {
       <PageHeader
         title="Audit log"
         subtitle="Append-only record of configuration changes and sensitive queries. Viewing this page is itself audited."
-        source={(audit.data?.source ?? 'MOCK') as 'LIVE' | 'MOCK' | 'WAITING_FOR_INTEGRATION'}
+        source={(audit.data?.source ?? 'LIVE') as 'LIVE' | 'MOCK' | 'WAITING_FOR_INTEGRATION'}
       />
       <Card>
         <form onSubmit={apply}>

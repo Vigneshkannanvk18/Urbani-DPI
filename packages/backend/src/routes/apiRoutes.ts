@@ -271,13 +271,14 @@ const auditQuerySchema = pageSchema.extend({
   cursor: z.string().max(1024).optional(),
   limit: z.coerce.number().int().min(1).max(200).optional(),
 });
-const AUDIT_NOTE = 'Application-level audit events (append-only). CloudTrail integration is a later phase.';
+// Real events recorded by this dashboard itself (not seeded or simulated), hence LIVE. AWS CloudTrail is not part of this view.
+const AUDIT_NOTE = 'Application-level audit events recorded by this dashboard (append-only). AWS CloudTrail is not included.';
 apiRoutes.get(
   '/audit/actions',
   requirePermission('audit:view'),
   asyncHandler(async (_req, res) =>
     res.json({
-      source: 'MOCK',
+      source: 'LIVE',
       sourceNote: AUDIT_NOTE,
       data: { actions: auditService.actions(), categories: auditService.categories, results: auditService.results },
     }),
@@ -296,7 +297,7 @@ apiRoutes.get(
       const out = await auditService.search({ ...filters, action: q.action });
       await getRepositories().audit.record(req.auth!.email, 'audit.view', 'audit', { ...filters });
       return res.json({
-        source: 'MOCK',
+        source: 'LIVE',
         sourceNote: AUDIT_NOTE,
         data: { items: out.items, nextCursor: out.nextCursor, limit: q.limit ?? 50 },
       });
@@ -304,7 +305,7 @@ apiRoutes.get(
     const { items, total } = await getRepositories().audit.query(q);
     await getRepositories().audit.record(req.auth!.email, 'audit.view', 'audit', { ...filters });
     res.json({
-      source: 'MOCK',
+      source: 'LIVE',
       sourceNote: AUDIT_NOTE,
       data: { items, page: q.page ?? 1, pageSize: q.pageSize ?? 50, total },
     });

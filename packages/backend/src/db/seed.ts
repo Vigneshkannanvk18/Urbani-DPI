@@ -13,6 +13,20 @@ import {
   mockUsage,
 } from '../integrations/mock/mockData';
 
+/** The documented dev-only default (config, .env.example). It is public, so it must never become a production login. */
+export const DEFAULT_SEED_ADMIN_PASSWORD = 'ChangeMe123!';
+
+/**
+ * Refuses to CREATE the bootstrap admin in production with the public default password. A forced production seed
+ * (FORCE_DB_SEED=yes) must set SEED_ADMIN_PASSWORD to a strong secret first. Pure so it can be tested without a store.
+ */
+export function assertAdminPasswordNotDefault(isProd: boolean, password: string): void {
+  if (isProd && password === DEFAULT_SEED_ADMIN_PASSWORD) {
+    throw new CliPreconditionError(
+      'Refusing to create the bootstrap admin in production with the default SEED_ADMIN_PASSWORD. Set SEED_ADMIN_PASSWORD to a strong secret (store it in your secrets manager) and run the seed again.',
+    );
+  }
+}
 /**
  * Seed script (Task 1.5 / bootstrap). Idempotent: safe to re-run, on both drivers.
  *
@@ -66,6 +80,7 @@ async function seed(): Promise<void> {
   // ---- Bootstrap admin ----
   const existing = await repos.users.findByEmail(config.auth.seedAdminEmail);
   if (!existing) {
+    assertAdminPasswordNotDefault(config.isProd, config.auth.seedAdminPassword);
     const passwordHash = await bcrypt.hash(config.auth.seedAdminPassword, 10);
     await repos.users.upsertUser({
       id: randomUUID(),

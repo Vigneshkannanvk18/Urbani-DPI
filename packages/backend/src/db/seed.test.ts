@@ -4,7 +4,7 @@ import { freshTestDb } from '../test/testDb';
 import { dynamoHarness, makeTestClock } from '../test/repositoryHarness';
 import { getRepositories, resetRepositories, setRepositoriesForTesting } from '../repositories';
 import { CliPreconditionError } from './cliErrors';
-import { assertSeedTarget, seed } from './seed';
+import { assertAdminPasswordNotDefault, assertSeedTarget, seed } from './seed';
 
 /** The counts mockData produces (design §8.3), read back through the repositories. */
 async function expectSeededCounts(): Promise<void> {
@@ -103,5 +103,16 @@ describe('assertSeedTarget', () => {
 
   it('passes for the sqlite driver', () => {
     expect(() => assertSeedTarget({ driver: 'sqlite', dynamodb: { endpoint: null } }, [])).not.toThrow();
+  });
+});
+
+describe('assertAdminPasswordNotDefault', () => {
+  it('refuses the public default password in production', () => {
+    expect(() => assertAdminPasswordNotDefault(true, 'ChangeMe123!')).toThrow(CliPreconditionError);
+    expect(() => assertAdminPasswordNotDefault(true, 'ChangeMe123!')).toThrow(/SEED_ADMIN_PASSWORD/);
+  });
+  it('allows a custom password in production and the default outside production', () => {
+    expect(() => assertAdminPasswordNotDefault(true, 'a-Strong-Secret-4711')).not.toThrow();
+    expect(() => assertAdminPasswordNotDefault(false, 'ChangeMe123!')).not.toThrow();
   });
 });
