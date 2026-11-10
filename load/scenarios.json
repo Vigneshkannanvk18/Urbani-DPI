@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "note": "Shared scenario definition. Read by load/node/run.mjs (local, zero dependencies) and by the k6 scripts in load/k6 so both exercise the same endpoints, weights and think times. Thresholds live in load/thresholds.json (DRAFT, pending Urbani client input #14).",
+  "templates": "Strings may use {{email}}, {{password}}, {{alertId}} (first alert id found in setup), {{pick:a|b|c}} (random choice per request).",
+  "data": {
+    "from": "2026-09-23T06:00:00.000Z",
+    "to": "2026-09-23T07:30:00.000Z"
+  },
+  "scenarios": {
+    "auth": {
+      "description": "Login with a real bcrypt check. Measured separately; every other scenario re-uses tokens obtained in setup.",
+      "think": [500, 1500],
+      "requests": [
+        { "name": "auth.login", "group": "login", "method": "POST", "path": "/api/auth/login", "body": { "email": "{{email}}", "password": "{{password}}" }, "expect": [200], "jsonHas": ["token", "user"] },
+        { "name": "auth.login.bad-password", "group": "login", "method": "POST", "path": "/api/auth/login", "body": { "email": "{{email}}", "password": "wrong-password-for-load-test" }, "expect": [401], "negative": true }
+      ]
+    },
+    "dashboard": {
+      "description": "Landing page: summary tiles, service health strip, user preferences.",
+      "think": [1000, 3000],
+      "requests": [
+        { "name": "dashboard.summary", "group": "read", "method": "GET", "path": "/api/dashboard/summary", "expect": [200], "jsonHas": ["data.totalServices"] },
+        { "name": "dashboard.health-status", "group": "read", "method": "GET", "path": "/api/health/status", "expect": [200], "jsonHas": ["data.targets"] },
+        { "name": "dashboard.preferences", "group": "read", "method": "GET", "path": "/api/preferences", "expect": [200], "jsonHas": ["data"] }
+      ]
+    },
+    "alerts": {
+      "description": "Alert list with filters, then one alert detail.",
+      "think": [1000, 4000],
+      "requests": [
+        { "name": "alerts.list", "group": "read", "method": "GET", "path": "/api/alerts", "query": { "page": "1", "pageSize": "20" }, "expect": [200], "jsonHas": ["data.items"] },
+        { "name": "alerts.list-filtered", "group": "read", "method": "GET", "path": "/api/alerts", "query": { "severity": "{{pick:CRITICAL|HIGH|MEDIUM}}", "pageSize": "20" }, "expect": [200], "jsonHas": ["data.items"] },
+        { "name": "alerts.detail", "group": "read", "method": "GET", "path": "/api/alerts/{{alertId}}", "expect": [200], "jsonHas": ["data"] }
+      ]
+    },
+    "logs-browse": {
+      "description": "Logs page with default filters, paging through the first pages.",
+      "think": [1000, 4000],
+      "requests": [
+        { "name": "logs.browse", "group": "read", "method": "GET", "path": "/api/logs", "query": { "page": "1", "pageSize": "50" }, "expect": [200], "jsonHas": ["data.items", "meta.total"] },
+        { "name": "logs.browse.page", "group": "read", "method": "GET", "path": "/api/logs", "query": { "page": "{{pick:2|3|4|5}}", "pageSize": "50" }, "expect": [200], "jsonHas": ["data.items"] }
+      ]
+    },
+    "logs-search": {
+      "description": "Level + service + date range + text filters, sorted both ways.",
+      "think": [1500, 5000],
+      "requests": [
+        { "name": "logs.search.level", "group": "search", "method": "GET", "path": "/api/logs", "query": { "levels": "ERROR,FATAL", "services": "{{pick:main|payments}}", "pageSize": "50" }, "expect": [200], "jsonHas": ["data.items", "meta.applied"] },
+        { "name": "logs.search.range", "group": "search", "method": "GET", "path": "/api/logs", "query": { "from": "{{from}}", "to": "{{to}}", "levels": "WARN,ERROR", "sort": "{{pick:newest|oldest}}", "pageSize": "50" }, "expect": [200], "jsonHas": ["data.items"] },
+        { "name": "logs.search.text", "group": "search", "method": "GET", "path": "/api/logs", "query": { "search": "{{pick:timeout|pedido|pago|connection|latency}}", "pageSize": "50" }, "expect": [200], "jsonHas": ["data.items"] }
+      ]
+    },
+    "logs-regex": {
+      "description": "A safe regular expression over the log window.",
+      "think": [2000, 6000],
+      "requests": [
+        { "name": "logs.regex", "group": "regex", "method": "GET", "path": "/api/logs", "query": { "search": "{{pick:PAY-\\d+|order(Id)?[=\":]|timeout.*pool|Error al procesar}}", "regex": "true", "pageSize": "50" }, "expect": [200], "jsonHas": ["data.items"] },
+        { "name": "logs.regex.unsafe-rejected", "group": "regex", "method": "GET", "path": "/api/logs", "query": { "search": "(a+)+$", "regex": "true" }, "expect": [400], "negative": true }
+      ]
+    },
+    "logs-export": {
+      "description": "CSV export of the filtered view (capped by EXPORT_MAX_ROWS).",
+      "think": [3000, 8000],
+      "requests": [
+        { "name": "logs.export.csv", "group": "export", "method": "GET", "path": "/api/logs/export", "query": { "format": "csv", "levels": "ERROR,WARN" }, "expect": [200], "header": { "content-type": "text/csv" }, "binary": true }
+      ]
+    },
+    "chat": {
+      "description": "Ask the assistant on the mock provider, then list the conversation history.",
+      "think": [3000, 10000],
+      "requests": [
+        { "name": "chat.ask", "group": "chat", "method": "POST", "path": "/api/chat", "body": { "question": "{{pick:Why are there errors in main?|Resume los errores recientes|Is payments healthy?}}" }, "expect": [200], "jsonHas": ["data.answer"] },
+        { "name": "chat.sessions", "group": "read", "method": "GET", "path": "/api/chat/sessions", "expect": [200], "jsonHas": ["data.items"] }
+      ]
+    },
+    "audit-list": {
+      "description": "Audit page: filtered list (cursor mode).",
+      "think": [2000, 6000],
+      "requests": [
+        { "name": "audit.list", "group": "read", "method": "GET", "path": "/api/audit", "query": { "limit": "50" }, "expect": [200], "jsonHas": ["data.items"] }
+      ]
+    }
+  },
+  "profiles": {
+    "smoke": {
+      "description": "30-60 s check of every scenario at low weight.",
+      "weights": { "dashboard": 25, "alerts": 15, "logs-browse": 20, "logs-search": 15, "logs-regex": 5, "logs-export": 5, "chat": 5, "audit-list": 5, "auth": 5 },
+      "defaults": { "vus": 25, "duration": "45s", "rampUp": "10s" }
+    },
+    "realistic": {
+      "description": "A realistic working day: 60% dashboard/browse (incl. alerts and audit), 25% search, 5% regex, 5% export, 5% chat. Logins happen once per VU in setup, plus a small auth share.",
+      "weights": { "dashboard": 25, "alerts": 12, "logs-browse": 18, "audit-list": 5, "logs-search": 25, "logs-regex": 5, "logs-export": 5, "chat": 5 },
+      "defaults": { "vus": 50, "duration": "150s", "rampUp": "30s" }
+    },
+    "search-heavy": {
+      "description": "Log-heavy: search, regex and export only (use with a large MOCK_LOG_VOLUME).",
+      "weights": { "logs-search": 55, "logs-regex": 20, "logs-export": 15, "logs-browse": 10 },
+      "defaults": { "vus": 25, "duration": "90s", "rampUp": "20s" }
+    },
+    "spike": {
+      "description": "Sudden jump to many users (4x the base VUs within a few seconds), then back.",
+      "weights": { "dashboard": 30, "alerts": 12, "logs-browse": 20, "logs-search": 28, "logs-regex": 4, "logs-export": 2, "chat": 4 },
+      "defaults": { "vus": 100, "duration": "90s", "rampUp": "5s", "shape": "spike" }
+    },
+    "soak": {
+      "description": "Long, steady, moderate load to look for leaks (short by default; raise --duration).",
+      "weights": { "dashboard": 25, "alerts": 12, "logs-browse": 18, "audit-list": 5, "logs-search": 25, "logs-regex": 5, "logs-export": 5, "chat": 5 },
+      "defaults": { "vus": 20, "duration": "5m", "rampUp": "30s" }
+    }
+  }
+}

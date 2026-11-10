@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { z } from 'zod';
 import path from 'node:path';
+import { effectiveMockLogVolume, MOCK_LOG_VOLUME_MAX } from '../lib/mockLogVolume';
 
 /**
  * Typed, validated environment configuration (Task 1.3).
@@ -122,6 +123,8 @@ const schema = z.object({
   LOGS_INSIGHTS_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(15_000),
   LOGS_INSIGHTS_MAX_RESULTS: z.coerce.number().int().min(1).max(10_000).default(1000),
   LOGS_REGEX_MAX_LENGTH: z.coerce.number().int().min(10).max(1000).default(200),
+  // Synthetic log volume for load tests (DPI 2 item 13). 0 = off. Honoured only with INTEGRATION_MODE=mock and NODE_ENV != production.
+  MOCK_LOG_VOLUME: z.coerce.number().int().min(0).max(MOCK_LOG_VOLUME_MAX).default(0),
   // Export (DPI 2 item 11; docs/EXPORT.md).
   EXPORT_MAX_ROWS: z.coerce.number().int().min(1).max(100_000).default(10_000),
   EXPORT_PDF_MAX_ROWS: z.coerce.number().int().min(1).max(20_000).default(2000),
@@ -209,6 +212,8 @@ function parseLogGroupMap(raw: string): Record<string, string> {
   }
   return out;
 }
+
+const mockVolume = effectiveMockLogVolume(env.MOCK_LOG_VOLUME, env.INTEGRATION_MODE, env.NODE_ENV);
 
 export const config = {
   env: env.NODE_ENV,
@@ -321,6 +326,10 @@ export const config = {
     insightsTimeoutMs: env.LOGS_INSIGHTS_TIMEOUT_MS,
     insightsMaxResults: env.LOGS_INSIGHTS_MAX_RESULTS,
     regexMaxLength: env.LOGS_REGEX_MAX_LENGTH,
+    /** Effective synthetic volume: 0 unless INTEGRATION_MODE=mock and NODE_ENV != production. */
+    mockVolume: mockVolume.volume,
+    /** Set when MOCK_LOG_VOLUME was requested but ignored (the startup warning explains why). */
+    mockVolumeIgnored: mockVolume.ignored ? { requested: env.MOCK_LOG_VOLUME, reason: mockVolume.reason ?? '' } : null,
   },
   export: {
     maxRows: env.EXPORT_MAX_ROWS,

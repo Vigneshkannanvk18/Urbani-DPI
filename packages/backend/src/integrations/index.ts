@@ -51,8 +51,13 @@ function buildMock(): Integrations {
     integrationMode: 'mock',
     primaryModelId: config.bedrock.primaryModelId,
   });
+  if (config.logs.mockVolume > 0) {
+    logger.warn('MOCK_LOG_VOLUME active: serving SYNTHETIC generated log lines (load-test aid, not real telemetry)', {
+      volume: config.logs.mockVolume,
+    });
+  }
   return {
-    cloudwatch: new MockCloudWatchAdapter(),
+    cloudwatch: new MockCloudWatchAdapter(config.logs.mockVolume),
     bedrock: new MockBedrockAdapter(),
     dynamodb: new MockDynamoDBAdapter(),
     urbaniApp: new MockUrbaniApplicationAdapter(),
@@ -138,6 +143,12 @@ function buildAws(): Integrations {
 
 export function getIntegrations(): Integrations {
   if (cached) return cached;
+  if (config.logs.mockVolumeIgnored) {
+    logger.warn('MOCK_LOG_VOLUME ignored: synthetic log volume is only allowed with INTEGRATION_MODE=mock and NODE_ENV != production', {
+      requested: config.logs.mockVolumeIgnored.requested,
+      reason: config.logs.mockVolumeIgnored.reason,
+    });
+  }
   switch (config.integrationMode) {
     case 'aws':
       cached = buildAws();

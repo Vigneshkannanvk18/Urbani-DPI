@@ -1,0 +1,16 @@
+{
+  "status": "DRAFT - placeholder pending Urbani (client input #14). Not agreed SLOs.",
+  "note": "Values are latency in milliseconds at the given percentile per request group, plus error-rate budgets. A developer laptop is not a 0.5 vCPU Fargate task: use --thresholdScale <factor> (Node runner) or -e THRESHOLD_SCALE=<factor> (k6) to stretch every latency limit. Error rates are never scaled.",
+  "groups": {
+    "read":   { "description": "Read endpoints: dashboard, alerts, preferences, browse, audit, chat history", "p95": 800 },
+    "search": { "description": "Log search: levels / service / date range / text", "p95": 1500 },
+    "regex":  { "description": "Log regex search", "p95": 1500 },
+    "export": { "description": "Log export (CSV, capped)", "p95": 3000 },
+    "login":  { "description": "Login (bcrypt)", "p95": 1500 },
+    "chat":   { "description": "Assistant answer on the mock provider (a live model will be slower: set with Urbani)", "p95": 3000 }
+  },
+  "overall": {
+    "errorRate": 0.01,
+    "p99": 5000
+  }
+}

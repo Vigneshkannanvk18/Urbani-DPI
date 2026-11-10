@@ -41,6 +41,11 @@ startChatRetentionJob();
     });
   });
 
+  // Behind an ALB (default idle timeout 60 s) Node's 5 s keep-alive timeout closes idle sockets first and the
+  // ALB then reuses a dead connection (intermittent 502). Keep ours above the ALB's; headersTimeout must exceed it.
+  server.keepAliveTimeout = 65_000;
+  server.headersTimeout = 66_000;
+
   // Graceful shutdown for container orchestration (SIGTERM from Docker/K8s).
   const shutdown = (signal: string) => {
     logger.info('Shutting down', { signal });

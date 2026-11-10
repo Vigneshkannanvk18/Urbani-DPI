@@ -29,6 +29,15 @@ function logQuery(filter: LogSearch, limit: number) {
   };
 }
 
+/** Rows one search scans/returns when MOCK_LOG_VOLUME is on (a stand-in for the Insights result window). */
+export const SYNTHETIC_SEARCH_WINDOW = 5000;
+
+/** Search window for the browse/search endpoint: 100 by default, Insights max, or the synthetic window. */
+function searchLimit(): number {
+  if (config.logs.source === 'insights') return config.logs.insightsMaxResults;
+  return config.logs.mockVolume > 0 ? SYNTHETIC_SEARCH_WINDOW : 100;
+}
+
 export const telemetryService = {
   /**
    * Logs are served through the CloudWatch adapter boundary so the source can be
@@ -39,7 +48,7 @@ export const telemetryService = {
    */
   async logs(filter: LogSearch): Promise<Sourced<Paginated<LogEntry>> & { meta: LogSearchMeta }> {
     const { cloudwatch } = getIntegrations();
-    const res = await cloudwatch.getLogs(logQuery(filter, config.logs.source === 'insights' ? config.logs.insightsMaxResults : 100));
+    const res = await cloudwatch.getLogs(logQuery(filter, searchLimit()));
     const all = res.value;
     const page = Math.max(filter.page ?? 1, 1);
     const pageSize = Math.min(Math.max(filter.pageSize ?? 50, 1), 200);
@@ -67,7 +76,7 @@ export const telemetryService = {
    */
   async exportLogs(filter: LogSearch, maxRows: number) {
     const { cloudwatch } = getIntegrations();
-    const res = await cloudwatch.getLogs(logQuery(filter, config.logs.source === 'insights' ? maxRows : 100));
+    const res = await cloudwatch.getLogs(logQuery(filter, config.logs.source === 'insights' || config.logs.mockVolume > 0 ? maxRows : 100));
     const all = res.value;
     return {
       source: res.meta.source,
