@@ -21,6 +21,7 @@
     "gen:diagram:dpi2": "node scripts/gen-diagram-dpi2.js",
     "gen:docs": "node scripts/gen-docs.js",
     "gen:dpi2": "node scripts/gen-dpi2-docs.js",
+    "gen:dpi2:status": "node scripts/gen-dpi2-status.js",
     "migrate": "npm run migrate --workspace @urbani/backend",
     "seed": "npm run seed --workspace @urbani/backend",
     "migrate:prod": "node packages/backend/dist/db/migrate.js",
