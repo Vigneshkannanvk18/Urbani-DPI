@@ -1,0 +1,76 @@
+# Reverse proxy + SPA static host (Part 4).
+# This is an nginx *template*: the official nginx image renders /etc/nginx/templates/*.template with envsubst
+# at container start (only ${BACKEND_*} variables are substituted; nginx's own $variables are untouched).
+#
+#   BACKEND_UPSTREAM  host:port of the API.
+#     127.0.0.1:4000  (image default) ECS/Fargate awsvpc: both containers share one network namespace.
+#     backend:4000    docker compose: the API is another container, reached by its service name.
+#
+# The browser only ever talks to this server. `/api/*` is proxied to the backend; everything else is the SPA
+# with history-mode fallback. The backend host is never exposed to the client.
+upstream urbani_backend {
+    server ${BACKEND_UPSTREAM};
+    keepalive 16;
+}
+
+server {
+    listen 8080;
+    server_name _;
+
+    # Security headers for the static app (the API sets its own).
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Referrer-Policy no-referrer always;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # gzip for text assets only. JSON API responses are deliberately not compressed (BREACH-style attacks).
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_comp_level 5;
+    gzip_types text/plain text/css text/javascript application/javascript image/svg+xml;
+
+    # Request bodies are small JSON (the API limits itself to 1 MB); reject larger ones early.
+    client_max_body_size 2m;
+
+    # Proxy container healthcheck target (does not hit the backend). Used by the ALB and the container check.
+    location = /healthz {
+        access_log off;
+        return 200 "ok\n";
+        add_header Content-Type text/plain;
+    }
+
+    # API + health/readiness -> backend.
+    location /api/ {
+        proxy_pass http://urbani_backend;
+        proxy_http_version 1.1;
+        # Keep-alive to the upstream (pairs with the upstream keepalive above).
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 5s;
+        # Above the live chat timeout (URBANI_CHAT_TIMEOUT_MS = 30 s) and the export timeout (60 s).
+        proxy_read_timeout 65s;
+        proxy_send_timeout 65s;
+    }
+
+    # Cache immutable hashed assets aggressively.
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        # add_header in a location resets inherited ones: repeat the security headers.
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options DENY always;
+        add_header Referrer-Policy no-referrer always;
+        try_files $uri =404;
+    }
+
+    # SPA history fallback: unknown routes return index.html.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

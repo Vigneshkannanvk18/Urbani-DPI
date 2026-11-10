@@ -19,3 +19,6 @@ SOURCE
 docs
 *.md
 !README.md
+deploy
+.tmp
+.worktrees

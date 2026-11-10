@@ -4,7 +4,7 @@
 # Topology:
 #   Browser -> frontend (nginx reverse proxy, :8080)
 #                 ├── /            -> SPA static assets
-#                 └── /api/*       -> backend:4000 (internal network only)
+#                 └── /api/*       -> $BACKEND_UPSTREAM (compose: backend:4000, internal network only)
 #   backend  -> SQLite on a named volume (persists across restarts/rebuilds)
 #
 # The SAME images run in local Docker, staging, and production — only the
@@ -25,7 +25,11 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       # SQLite lives on the mounted volume so data survives container replacement.
       DATABASE_URL: /data/urbani.sqlite
-      DB_DRIVER: sqlite
+      # sqlite (default) | dynamodb. For dynamodb start DynamoDB Local (profile dynamodb) and set DYNAMODB_ENDPOINT=http://dynamodb-local:8000.
+      DB_DRIVER: ${DB_DRIVER:-sqlite}
+      DYNAMODB_TABLE_PREFIX: ${DYNAMODB_TABLE_PREFIX:-Urbani}
+      DYNAMODB_ENDPOINT: ${DYNAMODB_ENDPOINT:-}
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-}
       INTEGRATION_MODE: ${INTEGRATION_MODE:-mock}
       # Real Urbani QA API (Phase 3). Secrets come from .env / secret manager,
       # never committed. When set with INTEGRATION_MODE=live, logs + alerts + chat
@@ -81,6 +85,9 @@ services:
     ports:
       # The ONLY browser-facing port. Map host:container.
       - "${FRONTEND_PORT:-8080}:8080"
+    environment:
+      # Compose: the API is another container, reached by service name. (ECS/awsvpc uses the image default 127.0.0.1:4000.)
+      BACKEND_UPSTREAM: ${BACKEND_UPSTREAM:-backend:4000}
     networks:
       - urbani_net
 

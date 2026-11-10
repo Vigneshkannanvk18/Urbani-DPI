@@ -25,8 +25,13 @@ RUN npm run build --workspace @urbani/shared \
 # ---- Stage 2: serve (nginx reverse proxy + static host) ----
 FROM nginx:1.27-alpine AS runtime
 
-# Reverse-proxy + SPA config.
-COPY packages/frontend/nginx.conf /etc/nginx/conf.d/default.conf
+# Reverse-proxy + SPA config as a template: the nginx image runs envsubst over /etc/nginx/templates/*.template at start
+# and writes /etc/nginx/conf.d/default.conf. Only BACKEND_* variables are substituted.
+COPY packages/frontend/nginx.conf.template /etc/nginx/templates/default.conf.template
+# API upstream. 127.0.0.1:4000 is right for ECS (awsvpc: both containers share one network namespace);
+# docker compose overrides it with backend:4000.
+ENV BACKEND_UPSTREAM=127.0.0.1:4000 \
+    NGINX_ENVSUBST_FILTER=^BACKEND_
 
 # Static assets.
 COPY --from=build /app/packages/frontend/dist /usr/share/nginx/html
@@ -36,4 +41,6 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget -qO- http://127.0.0.1:8080/healthz >/dev/null 2>&1 || exit 1
 
+# Graceful stop: SIGQUIT lets nginx finish in-flight requests (the default SIGTERM stops immediately).
+STOPSIGNAL SIGQUIT
 CMD ["nginx", "-g", "daemon off;"]
