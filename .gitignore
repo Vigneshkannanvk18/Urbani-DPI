@@ -47,3 +47,7 @@ coverage/
 
 # Load test results (DPI 2 item 13)
 load/results/
+
+# DPI 2 deployment (item 14): operator config and generated artifacts never get committed
+deploy/dpi2.env
+deploy/*.generated.json
