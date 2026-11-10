@@ -2,17 +2,24 @@ import { createApp } from './app';
 import { config } from './config';
 import { logger } from './lib/logger';
 import { runMigrations } from './db/migrate';
+import { getDb } from './db/connection';
+import { seed } from './db/seed';
 
 /**
- * Server bootstrap. Applies pending (idempotent, non-destructive) migrations,
- * then starts listening. Seeding and reset are explicit operator actions and are
- * NEVER run here (Part 6).
- *
- * Binds to 0.0.0.0 so the process is reachable from other containers / the
- * reverse proxy; the host it binds to is not a business concern.
+ * Server bootstrap. Applies pending migrations, auto-seeds on first boot
+ * (empty users table = fresh Fargate volume), then starts listening.
  */
-function main(): void {
+async function main(): Promise<void> {
   runMigrations();
+
+  // Auto-seed when the database is empty (fresh Fargate ephemeral volume).
+  // Safe to run on every cold start — seed() is idempotent and skips existing rows.
+  const userCount = (getDb().prepare('SELECT COUNT(*) as n FROM users').get() as { n: number }).n;
+  if (userCount === 0) {
+    logger.info('Empty database detected — running first-boot seed...');
+    process.env.FORCE_DB_SEED = 'yes';
+    await seed();
+  }
   const app = createApp();
   const server = app.listen(config.port, '0.0.0.0', () => {
     logger.info('Urbani Observability API listening', {
@@ -26,7 +33,6 @@ function main(): void {
   const shutdown = (signal: string) => {
     logger.info('Shutting down', { signal });
     server.close(() => process.exit(0));
-    // Failsafe: force-exit if connections don't drain in time.
     setTimeout(() => process.exit(0), 10_000).unref();
   };
   process.on('SIGTERM', () => shutdown('SIGTERM'));
