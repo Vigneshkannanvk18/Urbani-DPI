@@ -1,0 +1,172 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DpiTableData",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:BatchGetItem",
+        "dynamodb:Query",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:ConditionCheckItem"
+      ],
+      "Resource": "arn:aws:dynamodb:us-east-1:701179923456:table/UrbaniApp*"
+    },
+    {
+      "Sid": "PipelineAlertsStreamRead",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:DescribeStream",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator"
+      ],
+      "Resource": "arn:aws:dynamodb:us-east-1:701179923456:table/UrbaniAlerts/stream/*"
+    },
+    {
+      "Sid": "DpiMessaging",
+      "Effect": "Allow",
+      "Action": [
+        "sns:Publish",
+        "sqs:SendMessage",
+        "lambda:InvokeFunction"
+      ],
+      "Resource": [
+        "arn:aws:sns:us-east-1:701179923456:urbaniqa-dpi-*",
+        "arn:aws:sqs:us-east-1:701179923456:urbaniqa-dpi-*",
+        "arn:aws:lambda:us-east-1:701179923456:function:urbaniqa-dpi-*"
+      ]
+    },
+    {
+      "Sid": "DpiSecretsRead",
+      "Effect": "Allow",
+      "Action": "secretsmanager:GetSecretValue",
+      "Resource": [
+        "arn:aws:secretsmanager:us-east-1:701179923456:secret:urbaniqa/dpi/*",
+        "arn:aws:secretsmanager:us-east-1:701179923456:secret:urbaniqa/observability/api-key-*"
+      ]
+    },
+    {
+      "Sid": "DpiBucketObjects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:AbortMultipartUpload",
+        "s3:GetBucketLocation"
+      ],
+      "Resource": "arn:aws:s3:::urbaniqa-dpi-*"
+    },
+    {
+      "Sid": "DpiOwnLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": [
+        "arn:aws:logs:us-east-1:701179923456:log-group:/urbani/dpi*",
+        "arn:aws:logs:us-east-1:701179923456:log-group:/aws/lambda/urbaniqa-dpi-*",
+        "arn:aws:logs:us-east-1:701179923456:log-group:/aws/lambda/cwsyn-urbaniqa-dpi-*"
+      ]
+    },
+    {
+      "Sid": "MonitoredLogsReadOnly",
+      "Effect": "Allow",
+      "Action": [
+        "logs:StartQuery",
+        "logs:GetQueryResults",
+        "logs:GetLogGroupFields",
+        "logs:FilterLogEvents",
+        "logs:DescribeLogStreams"
+      ],
+      "Resource": "arn:aws:logs:us-east-1:701179923456:log-group:/aws/elasticbeanstalk/urbani-*"
+    },
+    {
+      "Sid": "EcrPullDpiImages",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage"
+      ],
+      "Resource": "arn:aws:ecr:us-east-1:701179923456:repository/urbaniqa/dpi-*"
+    },
+    {
+      "Sid": "DpiCanaryRunsAndHealthChecks",
+      "Effect": "Allow",
+      "Action": [
+        "synthetics:GetCanaryRuns",
+        "route53:GetHealthCheckStatus"
+      ],
+      "Resource": [
+        "arn:aws:synthetics:us-east-1:701179923456:canary:urbaniqa-dpi-*",
+        "arn:aws:route53:::healthcheck/*"
+      ]
+    },
+    {
+      "Sid": "DpiMetricNamespacesOnly",
+      "Effect": "Allow",
+      "Action": "cloudwatch:PutMetricData",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "cloudwatch:namespace": [
+            "Urbani/DPI",
+            "CloudWatchSynthetics"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "UnscopedReadAndPlumbing",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:GetAuthorizationToken",
+        "logs:DescribeLogGroups",
+        "logs:DescribeQueries",
+        "logs:StopQuery",
+        "dynamodb:ListStreams",
+        "cloudwatch:GetMetricData",
+        "synthetics:DescribeCanaries",
+        "synthetics:DescribeCanariesLastRun",
+        "s3:ListAllMyBuckets",
+        "ssmmessages:CreateControlChannel",
+        "ssmmessages:CreateDataChannel",
+        "ssmmessages:OpenControlChannel",
+        "ssmmessages:OpenDataChannel",
+        "ec2:CreateNetworkInterface",
+        "ec2:DescribeNetworkInterfaces",
+        "ec2:DeleteNetworkInterface"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "KmsOnlyThroughDpiServices",
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:Encrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*",
+        "kms:DescribeKey"
+      ],
+      "Resource": "arn:aws:kms:us-east-1:701179923456:key/*",
+      "Condition": {
+        "StringEquals": {
+          "kms:ViaService": [
+            "dynamodb.us-east-1.amazonaws.com",
+            "secretsmanager.us-east-1.amazonaws.com",
+            "sns.us-east-1.amazonaws.com",
+            "sqs.us-east-1.amazonaws.com",
+            "s3.us-east-1.amazonaws.com"
+          ]
+        }
+      }
+    }
+  ]
+}

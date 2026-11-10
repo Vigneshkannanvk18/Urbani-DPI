@@ -1,0 +1,65 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadPipelineAlertsStream",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:DescribeStream",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator"
+      ],
+      "Resource": "arn:aws:dynamodb:us-east-1:701179923456:table/UrbaniAlerts/stream/*"
+    },
+    {
+      "Sid": "ListStreams",
+      "Effect": "Allow",
+      "Action": "dynamodb:ListStreams",
+      "Resource": "*"
+    },
+    {
+      "Sid": "DeduplicationState",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem"
+      ],
+      "Resource": "arn:aws:dynamodb:us-east-1:701179923456:table/UrbaniApp"
+    },
+    {
+      "Sid": "EmailAlerts",
+      "Effect": "Allow",
+      "Action": "sns:Publish",
+      "Resource": "arn:aws:sns:us-east-1:701179923456:urbaniqa-dpi-alerts"
+    },
+    {
+      "Sid": "ChatWebhookSecrets",
+      "Effect": "Allow",
+      "Action": "secretsmanager:GetSecretValue",
+      "Resource": [
+        "arn:aws:secretsmanager:us-east-1:701179923456:secret:urbaniqa/dpi/slack-webhook-*",
+        "arn:aws:secretsmanager:us-east-1:701179923456:secret:urbaniqa/dpi/teams-webhook-*"
+      ]
+    },
+    {
+      "Sid": "FailedBatchesToDeadLetterQueue",
+      "Effect": "Allow",
+      "Action": "sqs:SendMessage",
+      "Resource": "arn:aws:sqs:us-east-1:701179923456:urbaniqa-dpi-notifier-dlq"
+    },
+    {
+      "Sid": "OwnLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": [
+        "arn:aws:logs:us-east-1:701179923456:log-group:/aws/lambda/urbaniqa-dpi-notifier",
+        "arn:aws:logs:us-east-1:701179923456:log-group:/aws/lambda/urbaniqa-dpi-notifier:*"
+      ]
+    }
+  ]
+}

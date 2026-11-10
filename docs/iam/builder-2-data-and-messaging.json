@@ -1,0 +1,208 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DpiAppTable",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:CreateTable",
+        "dynamodb:UpdateTable",
+        "dynamodb:DescribeTable",
+        "dynamodb:UpdateContinuousBackups",
+        "dynamodb:DescribeContinuousBackups",
+        "dynamodb:UpdateTimeToLive",
+        "dynamodb:DescribeTimeToLive",
+        "dynamodb:TagResource",
+        "dynamodb:UntagResource",
+        "dynamodb:ListTagsOfResource",
+        "dynamodb:GetItem",
+        "dynamodb:BatchGetItem",
+        "dynamodb:Query",
+        "dynamodb:Scan",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:ConditionCheckItem"
+      ],
+      "Resource": "arn:aws:dynamodb:us-east-1:701179923456:table/UrbaniApp*"
+    },
+    {
+      "Sid": "PipelineAlertsTableMetadataOnly",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:DescribeTable",
+        "dynamodb:DescribeStream"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:701179923456:table/UrbaniAlerts",
+        "arn:aws:dynamodb:us-east-1:701179923456:table/UrbaniAlerts/stream/*"
+      ]
+    },
+    {
+      "Sid": "DynamoDbAccountRead",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:ListTables",
+        "dynamodb:ListStreams"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DpiAlertsTopic",
+      "Effect": "Allow",
+      "Action": [
+        "sns:CreateTopic",
+        "sns:GetTopicAttributes",
+        "sns:SetTopicAttributes",
+        "sns:Subscribe",
+        "sns:Unsubscribe",
+        "sns:ListSubscriptionsByTopic",
+        "sns:GetSubscriptionAttributes",
+        "sns:Publish",
+        "sns:TagResource",
+        "sns:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:sns:us-east-1:701179923456:urbaniqa-dpi-*"
+    },
+    {
+      "Sid": "SnsAccountRead",
+      "Effect": "Allow",
+      "Action": "sns:ListTopics",
+      "Resource": "*"
+    },
+    {
+      "Sid": "DpiNotifierDeadLetterQueue",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:CreateQueue",
+        "sqs:GetQueueAttributes",
+        "sqs:SetQueueAttributes",
+        "sqs:GetQueueUrl",
+        "sqs:SendMessage",
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:TagQueue",
+        "sqs:ListQueueTags"
+      ],
+      "Resource": "arn:aws:sqs:us-east-1:701179923456:urbaniqa-dpi-*"
+    },
+    {
+      "Sid": "DpiFunctions",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:CreateFunction",
+        "lambda:UpdateFunctionCode",
+        "lambda:UpdateFunctionConfiguration",
+        "lambda:GetFunction",
+        "lambda:GetFunctionConfiguration",
+        "lambda:DeleteFunction",
+        "lambda:PublishVersion",
+        "lambda:ListVersionsByFunction",
+        "lambda:InvokeFunction",
+        "lambda:PutFunctionEventInvokeConfig",
+        "lambda:GetFunctionEventInvokeConfig",
+        "lambda:TagResource",
+        "lambda:ListTags"
+      ],
+      "Resource": "arn:aws:lambda:us-east-1:701179923456:function:urbaniqa-dpi-*"
+    },
+    {
+      "Sid": "DpiStreamTriggerCreate",
+      "Effect": "Allow",
+      "Action": "lambda:CreateEventSourceMapping",
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "lambda:FunctionArn": "arn:aws:lambda:us-east-1:701179923456:function:urbaniqa-dpi-*"
+        }
+      }
+    },
+    {
+      "Sid": "DpiStreamTriggerManage",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:GetEventSourceMapping",
+        "lambda:UpdateEventSourceMapping",
+        "lambda:DeleteEventSourceMapping"
+      ],
+      "Resource": "arn:aws:lambda:us-east-1:701179923456:event-source-mapping:*",
+      "Condition": {
+        "StringLike": {
+          "lambda:FunctionArn": "arn:aws:lambda:us-east-1:701179923456:function:urbaniqa-dpi-*"
+        }
+      }
+    },
+    {
+      "Sid": "LambdaAccountRead",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:ListFunctions",
+        "lambda:ListEventSourceMappings",
+        "lambda:GetAccountSettings"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DpiSecretsWriteNoRead",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:CreateSecret",
+        "secretsmanager:PutSecretValue",
+        "secretsmanager:UpdateSecret",
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:ListSecretVersionIds",
+        "secretsmanager:TagResource"
+      ],
+      "Resource": "arn:aws:secretsmanager:us-east-1:701179923456:secret:urbaniqa/dpi/*"
+    },
+    {
+      "Sid": "SecretsAccountRead",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:ListSecrets",
+        "secretsmanager:GetRandomPassword"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DpiBuckets",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket",
+        "s3:ListBucket",
+        "s3:GetBucketLocation",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:PutBucketOwnershipControls",
+        "s3:GetBucketOwnershipControls",
+        "s3:PutEncryptionConfiguration",
+        "s3:GetEncryptionConfiguration",
+        "s3:PutLifecycleConfiguration",
+        "s3:GetLifecycleConfiguration",
+        "s3:PutBucketPolicy",
+        "s3:GetBucketPolicy",
+        "s3:PutBucketTagging",
+        "s3:GetBucketTagging"
+      ],
+      "Resource": "arn:aws:s3:::urbaniqa-dpi-*"
+    },
+    {
+      "Sid": "DpiBucketObjects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject",
+        "s3:AbortMultipartUpload"
+      ],
+      "Resource": "arn:aws:s3:::urbaniqa-dpi-*/*"
+    },
+    {
+      "Sid": "S3AccountRead",
+      "Effect": "Allow",
+      "Action": "s3:ListAllMyBuckets",
+      "Resource": "*"
+    }
+  ]
+}

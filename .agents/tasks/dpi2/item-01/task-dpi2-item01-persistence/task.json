@@ -1,0 +1,7 @@
+{
+  "task_id": "task-dpi2-item01-persistence",
+  "task_description": "DPI 2 item 1 (persistence foundation), built in worktree C:\\Antigravity\\Urbani DPI\\.worktrees\\dpi2 on branch dpi2 per the approved design (design.md Rev 3) and plan.md. Scope: async driver-agnostic repository layer (SQLite stays the default with DPI 1 behaviour unchanged); DynamoDB single-table driver (<prefix>App, PK/SK + GSI1); one repository contract suite run on both drivers (DynamoDB opt-in via DYNAMODB_ENDPOINT); DynamoDB Local tooling; idempotent SQLite->DynamoDB migration script; IaC authored (not deployed); ADR and .env.example docs. No AWS calls, no deploys, never touch main or packages/backend/data/*.",
+  "status": "pending",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004", "FEAT-005"],
+  "blocked_reason": null
+}

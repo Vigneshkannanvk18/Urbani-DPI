@@ -1,0 +1,31 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "severity": "LOW",
+      "title": "30. The inherited LOG_LEVEL=error hides the info-level log lines that §14 steps 7.2, 8.4 and 8.6 check (§14 Runtime environments)",
+      "detail": "This workflow's shell exports LOG_LEVEL=error at process scope (not at User or Machine scope), and every fresh PowerShell process inherits it. ENV-SQLITE and ENV-DYNAMO do not pin LOG_LEVEL, and lib/logger.ts drops entries below the threshold. So 'Persistence driver: sqlite|dynamodb' (with the path or endpoint) and 'Admin user already exists; skipping' never print, and the step 8.6 endpoint check before sending requests cannot be performed. No acceptance criterion depends on these lines. Fix: add $env:LOG_LEVEL='info' to ENV-SQLITE and ENV-DYNAMO, and note that the sets override inherited values."
+    },
+    {
+      "severity": "LOW",
+      "title": "31. 'This machine has no AWS credentials (verified by the review)' is stale; replace it with a pre-flight check (§13 risk row, §14 step 9)",
+      "detail": "Since the Revision 2 review, %USERPROFILE%\\.aws\\sso\\cache\\ has appeared, holding six SSO token cache files (names listed only). There is still no ~/.aws/config or credentials file and no AWS credential variable, so the default chain cannot resolve credentials today. But the host changes between runs. Fix: before steps 8 and 9, run (Test-Path $HOME\\.aws\\credentials) -or (Test-Path $HOME\\.aws\\config), which must be False, and a filter of Env: for AWS_(ACCESS_KEY_ID|SECRET_ACCESS_KEY|SESSION_TOKEN|PROFILE|WEB_IDENTITY_TOKEN_FILE|CONTAINER_CREDENTIALS_), which must be empty. Stop if either finds something, never open the cache files, and change the wording to '(checked by the pre-flight step)'."
+    },
+    {
+      "severity": "LOW",
+      "title": "32. The exit code of dynamo:migrate when DynamoDB Local is not reachable is ambiguous (§10 precondition 6, §9.5 main() step 4, §7.2)",
+      "detail": "§10 says every failed precondition exits 2, and precondition 6 says 'otherwise create the table first'. But ping goes through translateAwsError. A missing table becomes a fatal PersistenceError, which main() maps to 2. ECONNREFUSED becomes a non-fatal UNAVAILABLE, which main() maps to 1 unless runMigrate wraps it. §7.2 lists only the fatal case under exit 2, and gives dynamo:tables exit 1 for ECONNREFUSED. Fix (chosen, to match dynamo:tables): a fatal error exits 2 with 'create the table first (npm run dynamo:tables)' or the access hint; a non-fatal UNAVAILABLE exits 1 with 'DynamoDB not reachable at <endpoint>'. Add the row to §7.2."
+    },
+    {
+      "severity": "LOW",
+      "title": "33. The step 9 migrate guard can pass for the wrong reason: <wt> contains a space and the refusal message is undefined (§14 steps 8.5 and 9, §10 precondition 4, §7.3)",
+      "detail": "<wt> is 'C:\\Antigravity\\Urbani DPI\\.worktrees\\dpi2', and '--source <wt>\\...' is unquoted. Pasted into PowerShell, the path splits into two arguments, so the run exits 2 from argument parsing or from the file check without reaching the --allow-aws guard. The AC11 check would then pass vacuously, because §10 defines no refusal text for dynamo:migrate and step 9 checks only the exit code. npm 11.6.2 forwards a quoted path with spaces as one argument through the nested alias (verified). Fix: quote every <wt> path in §14. Define the precondition-4 message 'Refusing: dynamo:migrate would target AWS DynamoDB. Pass --allow-aws, or set DYNAMODB_ENDPOINT for DynamoDB Local.' Step 9 and the cli.test.ts case (via a process.stderr.write spy) assert that message as well as exit 2. §7.3 rejects any token that is neither a known flag nor the --source value (exit 2)."
+    },
+    {
+      "severity": "LOW",
+      "title": "34. The key guard checks only the upper byte limits, but a live path produces empty keys that DynamoDB rejects (§5.4 key-size guard, §2.5, §5.10, C-KY-01, FR4.9)",
+      "detail": "HttpUrbaniAlertsAdapter.mapOne (line 198) maps a missing or empty upstream alert_id to '', and urbaniIncidentAlertSchema.alertId is z.string() with no minimum. Such an alert reaches upsertLivePreservingStatus with SK '' and GSI1SK ''. SQLite stores it. DynamoDB rejects empty key strings with a ValidationException, which §5.10 logs as 'a bug in an expression', and which aborts every syncLiveAlerts at that alert. §5.8 rejects exactly that failure mode for oversized evidence. Lookups by '' cannot be reached over HTTP, but a direct call would return 500 where SQLite returns null. Fix: the guard checks 1 <= utf8Bytes <= limit for every key part (fitsKey and the builders), so an empty key reads as not found without a call and a write raises INVALID_ARGUMENT. List 'empty ids' next to 'Key length' in the §2.5 accepted divergences and ADR §7, with the live-sync consequence. Add '' to the C-KY-01 lookups (except audit.query({ actor: '' }), which is no filter) and an items.test.ts empty-id case."
+    }
+  ],
+  "reviewDoc": "C:/Antigravity/Urbani DPI/.agents/tasks/dpi2/item-01/design-review.md"
+}

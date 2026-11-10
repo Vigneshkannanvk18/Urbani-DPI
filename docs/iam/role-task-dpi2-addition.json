@@ -1,0 +1,105 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AppTableData",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:BatchGetItem",
+        "dynamodb:Query",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:ConditionCheckItem"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:701179923456:table/UrbaniApp",
+        "arn:aws:dynamodb:us-east-1:701179923456:table/UrbaniApp/index/GSI1"
+      ]
+    },
+    {
+      "Sid": "SendTestAlertThroughNotifier",
+      "Effect": "Allow",
+      "Action": "lambda:InvokeFunction",
+      "Resource": "arn:aws:lambda:us-east-1:701179923456:function:urbaniqa-dpi-notifier"
+    },
+    {
+      "Sid": "ExportFiles",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:AbortMultipartUpload"
+      ],
+      "Resource": "arn:aws:s3:::urbaniqa-dpi-exports-701179923456/exports/*"
+    },
+    {
+      "Sid": "SearchMonitoredLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:StartQuery",
+        "logs:GetQueryResults",
+        "logs:GetLogGroupFields",
+        "logs:FilterLogEvents",
+        "logs:DescribeLogStreams"
+      ],
+      "Resource": "arn:aws:logs:us-east-1:701179923456:log-group:/aws/elasticbeanstalk/urbani-*"
+    },
+    {
+      "Sid": "LogQueryHousekeeping",
+      "Effect": "Allow",
+      "Action": [
+        "logs:StopQuery",
+        "logs:DescribeQueries",
+        "logs:DescribeLogGroups"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "HealthPanelCanaryRuns",
+      "Effect": "Allow",
+      "Action": "synthetics:GetCanaryRuns",
+      "Resource": "arn:aws:synthetics:us-east-1:701179923456:canary:urbaniqa-dpi-*"
+    },
+    {
+      "Sid": "HealthPanelHealthChecks",
+      "Effect": "Allow",
+      "Action": "route53:GetHealthCheckStatus",
+      "Resource": "arn:aws:route53:::healthcheck/*"
+    },
+    {
+      "Sid": "HealthPanelRead",
+      "Effect": "Allow",
+      "Action": [
+        "synthetics:DescribeCanaries",
+        "synthetics:DescribeCanariesLastRun",
+        "cloudwatch:GetMetricData"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ChatLatencyMetric",
+      "Effect": "Allow",
+      "Action": "cloudwatch:PutMetricData",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "cloudwatch:namespace": "Urbani/DPI"
+        }
+      }
+    },
+    {
+      "Sid": "TemporaryEcsExecForDpi1DataCopy",
+      "Effect": "Allow",
+      "Action": [
+        "ssmmessages:CreateControlChannel",
+        "ssmmessages:CreateDataChannel",
+        "ssmmessages:OpenControlChannel",
+        "ssmmessages:OpenDataChannel"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

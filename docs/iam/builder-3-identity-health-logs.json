@@ -1,0 +1,183 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CreateDpiUserPoolTaggedOnly",
+      "Effect": "Allow",
+      "Action": "cognito-idp:CreateUserPool",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/Project": "urbaniqa-dpi"
+        }
+      }
+    },
+    {
+      "Sid": "ManageDpiUserPoolOnly",
+      "Effect": "Allow",
+      "Action": [
+        "cognito-idp:DescribeUserPool",
+        "cognito-idp:UpdateUserPool",
+        "cognito-idp:DeleteUserPool",
+        "cognito-idp:SetUserPoolMfaConfig",
+        "cognito-idp:GetUserPoolMfaConfig",
+        "cognito-idp:CreateUserPoolClient",
+        "cognito-idp:UpdateUserPoolClient",
+        "cognito-idp:DescribeUserPoolClient",
+        "cognito-idp:ListUserPoolClients",
+        "cognito-idp:DeleteUserPoolClient",
+        "cognito-idp:CreateUserPoolDomain",
+        "cognito-idp:UpdateUserPoolDomain",
+        "cognito-idp:DeleteUserPoolDomain",
+        "cognito-idp:CreateIdentityProvider",
+        "cognito-idp:UpdateIdentityProvider",
+        "cognito-idp:DescribeIdentityProvider",
+        "cognito-idp:ListIdentityProviders",
+        "cognito-idp:DeleteIdentityProvider",
+        "cognito-idp:CreateGroup",
+        "cognito-idp:UpdateGroup",
+        "cognito-idp:GetGroup",
+        "cognito-idp:ListGroups",
+        "cognito-idp:DeleteGroup",
+        "cognito-idp:ListUsers",
+        "cognito-idp:ListUsersInGroup",
+        "cognito-idp:AdminGetUser",
+        "cognito-idp:AdminCreateUser",
+        "cognito-idp:AdminDisableUser",
+        "cognito-idp:AdminDeleteUser",
+        "cognito-idp:AdminListGroupsForUser",
+        "cognito-idp:AdminAddUserToGroup",
+        "cognito-idp:AdminRemoveUserFromGroup",
+        "cognito-idp:AdminUserGlobalSignOut",
+        "cognito-idp:CreateManagedLoginBranding",
+        "cognito-idp:UpdateManagedLoginBranding",
+        "cognito-idp:DescribeManagedLoginBranding",
+        "cognito-idp:GetSigningCertificate",
+        "cognito-idp:TagResource",
+        "cognito-idp:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:cognito-idp:us-east-1:701179923456:userpool/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/Project": "urbaniqa-dpi"
+        }
+      }
+    },
+    {
+      "Sid": "CognitoAccountRead",
+      "Effect": "Allow",
+      "Action": [
+        "cognito-idp:ListUserPools",
+        "cognito-idp:DescribeUserPoolDomain"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "CreateCanaries",
+      "Effect": "Allow",
+      "Action": "synthetics:CreateCanary",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ManageDpiCanaries",
+      "Effect": "Allow",
+      "Action": [
+        "synthetics:GetCanary",
+        "synthetics:GetCanaryRuns",
+        "synthetics:UpdateCanary",
+        "synthetics:StartCanary",
+        "synthetics:StopCanary",
+        "synthetics:DeleteCanary",
+        "synthetics:TagResource",
+        "synthetics:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:synthetics:us-east-1:701179923456:canary:urbaniqa-dpi-*"
+    },
+    {
+      "Sid": "SyntheticsAccountRead",
+      "Effect": "Allow",
+      "Action": [
+        "synthetics:DescribeCanaries",
+        "synthetics:DescribeCanariesLastRun",
+        "synthetics:DescribeRuntimeVersions"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "CanaryFunctionsCreatedBySynthetics",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:CreateFunction",
+        "lambda:AddPermission",
+        "lambda:PublishVersion",
+        "lambda:UpdateFunctionCode",
+        "lambda:UpdateFunctionConfiguration",
+        "lambda:GetFunctionConfiguration",
+        "lambda:GetFunction",
+        "lambda:DeleteFunction",
+        "lambda:ListTags",
+        "lambda:TagResource",
+        "lambda:UntagResource"
+      ],
+      "Resource": "arn:aws:lambda:us-east-1:701179923456:function:cwsyn-urbaniqa-dpi-*"
+    },
+    {
+      "Sid": "CanaryLayers",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:GetLayerVersion",
+        "lambda:PublishLayerVersion",
+        "lambda:DeleteLayerVersion"
+      ],
+      "Resource": [
+        "arn:aws:lambda:us-east-1:701179923456:layer:cwsyn-urbaniqa-dpi-*",
+        "arn:aws:lambda:us-east-1:*:layer:Synthetics:*",
+        "arn:aws:lambda:us-east-1:*:layer:Synthetics_Selenium:*",
+        "arn:aws:lambda:us-east-1:*:layer:AWS-CW-Synthetics*:*"
+      ]
+    },
+    {
+      "Sid": "SyntheticsLibraryRead",
+      "Effect": "Allow",
+      "Action": "s3:GetObjectVersion",
+      "Resource": "arn:aws:s3:::aws-synthetics-library-*"
+    },
+    {
+      "Sid": "CreateHealthChecks",
+      "Effect": "Allow",
+      "Action": [
+        "route53:CreateHealthCheck",
+        "route53:ListHealthChecks"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ReadAndTagHealthChecks",
+      "Effect": "Allow",
+      "Action": [
+        "route53:GetHealthCheck",
+        "route53:GetHealthCheckStatus",
+        "route53:GetHealthCheckLastFailureReason",
+        "route53:ChangeTagsForResource",
+        "route53:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:route53:::healthcheck/*"
+    },
+    {
+      "Sid": "MonitoredLogGroupsReadOnly",
+      "Effect": "Allow",
+      "Action": [
+        "logs:DescribeLogStreams",
+        "logs:GetLogEvents",
+        "logs:FilterLogEvents",
+        "logs:StartQuery",
+        "logs:GetQueryResults",
+        "logs:GetLogGroupFields"
+      ],
+      "Resource": [
+        "arn:aws:logs:us-east-1:701179923456:log-group:/aws/elasticbeanstalk/urbani-*",
+        "arn:aws:logs:us-east-1:701179923456:log-group:/aws/ecs/containerinsights/urbaniqa-qa-observability-cluster/*"
+      ]
+    }
+  ]
+}
