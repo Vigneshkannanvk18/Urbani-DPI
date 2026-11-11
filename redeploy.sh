@@ -151,7 +151,7 @@ TASK_DEF=$(cat <<EOF
         {"name": "OIDC_ISSUER",         "value": "https://accounts.google.com"},
         {"name": "OIDC_CLIENT_ID",      "value": "241884732688-93di0ikd3u6dgqc2qa8tss194qicsje6.apps.googleusercontent.com"},
         {"name": "OIDC_REDIRECT_URI",   "value": "https://dpi.urbani.io/api/auth/sso/callback"},
-        {"name": "OIDC_ALLOWED_EMAIL_DOMAIN", "value": "urbani.io"},
+        {"name": "OIDC_ALLOWED_EMAIL_DOMAIN", "value": "gmail.com"},
         {"name": "OIDC_EMAIL_ROLE_MAP", "value": "{\"first.superadmin@urbani.io\":\"SUPER_ADMIN\"}"},
         {"name": "SMTP_HOST",           "value": "smtp.gmail.com"},
         {"name": "SMTP_PORT",           "value": "587"},
@@ -192,6 +192,9 @@ TASK_DEF=$(cat <<EOF
       "image": "${FRONTEND_IMAGE}",
       "essential": true,
       "portMappings": [{"containerPort": 8080, "protocol": "tcp"}],
+      "environment": [
+        {"name": "BACKEND_UPSTREAM", "value": "127.0.0.1:4000"}
+      ],
       "dependsOn": [{"containerName": "backend", "condition": "HEALTHY"}],
       "healthCheck": {
         "command": ["CMD","wget","-qO-","http://127.0.0.1:8080/healthz"],
