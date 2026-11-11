@@ -25,6 +25,17 @@ async function main(): Promise<void> {
   } else {
     await assertDynamoReachable(repos);
   }
+
+  // Auto-seed on first boot (empty DB = fresh Fargate ephemeral volume).
+  // Safe on every cold start — seed() is idempotent and skips existing rows.
+  const existingAdmin = await repos.users.findByEmail(config.auth.seedAdminEmail).catch(() => null);
+  if (!existingAdmin) {
+    logger.info('Empty database detected — running first-boot seed...');
+    process.env.FORCE_DB_SEED = 'yes';
+    const { seed } = await import('./db/seed');
+    await seed();
+  }
+
   const app = createApp();
   startAuditRetentionJob();
 startChatRetentionJob();
