@@ -194,6 +194,15 @@ describe('SSO login', () => {
     expect((await getRepositories().users.list()).some((u) => u.email === 'jane@urbani.io')).toBe(false);
   });
 
+  it('OIDC_ALLOWED_EMAIL_DOMAIN accepts a comma-separated list (spaces, case and a leading @ tolerated), exact match only', async () => {
+    process.env.OIDC_ALLOWED_EMAIL_DOMAIN = ' Urbani.io , @gmail.com ';
+    expect((await flow({ claims: { email: 'jane@gmail.com' } })).status).toBe(302);
+    expect((await flow({ claims: { email: 'bob@URBANI.io' } })).status).toBe(302);
+    await expectDenied(await flow({ claims: { email: 'eve@yahoo.com' } }), 403, 'SSO_DOMAIN_NOT_ALLOWED');
+    await expectDenied(await flow({ claims: { email: 'eve@evil-gmail.com' } }), 403, 'SSO_DOMAIN_NOT_ALLOWED');
+    await expectDenied(await flow({ claims: { email: 'eve@mail.gmail.com' } }), 403, 'SSO_DOMAIN_NOT_ALLOWED');
+  });
+
   it('rejects unverified email, missing email and a wrong domain', async () => {
     await expectDenied(await flow({ claims: { email_verified: false } }), 403, 'SSO_EMAIL_UNVERIFIED');
     await expectDenied(await flow({ claims: { email: undefined } }), 403, 'SSO_EMAIL_REQUIRED');

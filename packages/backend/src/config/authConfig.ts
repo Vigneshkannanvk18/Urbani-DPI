@@ -54,7 +54,8 @@ export interface SsoSettings {
   groupRoleMap: Record<string, UserRole>;
   /** E-mail (lower case) -> role, for providers without a groups claim (Google). Checked before the group map. */
   emailRoleMap: Record<string, UserRole>;
-  allowedEmailDomain?: string;
+  /** Allowed e-mail domains (lower case, no @). Empty = any verified e-mail passes the domain check. */
+  allowedEmailDomains: string[];
   autoProvision: boolean;
   /** Where the browser lands after SSO; defaults to the SPA root (same origin). */
   postLoginUrl: string;
@@ -108,7 +109,7 @@ export function ssoSettings(env: NodeJS.ProcessEnv = process.env): SsoSettings {
     groupsClaim: str(env.OIDC_GROUPS_CLAIM) ?? 'cognito:groups',
     groupRoleMap,
     emailRoleMap,
-    allowedEmailDomain: str(env.OIDC_ALLOWED_EMAIL_DOMAIN)?.toLowerCase().replace(/^@/, ''),
+    allowedEmailDomains: (str(env.OIDC_ALLOWED_EMAIL_DOMAIN) ?? '').split(',').map((d) => d.trim().toLowerCase().replace(/^@/, '')).filter(Boolean),
     autoProvision: bool(env.OIDC_AUTO_PROVISION, true),
     postLoginUrl: str(env.OIDC_POST_LOGIN_URL) ?? '/',
   };

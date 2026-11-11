@@ -208,7 +208,7 @@ export const ssoService = {
     if (!(claims.email_verified === true || claims.email_verified === 'true')) {
       throw new SsoError('SSO_EMAIL_UNVERIFIED', 'Your email address is not verified with the identity provider', 403);
     }
-    if (s.allowedEmailDomain && email.split('@')[1] !== s.allowedEmailDomain) {
+    if (s.allowedEmailDomains.length && !s.allowedEmailDomains.includes(email.split('@')[1] ?? '')) {
       throw new SsoError('SSO_DOMAIN_NOT_ALLOWED', 'Your email domain is not allowed to sign in', 403);
     }
     // Google sends no groups, so an explicit e-mail -> role entry (OIDC_EMAIL_ROLE_MAP) is checked first, then groups.
