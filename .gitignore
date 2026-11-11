@@ -9,6 +9,7 @@ build/
 **/build/
 
 # Environment / secrets - NEVER commit real credentials
+.env
 .env.local
 .env.*.local
 *.pem

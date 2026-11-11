@@ -37,6 +37,28 @@ const FEATURES = [
   { icon: <IconShieldOutline />, label: 'Faster\nTroubleshooting' },
 ];
 
+const SSO_ERRORS: Record<string, string> = {
+  SSO_NO_ROLE: 'Your account has no role assigned yet. Ask an administrator to grant you access.',
+  SSO_USER_INACTIVE: 'This account has been deactivated. Contact an administrator.',
+  SSO_NOT_PROVISIONED: 'No account exists for you yet. Ask an administrator to add you.',
+  SSO_DOMAIN_NOT_ALLOWED: 'Your email domain is not allowed to sign in.',
+  SSO_EMAIL_UNVERIFIED: 'Your email address is not verified with Google.',
+  SSO_EMAIL_REQUIRED: 'Google did not return an email address for this account.',
+  SSO_STATE_INVALID: 'The sign-in session expired. Please try again.',
+  SSO_PROVIDER_DENIED: 'Google declined the sign-in request.',
+  SSO_TOKEN_EXCHANGE_FAILED: 'Could not complete sign-in with Google. Please try again.',
+  SSO_PROVIDER_ERROR: 'Google could not be reached. Please try again.',
+  SSO_INVALID_TOKEN: 'The sign-in response could not be verified. Please try again.',
+  SSO_NOT_CONFIGURED: 'Single sign-on is not available right now.',
+  SSO_CLIENT_FAILED: 'Single sign-on could not be completed. Please try again.',
+};
+
+function readSsoError(): string | null {
+  const code = new URLSearchParams(window.location.search).get('sso_error');
+  if (!code) return null;
+  return SSO_ERRORS[code] ?? 'Single sign-on failed. Please try again or contact an administrator.';
+}
+
 function Brand({ variant }: { variant: 'hero' | 'card' }) {
   return (
     <div className={`lg-brand lg-brand-${variant}`}>
@@ -176,6 +198,13 @@ export function Login() {
   const [code, setCode] = useState('');
   const [useRecovery, setUseRecovery] = useState(false);
 
+  const [ssoError] = useState<string | null>(readSsoError);
+
+  useEffect(() => {
+    // Drop ?sso_error from the address bar so a refresh does not repeat the message.
+    if (window.location.search.includes('sso_error')) window.history.replaceState(null, '', window.location.pathname);
+  }, []);
+
   useEffect(() => {
     authApi.config().then(setAuthConfig).catch(() => setAuthConfig(null));
   }, []);
@@ -310,6 +339,13 @@ export function Login() {
               <p className="login-card-sub">
                 {localEnabled ? 'Use your administrator credentials to access the dashboard.' : 'Sign in with your company account.'}
               </p>
+
+              {ssoError && (
+                <div className="login-error login-error-sso" role="alert">
+                  <IconTriangleAlert size={16} />
+                  <span>{ssoError}</span>
+                </div>
+              )}
 
               {ssoEnabled && (
                 <a className="login-submit" href={authConfig!.ssoLoginUrl as string} style={{ textDecoration: 'none', marginBottom: 12 }}>

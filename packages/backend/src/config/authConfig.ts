@@ -52,6 +52,8 @@ export interface SsoSettings {
   scopes: string;
   groupsClaim: string;
   groupRoleMap: Record<string, UserRole>;
+  /** E-mail (lower case) -> role, for providers without a groups claim (Google). Checked before the group map. */
+  emailRoleMap: Record<string, UserRole>;
   allowedEmailDomain?: string;
   autoProvision: boolean;
   /** Where the browser lands after SSO; defaults to the SPA root (same origin). */
@@ -78,6 +80,23 @@ export function ssoSettings(env: NodeJS.ProcessEnv = process.env): SsoSettings {
       groupRoleMap[g] = r as UserRole;
     }
   }
+  const emailRoleMap: Record<string, UserRole> = {};
+  const rawEmailMap = str(env.OIDC_EMAIL_ROLE_MAP);
+  if (rawEmailMap) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(rawEmailMap);
+    } catch {
+      throw new Error('OIDC_EMAIL_ROLE_MAP must be valid JSON');
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('OIDC_EMAIL_ROLE_MAP must be a JSON object');
+    for (const [e, r] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof r !== 'string' || !(USER_ROLES as readonly string[]).includes(r)) {
+        throw new Error(`OIDC_EMAIL_ROLE_MAP: "${e}" maps to an unknown role`);
+      }
+      emailRoleMap[e.trim().toLowerCase()] = r as UserRole;
+    }
+  }
   return {
     provider,
     localEnabled: bool(env.AUTH_LOCAL_ENABLED, true),
@@ -88,6 +107,7 @@ export function ssoSettings(env: NodeJS.ProcessEnv = process.env): SsoSettings {
     scopes: str(env.OIDC_SCOPES) ?? 'openid email profile',
     groupsClaim: str(env.OIDC_GROUPS_CLAIM) ?? 'cognito:groups',
     groupRoleMap,
+    emailRoleMap,
     allowedEmailDomain: str(env.OIDC_ALLOWED_EMAIL_DOMAIN)?.toLowerCase().replace(/^@/, ''),
     autoProvision: bool(env.OIDC_AUTO_PROVISION, true),
     postLoginUrl: str(env.OIDC_POST_LOGIN_URL) ?? '/',

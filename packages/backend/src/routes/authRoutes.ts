@@ -70,11 +70,9 @@ function renderSsoError(req: Request, res: Response, err: SsoError): void {
     res.status(err.statusCode).json({ error: { code: err.code, message: err.message, correlationId: req.correlationId } });
     return;
   }
-  const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
-  res
-    .status(err.statusCode)
-    .type('html')
-    .send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Sign-in failed</title></head><body style="font-family:sans-serif;max-width:32rem;margin:4rem auto"><h1>Sign-in failed</h1><p>${esc(err.message)}</p><p><a href="/login">Back to sign in</a></p></body></html>`);
+  // Browsers land back on the app's own (styled) login page; only the stable error code is passed,
+  // the SPA maps it to a message.
+  res.redirect(302, `/login?sso_error=${encodeURIComponent(err.code)}`);
 }
 
 authRoutes.get(

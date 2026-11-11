@@ -1,10 +1,11 @@
 import { SNSClient } from '@aws-sdk/client-sns';
+import nodemailer from 'nodemailer';
 import type { ChannelConfigStatus, NotificationChannelName, NotificationChannelStatus } from '@urbani/shared';
 import { config } from '../config';
 import { logger } from '../lib/logger';
 import { getRepositories } from '../repositories';
 import {
-  SlackChannel, SnsEmailChannel, TeamsChannel, type FetchLike, type NotificationChannel,
+  SlackChannel, SmtpEmailChannel, SnsEmailChannel, TeamsChannel, type FetchLike, type MailTransportLike, type NotificationChannel,
 } from './channels';
 import { NotificationEngine } from './engine';
 import { buildAllowList } from './guard';
@@ -23,13 +24,40 @@ export interface NotificationRuntime {
 
 export function buildRuntime(
   c: typeof config.notifications = config.notifications,
-  deps: { fetchImpl?: FetchLike; sns?: ConstructorParameters<typeof SnsEmailChannel>[1] } = {},
+  deps: { fetchImpl?: FetchLike; sns?: ConstructorParameters<typeof SnsEmailChannel>[1]; mailTransport?: MailTransportLike } = {},
 ): NotificationRuntime {
   const allow = buildAllowList(c.webhookHostAllowlist);
   const fetchImpl = deps.fetchImpl ?? ((url, init) => fetch(url, init));
   const sns = deps.sns ?? (c.snsTopicArn ? new SNSClient({ region: config.aws.region }) : null);
+  // SMTP (Google Workspace) wins over SNS when SMTP_HOST is set; otherwise e-mail keeps going through SNS.
+  const smtp = c.smtp;
+  const mailTransport: MailTransportLike | null =
+    deps.mailTransport ??
+    (smtp.host
+      ? nodemailer.createTransport({
+          host: smtp.host,
+          port: smtp.port,
+          secure: smtp.secure,
+          requireTLS: !smtp.secure,
+          auth: smtp.user && smtp.password ? { user: smtp.user, pass: smtp.password } : undefined,
+          connectionTimeout: 10_000,
+          greetingTimeout: 10_000,
+          socketTimeout: 15_000,
+        })
+      : null);
   const channels: Record<NotificationChannelName, NotificationChannel> = {
-    EMAIL: new SnsEmailChannel(c.snsTopicArn, sns),
+    EMAIL: smtp.host
+      ? new SmtpEmailChannel(
+          {
+            host: smtp.host, from: smtp.from, to: smtp.to, user: smtp.user, password: smtp.password,
+            toRoles: smtp.toRoles,
+            // Active users of the configured roles, read from the Users table on every send (so role changes apply at once).
+            resolveRoleRecipients: async (roles) =>
+              (await getRepositories().users.list()).filter((u) => u.is_active === 1 && roles.includes(u.role)).map((u) => u.email),
+          },
+          mailTransport,
+        )
+      : new SnsEmailChannel(c.snsTopicArn, sns),
     SLACK: new SlackChannel(c.slackWebhookUrl, allow, fetchImpl),
     TEAMS: new TeamsChannel(c.teamsWebhookUrl, allow, fetchImpl, c.teamsFormat),
   };

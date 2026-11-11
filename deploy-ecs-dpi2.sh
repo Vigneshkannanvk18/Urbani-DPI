@@ -153,7 +153,7 @@ if step_on secrets; then
   ensure_secret "$SECRET_NAME_MFA_ENCRYPTION_KEY" b64_32 "DPI 2 MFA secret encryption key (32 bytes base64)"
   ensure_secret "$SECRET_NAME_SEED_ADMIN_PASSWORD" password "DPI 2 first Super Admin password (rotate after first login)"
   ensure_secret "$SECRET_NAME_URBANI_API_KEY" shell "Urbani API key (rotated). Value supplied by the operator"
-  for v in SLACK_WEBHOOK_URL TEAMS_WEBHOOK_URL OIDC_CLIENT_SECRET; do
+  for v in SLACK_WEBHOOK_URL TEAMS_WEBHOOK_URL OIDC_CLIENT_SECRET SMTP_PASSWORD; do
     n="SECRET_NAME_${v}"; [[ -n "${!n:-}" ]] && ensure_secret "${!n}" shell "DPI 2 ${v} (optional integration)"
   done
 fi

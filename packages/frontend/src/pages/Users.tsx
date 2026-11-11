@@ -28,7 +28,7 @@ export function Users() {
   const onCreate = (e: FormEvent) => {
     e.preventDefault();
     void run(async () => {
-      await usersApi.create(form);
+      await usersApi.create({ ...form, password: form.password || undefined });
       setForm({ email: '', displayName: '', role: 'READER_AUDITOR', password: '' });
     });
   };
@@ -63,10 +63,9 @@ export function Users() {
             </Select>
           </label>
           <label className="field">
-            <span className="field-label">Initial password (min {MIN_PASSWORD_LENGTH})</span>
+            <span className="field-label">Initial password (optional, min {MIN_PASSWORD_LENGTH}; leave empty for Google sign-in only)</span>
             <Input
               type="password"
-              required
               minLength={MIN_PASSWORD_LENGTH}
               autoComplete="new-password"
               value={form.password}

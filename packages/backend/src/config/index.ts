@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { z } from 'zod';
 import path from 'node:path';
+import { USER_ROLES } from '@urbani/shared';
 import { effectiveMockLogVolume, MOCK_LOG_VOLUME_MAX } from '../lib/mockLogVolume';
 
 /**
@@ -11,6 +12,14 @@ import { effectiveMockLogVolume, MOCK_LOG_VOLUME_MAX } from '../lib/mockLogVolum
  *  - AWS / Bedrock / CloudWatch / DynamoDB values are placeholders, config-driven.
  *  - INTEGRATION_MODE selects mock vs aws adapters; defaults to "mock".
  */
+
+/** ALERT_EMAIL_ROLES: comma separated RBAC roles. An unknown role is a startup error (a typo must not silently drop recipients). */
+function parseEmailRoles(raw: string | undefined): string[] {
+  const roles = (raw ?? '').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
+  const bad = roles.filter((r) => !(USER_ROLES as readonly string[]).includes(r));
+  if (bad.length) throw new Error('ALERT_EMAIL_ROLES contains unknown roles: ' + bad.join(', '));
+  return roles;
+}
 
 const boolFromEnv = (v: string | undefined, def = false): boolean =>
   v === undefined ? def : ['1', 'true', 'yes', 'on'].includes(v.toLowerCase());
@@ -144,6 +153,16 @@ const schema = z.object({
   TEAMS_WEBHOOK_URL: z.string().optional(),
   TEAMS_WEBHOOK_FORMAT: z.enum(['adaptive', 'messagecard']).default('adaptive'),
   ALERT_SNS_TOPIC_ARN: z.string().optional(),
+  // E-mail through SMTP (Google Workspace: smtp.gmail.com / smtp-relay.gmail.com). When SMTP_HOST is set it wins over SNS.
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
+  SMTP_SECURE: z.string().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
+  ALERT_EMAIL_TO: z.string().optional(),
+  // Roles whose active users also receive alert e-mail (comma separated RBAC roles), resolved from the Users table at send time.
+  ALERT_EMAIL_ROLES: z.string().optional(),
   DASHBOARD_BASE_URL: z.string().optional(),
   // Service health / uptime panel (DPI 2 item 9). Targets come ONLY from this env var (never from API input).
   // JSON array of { id, name?, type: 'http', url, method?, expectedStatus?, timeoutMs?, degradedAboveMs?, service? }.
@@ -357,6 +376,17 @@ export const config = {
     teamsWebhookUrl: env.TEAMS_WEBHOOK_URL?.trim() || null,
     teamsFormat: env.TEAMS_WEBHOOK_FORMAT,
     snsTopicArn: env.ALERT_SNS_TOPIC_ARN?.trim() || null,
+    smtp: {
+      host: env.SMTP_HOST?.trim() || null,
+      port: env.SMTP_PORT,
+      /** true = implicit TLS (port 465). false = STARTTLS upgrade (port 587), which is always required. */
+      secure: boolFromEnv(env.SMTP_SECURE, env.SMTP_PORT === 465),
+      user: env.SMTP_USER?.trim() || null,
+      password: env.SMTP_PASSWORD || null,
+      from: env.SMTP_FROM?.trim() || env.SMTP_USER?.trim() || null,
+      to: (env.ALERT_EMAIL_TO ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+      toRoles: parseEmailRoles(env.ALERT_EMAIL_ROLES),
+    },
     /** Base URL for deep links: DASHBOARD_BASE_URL, else FRONTEND_URL. Null = no link in messages. */
     dashboardBaseUrl: env.DASHBOARD_BASE_URL?.trim() || env.FRONTEND_URL?.trim() || null,
   },

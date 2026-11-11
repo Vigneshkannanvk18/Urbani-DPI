@@ -42,9 +42,9 @@ export const toMap = (entries) => Object.fromEntries(entries.map((e) => [e.key, 
 /** App variables that carry secret material. They may only be referenced by Secrets Manager name. */
 export const SECRET_APP_VARS = [
   'JWT_SECRET', 'MFA_ENCRYPTION_KEY', 'SEED_ADMIN_PASSWORD', 'URBANI_API_KEY',
-  'OIDC_CLIENT_SECRET', 'SLACK_WEBHOOK_URL', 'TEAMS_WEBHOOK_URL',
+  'OIDC_CLIENT_SECRET', 'SLACK_WEBHOOK_URL', 'TEAMS_WEBHOOK_URL', 'SMTP_PASSWORD',
   'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY',
 ];
 /** Secrets that are always injected; the rest are injected only when listed in ENABLED_OPTIONAL_SECRETS. */
 export const ALWAYS_SECRETS = ['JWT_SECRET', 'MFA_ENCRYPTION_KEY', 'SEED_ADMIN_PASSWORD', 'URBANI_API_KEY'];
-export const OPTIONAL_SECRETS = ['SLACK_WEBHOOK_URL', 'TEAMS_WEBHOOK_URL', 'OIDC_CLIENT_SECRET'];
+export const OPTIONAL_SECRETS = ['SLACK_WEBHOOK_URL', 'TEAMS_WEBHOOK_URL', 'OIDC_CLIENT_SECRET', 'SMTP_PASSWORD'];

@@ -11,6 +11,9 @@ import { getRepositories, type UserRow } from '../repositories';
 
 export const MIN_PASSWORD_LENGTH = 10;
 
+/** Stored instead of a hash for accounts that sign in only through SSO (never matches a bcrypt compare). */
+export const SSO_PASSWORD_MARKER = '!sso-no-local-password';
+
 /** 409: the request is valid but conflicts with a guard rail or existing data. */
 export class ConflictError extends AppError {
   constructor(message: string) {
@@ -90,7 +93,7 @@ export const userService = {
 
   async create(
     actor: string,
-    input: { email: string; displayName: string; role: UserRole; password: string },
+    input: { email: string; displayName: string; role: UserRole; password?: string },
   ): Promise<UserView> {
     const repos = getRepositories();
     const email = input.email.trim().toLowerCase();
@@ -103,7 +106,7 @@ export const userService = {
       id: randomUUID(),
       email,
       display_name: input.displayName.trim(),
-      password_hash: await bcrypt.hash(input.password, 10),
+      password_hash: input.password ? await bcrypt.hash(input.password, 10) : SSO_PASSWORD_MARKER,
       role_id: roleId,
       is_active: 1,
       last_login_at: null,
@@ -111,8 +114,10 @@ export const userService = {
       role: input.role,
     };
     await repos.users.upsertUser(row);
-    await repos.audit.record(actor, 'user.create', row.id, { email, role: input.role });
-    return view(row);
+    // No password = Google/SSO sign-in only; the role chosen here is the one used at SSO login.
+    if (!input.password) await repos.users.updateSecurity(row.id, { authSource: 'sso' });
+    await repos.audit.record(actor, 'user.create', row.id, { email, role: input.role, signIn: input.password ? 'password' : 'sso' });
+    return view(row, { mfaEnabled: false, authSource: input.password ? 'local' : 'sso' });
   },
 
   async changeRole(actor: { id: string; email: string }, id: string, role: UserRole): Promise<UserView> {

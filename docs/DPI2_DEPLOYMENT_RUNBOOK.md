@@ -84,10 +84,12 @@ Change the value in `deploy/dpi2.env`, then `STEPS=iam,taskdef,service ./deploy-
 | Integration | Do this |
 |---|---|
 | E-mail alerts (item 6) | `ENABLE_SNS=1`, `ALERT_EMAILS=a@x,b@x`, `NOTIFICATIONS_ENABLED=true`, `DASHBOARD_BASE_URL`; run the `sns` and `iam` steps; every recipient must click the SNS confirmation e-mail. Start with `NOTIFICATIONS_DRY_RUN=true`. |
+| E-mail alerts through Google Workspace SMTP (item 6, replaces SNS) | Create the sender account and an app password (docs/NOTIFICATIONS.md). Set `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_USER`, `SMTP_FROM`, `ALERT_EMAIL_TO`, `DASHBOARD_BASE_URL`. Run the `secrets` step (creates the empty `urbaniqa/dpi2/smtp-password` shell), then `aws secretsmanager put-secret-value --secret-id urbaniqa/dpi2/smtp-password --secret-string file://pw.txt`, add `SMTP_PASSWORD` to `ENABLED_OPTIONAL_SECRETS`, run `iam` (the execution role gets read access to that secret only) and redeploy. The task needs outbound TCP 587 to `smtp.gmail.com` (public IP or NAT). Start with `NOTIFICATIONS_DRY_RUN=true`, then use "Check connection" and "Send test". Set up SPF, DKIM and DMARC on the sender domain. |
 | Slack / Teams | `aws secretsmanager put-secret-value --secret-id urbaniqa/dpi2/slack-webhook-url --secret-string file://hook.txt`; set `ENABLED_OPTIONAL_SECRETS=SLACK_WEBHOOK_URL[,TEAMS_WEBHOOK_URL]`; `NOTIFICATIONS_ENABLED=true`. Use "Send test". Never enable a secret that has no value: the task cannot start. |
 | Log search on CloudWatch (item 4) | `LOGS_SOURCE=insights`, `LOGS_INSIGHTS_LOG_GROUPS=main=/aws/ecs/urbaniqa-qa-main/app,payments=...`; run `iam` (adds `logs:StartQuery` on those groups only). The groups may live in the same account and region. |
 | MFA policy (item 5) | `MFA_REQUIRED_ROLES=SUPER_ADMIN,INFRA_ADMIN` (client decision). The encryption key is already generated. |
-| SSO (item 5) | Create the Cognito pool with the CDK construct (`-c enableCognito=true ...`, separate approval), then set `AUTH_PROVIDER=oidc`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_REDIRECT_URI`, `OIDC_GROUP_ROLE_MAP`, put `oidc-client-secret`, `ENABLED_OPTIONAL_SECRETS=OIDC_CLIENT_SECRET`. Keep `AUTH_LOCAL_ENABLED=true` as break-glass. Test with a real Google login first. |
+| SSO with Google directly (item 5, no Cognito) | In Google Cloud Console create an OAuth client (Web application, consent screen Internal) with redirect URI `https://<host>/api/auth/sso/callback`. Set `AUTH_PROVIDER=oidc`, `OIDC_ISSUER=https://accounts.google.com`, `OIDC_CLIENT_ID`, `OIDC_REDIRECT_URI`, `OIDC_ALLOWED_EMAIL_DOMAIN`, and for the first Super Admin `OIDC_EMAIL_ROLE_MAP='{"admin@urbani.io":"SUPER_ADMIN"}'`. `put-secret-value` the client secret into `urbaniqa/dpi2/oidc-client-secret`, add `OIDC_CLIENT_SECRET` to `ENABLED_OPTIONAL_SECRETS`, run `iam`, redeploy. Further users are created by that Super Admin on the Users page (leave the password empty). Keep `AUTH_LOCAL_ENABLED=true`. Full guide: docs/AUTH_MFA_SSO.md section 2b. |
+| SSO through Cognito (item 5) | Create the Cognito pool with the CDK construct (`-c enableCognito=true ...`, separate approval), then set `AUTH_PROVIDER=oidc`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_REDIRECT_URI`, `OIDC_GROUP_ROLE_MAP`, put `oidc-client-secret`, `ENABLED_OPTIONAL_SECRETS=OIDC_CLIENT_SECRET`. Keep `AUTH_LOCAL_ENABLED=true` as break-glass. Test with a real Google login first. |
 | Health targets (item 9) | `HEALTH_TARGETS='[{"id":"qa","type":"http","url":"https://..."}]'` (single line, single quotes); `HEALTH_ALLOW_PRIVATE_TARGETS=true` only for internal addresses. |
 | Retention (items 3, 8, 9) | `AUDIT_RETENTION_DAYS`, `CHAT_RETENTION_DAYS`, `HEALTH_RETENTION_DAYS`, `NOTIFICATIONS_LOG_RETENTION_DAYS`. |
 | Synthetics + Route 53 health checks (item 9) | CDK `health-monitoring-construct` with `enableHealthMonitoring` and `healthEndpoints` (separate approval; not part of these scripts). |
@@ -140,3 +142,29 @@ Do the same edits through the scripts only with `CUTOVER=1` and a reviewed `depl
 6. Target group `ResourceLabel` for the request-count scaling policy is derived from the ALB and target group ARNs; check the policy was accepted.
 7. A KMS key policy that is not the default (account-root) policy may need the task role added.
 8. The node 20 runtime prints an AWS SDK support notice (SDK v3 will require node 22 after January 2027); plan to move the base images to node 22.
+
+## Go-live checklist: Google SSO and Google Workspace e-mail
+
+Run in staging first (same steps, staging host), then production. Neither feature has been exercised against real Google yet.
+
+**Google side**
+1. Sender account created, 2-Step Verification on, app password created (or SMTP relay rule added by a Workspace admin).
+2. SPF, DKIM and DMARC published for the sender domain.
+3. OAuth client created (Web application, consent screen Internal) with the exact redirect URI `https://<host>/api/auth/sso/callback`.
+4. 2-Step Verification enforced for the Workspace domain (SSO users skip the app's own TOTP).
+
+**AWS side**
+5. `deploy/dpi2.env`: `SMTP_*`, `ALERT_EMAIL_TO`, `AUTH_PROVIDER=oidc`, `OIDC_ISSUER=https://accounts.google.com`, `OIDC_CLIENT_ID`, `OIDC_REDIRECT_URI`, `OIDC_ALLOWED_EMAIL_DOMAIN`, `OIDC_EMAIL_ROLE_MAP` (first Super Admin only), `AUTH_LOCAL_ENABLED=true`, `NOTIFICATIONS_DRY_RUN=true`.
+6. `deploy-ecs-dpi2.sh` `secrets` step, then `put-secret-value` for `smtp-password` and `oidc-client-secret`. Only then set `ENABLED_OPTIONAL_SECRETS=SMTP_PASSWORD,OIDC_CLIENT_SECRET` (a secret with no value stops the task from starting).
+7. `npm run check:deploy`, then the `iam` step, then deploy. Outbound TCP 587 to `smtp.gmail.com` must be allowed from the task.
+
+**Verify (in this order)**
+8. Notifications > E-mail > "Check connection" reports connected. "Send test" arrives (check spam).
+9. Dry run: with a live alert, the delivery log shows `DRY_RUN` rows for the right rules and recipients. Then set `NOTIFICATIONS_DRY_RUN=false` and `NOTIFICATIONS_ENABLED=true`.
+10. Login page shows "Sign in with SSO". The Super Admin in `OIDC_EMAIL_ROLE_MAP` signs in with Google and lands as Super Admin.
+11. On Users > Add user create a second user with the password left empty. That user signs in with Google and gets the chosen role.
+12. A Google account that is not in the platform is denied. A deactivated user is blocked. An account from another domain is rejected.
+13. The break-glass local admin can still sign in with a password.
+14. Audit page shows `auth.sso_login`, `user.create` and `sso.denied` entries.
+
+**Rollback**: set `SMTP_HOST` empty to fall back to SNS, and `AUTH_PROVIDER=local` to turn SSO off, then redeploy. Local logins are unaffected.

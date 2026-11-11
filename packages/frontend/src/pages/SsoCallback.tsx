@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { Loading } from '../components/ui';
 
@@ -23,14 +23,6 @@ export function SsoCallback() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (error) {
-    return (
-      <div style={{ maxWidth: 420, margin: '4rem auto', fontFamily: 'sans-serif' }}>
-        <h1>Sign-in failed</h1>
-        <p role="alert">{error}</p>
-        <Link to="/login">Back to sign in</Link>
-      </div>
-    );
-  }
+  if (error) return <Navigate to="/login?sso_error=SSO_CLIENT_FAILED" replace />;
   return <Loading label="Completing sign-in…" />;
 }

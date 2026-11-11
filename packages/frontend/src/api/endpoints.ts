@@ -108,7 +108,7 @@ export interface ManagedUser {
 
 export const usersApi = {
   list: () => api.get<{ data: ManagedUser[] }>('/users').then((r) => r.data),
-  create: (u: { email: string; displayName: string; role: UserRole; password: string }) =>
+  create: (u: { email: string; displayName: string; role: UserRole; password?: string }) =>
     api.post<{ data: ManagedUser }>('/users', u).then((r) => r.data),
   changeRole: (id: string, role: UserRole) =>
     api.put<{ data: ManagedUser }>(`/users/${id}/role`, { role }).then((r) => r.data),

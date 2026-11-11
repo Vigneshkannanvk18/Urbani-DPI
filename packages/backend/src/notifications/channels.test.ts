@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { GetTopicAttributesCommand, PublishCommand } from '@aws-sdk/client-sns';
 import {
-  DeliveryError, SlackChannel, SnsEmailChannel, TeamsChannel, type FetchLike, type RetryOptions,
+  DeliveryError, SlackChannel, SmtpEmailChannel, SnsEmailChannel, TeamsChannel, type FetchLike, type RetryOptions,
 } from './channels';
 import { buildAllowList } from './guard';
 import { testMessage, type NotificationMessage } from './message';
@@ -215,6 +215,89 @@ describe('SnsEmailChannel', () => {
     expect(new SnsEmailChannel(null, null, fast).state()).toMatchObject({ status: 'NOT_CONFIGURED', reason: 'ALERT_SNS_TOPIC_ARN is not set' });
     expect(new SnsEmailChannel('nonsense', client(async () => ({})), fast).isConfigured()).toBe(false);
     expect(new SnsEmailChannel(ARN, client(async () => ({})), fast).state()).toMatchObject({ status: 'CONFIGURED', destination: 'urbani-alerts' });
+  });
+});
+
+describe('SmtpEmailChannel (Google Workspace)', () => {
+  const opts = { host: 'smtp.gmail.com', from: 'Urbani Radar <alerts@urbani.io>', to: ['a@urbani.io', 'b@urbani.io'], user: 'alerts@urbani.io', password: 'abcd efgh ijkl mnop' };
+  const transport = (send: () => Promise<{ messageId?: string }>, verify: () => Promise<unknown> = async () => true) => ({
+    sendMail: vi.fn(send), verify: vi.fn(verify),
+  });
+
+  it('sends subject + text to every recipient and returns the message id', async () => {
+    const t = transport(async () => ({ messageId: '<id-1@mail>' }));
+    const res = await new SmtpEmailChannel(opts, t, fast).send({ ...msg, title: `line1\nline2` });
+    expect(res).toEqual({ providerMessageId: '<id-1@mail>', attempts: 1 });
+    const mail = t.sendMail.mock.calls[0][0] as { from: string; to: string[]; subject: string; text: string };
+    expect(mail.to).toEqual(opts.to);
+    expect(mail.from).toBe(opts.from);
+    expect(mail.subject).not.toContain('\n');
+    expect(mail.text).toContain('main');
+  });
+
+  it('retries network errors and 4xx replies, not permanent 5xx replies, and never leaks the password', async () => {
+    const flaky = transport(async () => { throw Object.assign(new Error('ECONNRESET'), { code: 'ECONNRESET' }); });
+    await expect(new SmtpEmailChannel(opts, flaky, fast).send(msg)).rejects.toMatchObject({ attempts: 3 });
+    const denied = transport(async () => { throw Object.assign(new Error(`535 bad credentials for ${opts.password}`), { responseCode: 535 }); });
+    const err = await new SmtpEmailChannel(opts, denied, fast).send(msg).catch((e) => e as DeliveryError);
+    expect(err).toBeInstanceOf(DeliveryError);
+    expect(err.attempts).toBe(1);
+    expect(err.message).not.toContain(opts.password);
+    expect(denied.sendMail).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports what is missing and does not touch the transport when not configured', async () => {
+    const t = transport(async () => ({}));
+    expect(new SmtpEmailChannel({ ...opts, host: null }, t, fast).state()).toMatchObject({ status: 'NOT_CONFIGURED', reason: 'SMTP_HOST is not set' });
+    expect(new SmtpEmailChannel({ ...opts, to: [] }, t, fast).state().reason).toBe('ALERT_EMAIL_TO (or ALERT_EMAIL_ROLES) is not set');
+    expect(new SmtpEmailChannel({ ...opts, to: ['not-an-address'] }, t, fast).state().reason).toBe('ALERT_EMAIL_TO contains an invalid address');
+    expect(new SmtpEmailChannel({ ...opts, from: 'nonsense' }, t, fast).state().reason).toContain('SMTP_FROM');
+    const ok = new SmtpEmailChannel(opts, t, fast).state();
+    expect(ok).toMatchObject({ status: 'CONFIGURED', destination: 'smtp.gmail.com (2 fixed recipients)' });
+    await expect(new SmtpEmailChannel({ ...opts, to: [] }, t, fast).send(msg)).rejects.toMatchObject({ attempts: 0 });
+    expect(t.sendMail).not.toHaveBeenCalled();
+  });
+
+  it('sends to the active users of the configured roles plus fixed recipients, de-duplicated, skipping undeliverable addresses', async () => {
+    const t = transport(async () => ({ messageId: 'r1' }));
+    const resolve = vi.fn(async (roles: string[]) => {
+      expect(roles).toEqual(['SUPER_ADMIN', 'QA_OPERATOR', 'INFRA_ADMIN']);
+      return ['Boss@Urbani.io', 'admin@urbani.local', 'a@urbani.io', 'qa@urbani.io'];
+    });
+    const c = new SmtpEmailChannel(
+      { ...opts, toRoles: ['SUPER_ADMIN', 'QA_OPERATOR', 'INFRA_ADMIN'], resolveRoleRecipients: resolve }, t, fast,
+    );
+    await c.send(msg);
+    const mail = t.sendMail.mock.calls[0][0] as { to: string[] };
+    expect(mail.to).toEqual(['a@urbani.io', 'b@urbani.io', 'Boss@Urbani.io', 'qa@urbani.io']);
+    expect(c.state().destination).toContain('users with role SUPER_ADMIN, QA_OPERATOR, INFRA_ADMIN');
+  });
+
+  it('fails clearly (and does not call SMTP) when no role user has a deliverable address', async () => {
+    const t = transport(async () => ({}));
+    const c = new SmtpEmailChannel(
+      { ...opts, to: [], toRoles: ['SUPER_ADMIN'], resolveRoleRecipients: async () => ['admin@urbani.local'] }, t, fast,
+    );
+    await expect(c.send(msg)).rejects.toMatchObject({ attempts: 0, message: expect.stringContaining('no deliverable recipients') });
+    expect(t.sendMail).not.toHaveBeenCalled();
+  });
+
+  describe('checkConnection', () => {
+    it('verifies the login without sending anything', async () => {
+      const t = transport(async () => ({}));
+      const r = await new SmtpEmailChannel(opts, t, fast).checkConnection();
+      expect(r.ok).toBe(true);
+      expect(r.message).toContain('2 recipients');
+      expect(t.verify).toHaveBeenCalledTimes(1);
+      expect(t.sendMail).not.toHaveBeenCalled();
+    });
+    it('turns an auth failure into a hint and never leaks the password', async () => {
+      const t = transport(async () => ({}), async () => { throw Object.assign(new Error(`Invalid login ${opts.password}`), { code: 'EAUTH', responseCode: 535 }); });
+      const r = await new SmtpEmailChannel(opts, t, fast).checkConnection();
+      expect(r.ok).toBe(false);
+      expect(r.message).toContain('app password');
+      expect(r.message).not.toContain(opts.password);
+    });
   });
 });
 

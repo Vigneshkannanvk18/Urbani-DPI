@@ -88,7 +88,7 @@ beforeEach(async () => {
 });
 afterEach(() => {
   for (const k of ['AUTH_PROVIDER', 'OIDC_ISSUER', 'OIDC_CLIENT_ID', 'OIDC_CLIENT_SECRET', 'OIDC_REDIRECT_URI', 'OIDC_GROUP_ROLE_MAP',
-    'OIDC_ALLOWED_EMAIL_DOMAIN', 'OIDC_AUTO_PROVISION', 'AUTH_LOCAL_ENABLED']) delete process.env[k];
+    'OIDC_ALLOWED_EMAIL_DOMAIN', 'OIDC_AUTO_PROVISION', 'AUTH_LOCAL_ENABLED', 'OIDC_EMAIL_ROLE_MAP']) delete process.env[k];
   db.close();
 });
 
@@ -224,12 +224,11 @@ describe('SSO login', () => {
     expect((await getRepositories().users.list()).some((u) => u.email === 'jane@urbani.io')).toBe(false);
   });
 
-  it('browser callers get an HTML error page instead of JSON', async () => {
+  it('browser callers are redirected to the login page with an error code instead of JSON', async () => {
     const start = await request(app).get('/api/auth/sso/login');
     const res = await request(app).get('/api/auth/sso/callback').query({ code: 'x', state: 'bad' }).set('Cookie', (start.headers['set-cookie'] as unknown as string[])[0].split(';')[0]);
-    expect(res.status).toBe(400);
-    expect(res.type).toBe('text/html');
-    expect(res.text).toContain('Sign-in failed');
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/login?sso_error=SSO_STATE_INVALID');
   });
 
   it('re-syncs the role on every SSO login', async () => {
@@ -258,6 +257,42 @@ describe('SSO login', () => {
     expect(ok.status).toBe(302);
     const user = (await getRepositories().users.list()).find((u) => u.email === 'jane@urbani.io')!;
     expect(user.role).toBe('READER_AUDITOR'); // role comes from the IdP
+  });
+
+  describe('Google-style login (no groups claim)', () => {
+    const noGroups = { 'cognito:groups': undefined };
+    const find = async () => (await getRepositories().users.list()).find((u) => u.email === 'jane@urbani.io');
+
+    it('OIDC_EMAIL_ROLE_MAP assigns the role and provisions the user; it wins over groups', async () => {
+      process.env.OIDC_EMAIL_ROLE_MAP = JSON.stringify({ 'Jane@Urbani.io': 'SUPER_ADMIN' });
+      expect((await flow({ claims: noGroups })).status).toBe(302);
+      expect((await find())?.role).toBe('SUPER_ADMIN');
+      expect((await flow({ claims: { 'cognito:groups': ['urbani-readers'] } })).status).toBe(302);
+      expect((await find())?.role).toBe('SUPER_ADMIN');
+    });
+
+    it('an e-mail that is not in the map and has no platform user is denied and nothing is created', async () => {
+      process.env.OIDC_EMAIL_ROLE_MAP = JSON.stringify({ 'someone@urbani.io': 'SUPER_ADMIN' });
+      await expectDenied(await flow({ claims: noGroups }), 403, 'SSO_NO_ROLE');
+      expect(await find()).toBeUndefined();
+    });
+
+    it('a user a Super Admin created without a password signs in with Google and keeps the chosen role', async () => {
+      const created = await userService.create('admin@urbani.local', { email: 'jane@urbani.io', displayName: 'Jane', role: 'QA_OPERATOR' });
+      expect(created.authSource).toBe('sso');
+      // No local password works for this account.
+      const local = await request(app).post('/api/auth/login').send({ email: 'jane@urbani.io', password: '!sso-no-local-password' });
+      expect(local.status).toBe(401);
+      expect((await flow({ claims: noGroups })).status).toBe(302);
+      expect((await find())?.role).toBe('QA_OPERATOR');
+    });
+
+    it('a deactivated platform user is still blocked', async () => {
+      const created = await userService.create('admin@urbani.local', { email: 'jane@urbani.io', displayName: 'Jane', role: 'QA_OPERATOR' });
+      const admin = (await getRepositories().users.list()).find((u) => u.email === 'admin@urbani.local')!;
+      await userService.setActive({ id: admin.id, email: admin.email }, created.id, false);
+      await expectDenied(await flow({ claims: noGroups }), 403, 'SSO_USER_INACTIVE');
+    });
   });
 
   it('the authorization code cannot be replayed (PKCE + one-time code at the provider)', async () => {

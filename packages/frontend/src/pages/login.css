@@ -325,6 +325,9 @@
   font-size: 13px;
 }
 
+.login-error-sso { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 2vh; line-height: 1.4; }
+.login-error-sso svg { flex-shrink: 0; margin-top: 2px; }
+
 /* ---------- Small screens: stack and allow scroll ---------- */
 @media (max-width: 1000px) {
   .login-page {

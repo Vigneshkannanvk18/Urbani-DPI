@@ -12,10 +12,11 @@ import {
 const CHANNELS: NotifChannel[] = ['EMAIL', 'SLACK', 'TEAMS'];
 const SEVERITIES: NotifSeverity[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 const STATUSES = ['SENT', 'FAILED', 'DRY_RUN', 'SKIPPED_DEDUP', 'SKIPPED_RATE_LIMIT', 'SKIPPED_NOT_CONFIGURED'];
-const CHANNEL_LABEL: Record<NotifChannel, string> = { EMAIL: 'Email (Amazon SNS)', SLACK: 'Slack', TEAMS: 'Microsoft Teams' };
-const CHANNEL_ENV: Record<NotifChannel, string> = { EMAIL: 'ALERT_SNS_TOPIC_ARN', SLACK: 'SLACK_WEBHOOK_URL', TEAMS: 'TEAMS_WEBHOOK_URL' };
+const CHANNEL_LABEL: Record<NotifChannel, string> = { EMAIL: 'Email', SLACK: 'Slack', TEAMS: 'Microsoft Teams' };
+const CHANNEL_ENV: Record<NotifChannel, string> = { EMAIL: 'SMTP_HOST / ALERT_SNS_TOPIC_ARN', SLACK: 'SLACK_WEBHOOK_URL', TEAMS: 'TEAMS_WEBHOOK_URL' };
 const EMPTY_RULE: NotifRuleInput = { name: '', enabled: true, minSeverity: 'HIGH', services: [], anomalyTypes: [], channels: ['EMAIL', 'SLACK', 'TEAMS'] };
 
+type ResultNotice = { tone: 'success' | 'danger' | 'warning' | 'info'; title: string; message: string };
 const errText = (e: unknown) => (e instanceof Error ? e.message : 'Request failed');
 
 /** Notifications (DPI 2 item 6). Reading needs alerts:view; changing rules/settings and test-send need alerts:rules. */
@@ -23,7 +24,7 @@ export function Notifications() {
   const { can } = useAuth();
   const canEdit = can('alerts:rules');
   const [error, setError] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<ResultNotice | null>(null);
   const channels = useApi(() => notificationsApi.channels(), []);
   const rules = useApi(() => notificationsApi.rules(), []);
   const settings = useApi(() => notificationsApi.settings(), []);
@@ -42,18 +43,19 @@ export function Notifications() {
   const onTest = (channel: NotifChannel) =>
     run(async () => {
       const r = await notificationsApi.test(channel, 'CRITICAL');
-      const outcome =
-        r.status === 'SENT' ? 'sent'
-          : r.status === 'DRY_RUN' ? 'dry-run (nothing was sent)'
-            : r.status === 'SKIPPED_NOT_CONFIGURED' ? 'not delivered: channel not configured'
-              : `failed${r.error ? ` (${r.error})` : ''}`;
-      setTestResult(`Test message for ${CHANNEL_LABEL[channel]}: ${outcome}.`);
+      const title = `Test message · ${CHANNEL_LABEL[channel]}`;
+      setTestResult(
+        r.status === 'SENT' ? { tone: 'success', title, message: 'Test message sent.' }
+          : r.status === 'DRY_RUN' ? { tone: 'info', title, message: 'Dry-run: nothing was actually sent.' }
+            : r.status === 'SKIPPED_NOT_CONFIGURED' ? { tone: 'warning', title, message: 'Not delivered: this channel is not configured.' }
+              : { tone: 'danger', title, message: `Failed${r.error ? `: ${r.error}` : ''}.` },
+      );
     }, () => logState.reload());
 
   const onCheck = (channel: NotifChannel) =>
     run(async () => {
       const r = await notificationsApi.check(channel);
-      setTestResult(`Connection check for ${CHANNEL_LABEL[channel]}: ${r.ok ? 'OK' : 'FAILED'}. ${r.message}`);
+      setTestResult({ tone: r.ok ? 'success' : 'danger', title: `Connection check · ${CHANNEL_LABEL[channel]}`, message: r.message });
     }, () => undefined);
   // ---- delivery log ----
   const [filters, setFilters] = useState({ channel: '', status: '', alertId: '' });
@@ -65,11 +67,20 @@ export function Notifications() {
     <div className="stack">
       <PageHeader
         title="Notifications"
-        subtitle="Automatic alert notifications by e-mail (Amazon SNS), Slack and Microsoft Teams. Default rules are a DRAFT pending Urbani's input."
+        subtitle="Automatic alert notifications by e-mail (Google Workspace SMTP or Amazon SNS), Slack and Microsoft Teams. Default rules are a DRAFT pending Urbani's input."
         source="LIVE"
       />
       {error && <div className="form-error" role="alert">{error}</div>}
-      {testResult && <div role="status" className="text-secondary">{testResult}</div>}
+      {testResult && (
+        <div role="status" className={`result-notice result-notice-${testResult.tone}`}>
+          <span className="result-notice-icon" aria-hidden>{testResult.tone === 'success' ? '✓' : testResult.tone === 'info' ? 'i' : '!'}</span>
+          <div className="result-notice-body">
+            <div className="result-notice-title">{testResult.title}</div>
+            <div>{testResult.message}</div>
+          </div>
+          <button type="button" className="result-notice-close" aria-label="Dismiss" onClick={() => setTestResult(null)}>×</button>
+        </div>
+      )}
 
       <Card title="Channels">
         <AsyncView state={channels}>
@@ -77,7 +88,7 @@ export function Notifications() {
             <>
               {list.every((c) => c.status === 'NOT_CONFIGURED') && (
                 <p className="text-secondary">
-                  No channels configured yet. Set SLACK_WEBHOOK_URL / TEAMS_WEBHOOK_URL / ALERT_SNS_TOPIC_ARN on the backend. Until then
+                  No channels configured yet. Set SLACK_WEBHOOK_URL / TEAMS_WEBHOOK_URL / SMTP_HOST (+ ALERT_EMAIL_TO) or ALERT_SNS_TOPIC_ARN on the backend. Until then
                   matching alerts are recorded as &quot;not delivered: channel not configured&quot;.
                 </p>
               )}

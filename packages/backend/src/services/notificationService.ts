@@ -3,7 +3,7 @@ import type {
 } from '@urbani/shared';
 import { config } from '../config';
 import { NotFoundError, ValidationError } from '../lib/errors';
-import { SnsEmailChannel, type SnsConnectionCheck } from '../notifications/channels';
+import { SmtpEmailChannel, SnsEmailChannel, type SnsConnectionCheck } from '../notifications/channels';
 import { logger } from '../lib/logger';
 import { ensureDefaultRule } from '../notifications/engine';
 import { getNotificationRuntime } from '../notifications/runtime';
@@ -84,9 +84,9 @@ export const notificationService = {
     }
     const email = getNotificationRuntime().channels.EMAIL;
     const result: SnsConnectionCheck =
-      email instanceof SnsEmailChannel
+      email instanceof SnsEmailChannel || email instanceof SmtpEmailChannel
         ? await email.checkConnection()
-        : { ok: false, topicName: null, subscriptionsConfirmed: null, subscriptionsPending: null, encrypted: null, message: 'E-mail channel is not backed by SNS' };
+        : { ok: false, topicName: null, subscriptionsConfirmed: null, subscriptionsPending: null, encrypted: null, message: 'E-mail channel has no connection check' };
     await getRepositories().audit.record(
       actor, 'notification.test_send', channel,
       { channel, check: true, ok: result.ok, confirmed: result.subscriptionsConfirmed, pending: result.subscriptionsPending },

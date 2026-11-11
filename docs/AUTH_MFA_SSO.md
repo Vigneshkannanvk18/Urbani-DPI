@@ -61,6 +61,10 @@ Role mapping example (the groups created by the CDK construct):
 {"SuperAdmins":"SUPER_ADMIN","InfraAdmins":"INFRA_ADMIN","QaOperators":"QA_OPERATOR","ReadersAuditors":"READER_AUDITOR"}
 ```
 
+## 2b. Direct Google sign-in (no Cognito)
+Set `OIDC_ISSUER=https://accounts.google.com`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` (Secrets Manager), `OIDC_REDIRECT_URI=https://<host>/api/auth/sso/callback` and `OIDC_ALLOWED_EMAIL_DOMAIN=<your Workspace domain>`. Create the OAuth client (type Web application, consent screen **Internal**) in Google Cloud Console and add the same redirect URI there.
+Google ID tokens carry no groups, so the role at SSO login is resolved in this order: `OIDC_EMAIL_ROLE_MAP` (optional JSON of e-mail to role), then IdP groups (`OIDC_GROUP_ROLE_MAP`), then **the role a Super Admin gave the user on the Users page**. Recommended setup: leave both maps empty and let the Super Admin create users in the platform (Users > Add user, leave the password empty for Google-only sign-in). A Google account with no platform user and no map entry is denied, and a deactivated user is blocked. Only the first Super Admin has to be bootstrapped (seed admin or `OIDC_EMAIL_ROLE_MAP`). Not yet exercised against real Google.
+
 ## 3. Switching to Cognito + Google (when the client provides access)
 1. Deploy the Cognito construct (`infra/lib/cognito-construct.ts`) with context, for example `-c enableCognito=true -c cognitoCallbackUrls=https://<host>/api/auth/sso/callback -c cognitoDomainPrefix=<unique> -c cognitoGoogleSecretArn=<arn>`. It is **off by default** and has never been deployed.
 2. For Google: create an OAuth client in the Google Workspace admin console, store `{"client_id": "...", "client_secret": "..."}` in Secrets Manager and pass the ARN. Add the Cognito `https://<domain>.auth.<region>.amazoncognito.com/oauth2/idpresponse` redirect URI on the Google side.

@@ -337,3 +337,139 @@ export class SnsEmailChannel implements NotificationChannel {
     return { providerMessageId: value.MessageId ?? null, attempts };
   }
 }
+
+// ---------------------------------------------------------------- SMTP (e-mail, Google Workspace)
+/** The slice of a nodemailer transport this channel needs; tests inject a fake. */
+export interface MailTransportLike {
+  sendMail(mail: { from: string; to: string[]; subject: string; text: string }): Promise<{ messageId?: string }>;
+  verify(): Promise<unknown>;
+}
+
+export interface SmtpEmailOptions {
+  host: string | null;
+  from: string | null;
+  /** Fixed recipients (ALERT_EMAIL_TO). */
+  to: string[];
+  /** RBAC roles whose active users also receive the mail (ALERT_EMAIL_ROLES). Needs resolveRoleRecipients. */
+  toRoles?: string[];
+  /** Returns the e-mail addresses of active users holding any of the roles. Called on every send. */
+  resolveRoleRecipients?: (roles: string[]) => Promise<string[]>;
+  user: string | null;
+  /** Passed to redaction so an SMTP error can never echo the password. */
+  password: string | null;
+}
+
+/** Domains that can never receive mail (seed/demo accounts such as admin@urbani.local). */
+const UNDELIVERABLE_DOMAIN = /\.(local|localhost|test|example|invalid)$/i;
+
+const EMAIL_RE = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/;
+/** Accepts `alerts@urbani.io` or `Urbani Radar <alerts@urbani.io>`. */
+const FROM_RE = /^(?:[^<>\r\n]*<[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+>|[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+)$/;
+
+/**
+ * E-mail over SMTP, intended for Google Workspace (smtp.gmail.com with an app password, or smtp-relay.gmail.com).
+ * Recipients come from ALERT_EMAIL_TO only (never from API input). Never logs or returns the password.
+ */
+export class SmtpEmailChannel implements NotificationChannel {
+  readonly name = 'EMAIL' as const;
+  constructor(
+    private readonly o: SmtpEmailOptions,
+    private readonly transport: MailTransportLike | null,
+    private readonly retry: RetryOptions = DEFAULT_RETRY,
+  ) {}
+  private problem(): string | null {
+    if (!this.o.host) return 'SMTP_HOST is not set';
+    if (!this.o.from || !FROM_RE.test(this.o.from)) return 'SMTP_FROM (or SMTP_USER) is not a valid sender address';
+    if (this.o.to.length === 0 && !this.roles().length) return 'ALERT_EMAIL_TO (or ALERT_EMAIL_ROLES) is not set';
+    if (!this.o.to.every((a) => EMAIL_RE.test(a))) return 'ALERT_EMAIL_TO contains an invalid address';
+    return null;
+  }
+  private roles(): string[] {
+    return this.o.resolveRoleRecipients ? this.o.toRoles ?? [] : [];
+  }
+  /** Fixed recipients plus the active users of the configured roles; de-duplicated, deliverable addresses only. */
+  async recipients(): Promise<string[]> {
+    const fromRoles = this.roles().length && this.o.resolveRoleRecipients ? await this.o.resolveRoleRecipients(this.roles()) : [];
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const raw of [...this.o.to, ...fromRoles]) {
+      const a = raw.trim();
+      const key = a.toLowerCase();
+      if (!EMAIL_RE.test(a) || UNDELIVERABLE_DOMAIN.test(a) || seen.has(key)) continue;
+      seen.add(key);
+      out.push(a);
+    }
+    return out;
+  }
+  isConfigured(): boolean {
+    return this.problem() === null && this.transport !== null;
+  }
+  state(): ChannelState {
+    const p = this.problem();
+    if (p) return { status: 'NOT_CONFIGURED', destination: null, reason: p };
+    const who = [
+      ...(this.o.to.length ? [`${this.o.to.length} fixed recipient${this.o.to.length === 1 ? '' : 's'}`] : []),
+      ...(this.roles().length ? [`users with role ${this.roles().join(', ')}`] : []),
+    ].join(' + ');
+    return { status: 'CONFIGURED', destination: `${this.o.host} (${who})`, reason: null };
+  }
+  /** Read-only: SMTP connect + STARTTLS + auth (nodemailer verify). Sends nothing. */
+  async checkConnection(): Promise<SnsConnectionCheck> {
+    const fail = (message: string): SnsConnectionCheck => ({
+      ok: false, topicName: null, subscriptionsConfirmed: null, subscriptionsPending: null, encrypted: null, message,
+    });
+    if (!this.isConfigured() || !this.transport) return fail(this.state().reason ?? 'channel not configured');
+    try {
+      await Promise.race([
+        this.transport.verify(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error(`timed out after ${this.retry.timeoutMs} ms`)), this.retry.timeoutMs).unref()),
+      ]);
+      const n = (await this.recipients()).length;
+      return {
+        ok: true, topicName: this.o.host, subscriptionsConfirmed: n, subscriptionsPending: 0, encrypted: true,
+        message: n > 0
+          ? `Connected to ${this.o.host} and authenticated. Alerts go to ${n} recipient${n === 1 ? '' : 's'}.`
+          : `Connected to ${this.o.host} and authenticated, but there are no deliverable recipients yet. Add users with the configured roles (real e-mail addresses) or set ALERT_EMAIL_TO.`,
+      };
+    } catch (err) {
+      const e = err as { code?: string; responseCode?: number; message?: string };
+      const hint =
+        e.code === 'EAUTH' || e.responseCode === 535
+          ? ' Authentication failed. For Gmail SMTP use an app password (2-Step Verification on); for smtp-relay.gmail.com check the relay rule in Google Admin.'
+          : e.code === 'ESOCKET' || e.code === 'ECONNECTION' || e.code === 'ETIMEDOUT'
+            ? ' Cannot reach the SMTP server; check SMTP_HOST/SMTP_PORT and outbound access on that port.'
+            : '';
+      return fail(`${redactText(e.message ?? 'check failed', [this.o.password, this.o.user])}${hint}`);
+    }
+  }
+  async send(m: NotificationMessage): Promise<SendResult> {
+    if (!this.isConfigured() || !this.transport || !this.o.from) throw new DeliveryError('channel not configured', 0);
+    const transport = this.transport;
+    const from = this.o.from;
+    const subject = m.title.replace(/[\r\n]+/g, ' ').slice(0, 150);
+    const to = await this.recipients();
+    if (to.length === 0) {
+      throw new DeliveryError('no deliverable recipients: no active user with a real e-mail address has a configured role, and ALERT_EMAIL_TO is empty', 0);
+    }
+    const { value, attempts } = await withRetries(
+      async (signal) => {
+        try {
+          const res = await Promise.race([
+            transport.sendMail({ from, to, subject, text: plainText(m) }),
+            new Promise<never>((_, reject) => signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true })),
+          ]);
+          return res;
+        } catch (err) {
+          const e = err as { name?: string; message?: string; responseCode?: number };
+          if (signal.aborted) throw err;
+          // 5xx SMTP replies (bad auth, rejected recipient) are permanent; network errors and 4xx are transient.
+          const permanent = e.responseCode !== undefined && e.responseCode >= 500;
+          throw new AttemptFailure(`${e.name ?? 'Error'}: ${e.message ?? 'send failed'}`, !permanent);
+        }
+      },
+      this.retry,
+      [this.o.password, this.o.user],
+    );
+    return { providerMessageId: value.messageId ?? null, attempts };
+  }
+}

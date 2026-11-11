@@ -8,7 +8,7 @@ import { AppError } from '../lib/errors';
 import { logger } from '../lib/logger';
 import { getRepositories, type UserRow } from '../repositories';
 import { authService, type LoginResult } from './authService';
-import { ensureLegacyRole, legacyRoleId } from './userService';
+import { ensureLegacyRole, legacyRoleId, SSO_PASSWORD_MARKER } from './userService';
 
 /**
  * OIDC single sign-on (DPI 2 item 5): Authorization Code + PKCE, built on Node crypto + fetch (no OIDC
@@ -20,7 +20,7 @@ import { ensureLegacyRole, legacyRoleId } from './userService';
 export const SSO_COOKIE = 'urbani_sso';
 const COOKIE_TTL_SECONDS = 600;
 const CLOCK_SKEW_SECONDS = 60;
-export const SSO_PASSWORD_MARKER = '!sso-no-local-password';
+export { SSO_PASSWORD_MARKER };
 
 /** Error that the callback route renders as a 4xx/5xx page or JSON (and audits as sso.denied). */
 export class SsoError extends AppError {
@@ -211,11 +211,17 @@ export const ssoService = {
     if (s.allowedEmailDomain && email.split('@')[1] !== s.allowedEmailDomain) {
       throw new SsoError('SSO_DOMAIN_NOT_ALLOWED', 'Your email domain is not allowed to sign in', 403);
     }
-    const role = mapGroupsToRole(groupsFrom(claims, s.groupsClaim), s.groupRoleMap);
-    if (!role) throw new SsoError('SSO_NO_ROLE', 'Your account is not in any group mapped to a role. Ask an administrator for access.', 403);
-
+    // Google sends no groups, so an explicit e-mail -> role entry (OIDC_EMAIL_ROLE_MAP) is checked first, then groups.
+    // Role order: OIDC_EMAIL_ROLE_MAP, then IdP groups, then the role a Super Admin gave the user in the platform.
     const repos = getRepositories();
     const existing = (await repos.users.list()).find((u) => u.email.toLowerCase() === email);
+    const role =
+      s.emailRoleMap[email] ??
+      mapGroupsToRole(groupsFrom(claims, s.groupsClaim), s.groupRoleMap) ??
+      existing?.role ??
+      null; // an inactive record still gets SSO_USER_INACTIVE below
+    if (!role) throw new SsoError('SSO_NO_ROLE', 'Your account has no role assigned. Ask an administrator for access.', 403);
+
     let user: UserRow;
     if (existing) {
       // A deactivated local record blocks SSO.

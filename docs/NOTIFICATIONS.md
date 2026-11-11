@@ -68,7 +68,7 @@ A failed send keeps its claim (no retry storm); the log shows `FAILED` with the 
 
 | Channel | How | Retry |
 |---|---|---|
-| EMAIL | `sns:Publish` to `ALERT_SNS_TOPIC_ARN` (subject + plain text) | 3 attempts, exponential backoff, 5xx or network errors only; 10 s timeout |
+| EMAIL | SMTP (Google Workspace) to `ALERT_EMAIL_TO` when `SMTP_HOST` is set; otherwise `sns:Publish` to `ALERT_SNS_TOPIC_ARN` (subject + plain text) | 3 attempts, exponential backoff, 5xx or network errors only; 10 s timeout |
 | SLACK | POST to `SLACK_WEBHOOK_URL`, `text` + Block Kit `blocks` | same; no retry on 4xx |
 | TEAMS | POST to `TEAMS_WEBHOOK_URL`, Adaptive Card message (default) or legacy MessageCard (`TEAMS_WEBHOOK_FORMAT`) | same; no retry on 4xx |
 
@@ -130,7 +130,12 @@ Fields: id, timestamp, alertId, ruleId, channel, status, attempts, error (redact
 
 **Microsoft Teams**: in the target channel use Workflows ("Post to a channel when a webhook request is received"), copy the generated URL (a `*.logic.azure.com` or `*.environment.api.powerplatform.com` host) into `TEAMS_WEBHOOK_URL`. Legacy Office 365 connector URLs (`*.webhook.office.com`) work with `TEAMS_WEBHOOK_FORMAT=messagecard`.
 
-**E-mail (SNS)**: deploy the topic (see IaC below) or create one with a KMS key the task role may use, set `ALERT_SNS_TOPIC_ARN`, and give the backend task role `sns:Publish` on it. Subscribe the e-mail addresses (CDK context `alertEmails` or the console). **Every SNS e-mail subscriber receives a confirmation e-mail from AWS and must click the link; unconfirmed subscribers receive nothing.**
+**E-mail (Google Workspace SMTP)**: set `SMTP_HOST`, `SMTP_PORT` (587, STARTTLS is required), `SMTP_FROM` and `ALERT_EMAIL_TO` (comma separated). Two ways to authenticate:
+- `smtp.gmail.com` with `SMTP_USER` and `SMTP_PASSWORD` = an **app password** (the sending account needs 2-Step Verification; `SMTP_FROM` must be that account or one of its aliases). Google limits a Workspace account to about 2,000 messages a day.
+- `smtp-relay.gmail.com`: a Workspace admin adds a relay rule (Google Admin > Apps > Google Workspace > Gmail > Routing > SMTP relay service) allowing the backend's outbound IP; `SMTP_USER`/`SMTP_PASSWORD` can stay empty.
+`SMTP_PASSWORD` is a secret (env or Secrets Manager only). Press "Check connection" (connect + auth, sends nothing) then "Send test". When `SMTP_HOST` is set, SNS is not used.
+
+**E-mail (SNS)** (used only when `SMTP_HOST` is empty): deploy the topic (see IaC below) or create one with a KMS key the task role may use, set `ALERT_SNS_TOPIC_ARN`, and give the backend task role `sns:Publish` on it. Subscribe the e-mail addresses (CDK context `alertEmails` or the console). **Every SNS e-mail subscriber receives a confirmation e-mail from AWS and must click the link; unconfirmed subscribers receive nothing.**
 
 Then set `NOTIFICATIONS_ENABLED=true`, restart the backend, open the Notifications page, press "Send test" for each channel and review the rules.
 
