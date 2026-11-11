@@ -29,6 +29,8 @@ LOG_GROUP="/urbani/dpi"
 URBANI_API_BASE_URL="https://iq71gvk8oi.execute-api.${AWS_REGION}.amazonaws.com/qa"
 URBANI_API_KEY_SECRET_ARN="arn:aws:secretsmanager:${AWS_REGION}:${ACCOUNT_ID}:secret:urbaniqa/observability/api-key-qN17nL"
 JWT_SECRET_ARN="arn:aws:secretsmanager:${AWS_REGION}:${ACCOUNT_ID}:secret:urbaniqa/dpi/jwt-secret-JYHni7"
+MFA_KEY_ARN="arn:aws:secretsmanager:${AWS_REGION}:${ACCOUNT_ID}:secret:urbaniqa/dpi/mfa-encryption-key-SMtzM5"
+SEED_ADMIN_PASS_ARN="arn:aws:secretsmanager:${AWS_REGION}:${ACCOUNT_ID}:secret:urbaniqa/dpi/seed-admin-password-R8SjOs"
 EXEC_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/urbaniqa-dpi-exec-role"
 TASK_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/urbaniqa-dpi-task-role"
 
@@ -85,7 +87,7 @@ fi
 
 if $BUILD_FRONTEND; then
   log "Building frontend image..."
-  docker build -f packages/frontend/Dockerfile -t "$FRONTEND_IMAGE" .
+  docker build --no-cache -f packages/frontend/Dockerfile -t "$FRONTEND_IMAGE" .
   docker push "$FRONTEND_IMAGE"
   docker tag "$FRONTEND_IMAGE" "${ECR_BASE}/${FRONTEND_REPO}:latest"
   docker push "${ECR_BASE}/${FRONTEND_REPO}:latest"
@@ -144,8 +146,10 @@ TASK_DEF=$(cat <<EOF
         {"name": "JWT_EXPIRES_IN",      "value": "8h"}
       ],
       "secrets": [
-        {"name": "URBANI_API_KEY", "valueFrom": "${URBANI_API_KEY_SECRET_ARN}"},
-        {"name": "JWT_SECRET",     "valueFrom": "${JWT_SECRET_ARN}"}
+        {"name": "URBANI_API_KEY",       "valueFrom": "${URBANI_API_KEY_SECRET_ARN}"},
+        {"name": "JWT_SECRET",           "valueFrom": "${JWT_SECRET_ARN}"},
+        {"name": "MFA_ENCRYPTION_KEY",   "valueFrom": "${MFA_KEY_ARN}"},
+        {"name": "SEED_ADMIN_PASSWORD",  "valueFrom": "${SEED_ADMIN_PASS_ARN}"}
       ],
       "mountPoints": [{"sourceVolume": "dpi-data", "containerPath": "/data"}],
       "healthCheck": {
