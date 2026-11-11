@@ -31,6 +31,8 @@ URBANI_API_KEY_SECRET_ARN="arn:aws:secretsmanager:${AWS_REGION}:${ACCOUNT_ID}:se
 JWT_SECRET_ARN="arn:aws:secretsmanager:${AWS_REGION}:${ACCOUNT_ID}:secret:urbaniqa/dpi/jwt-secret-JYHni7"
 MFA_KEY_ARN="arn:aws:secretsmanager:${AWS_REGION}:${ACCOUNT_ID}:secret:urbaniqa/dpi/mfa-encryption-key-SMtzM5"
 SEED_ADMIN_PASS_ARN="arn:aws:secretsmanager:${AWS_REGION}:${ACCOUNT_ID}:secret:urbaniqa/dpi/seed-admin-password-R8SjOs"
+OIDC_SECRET_ARN="arn:aws:secretsmanager:${AWS_REGION}:${ACCOUNT_ID}:secret:urbaniqa/dpi/oidc-client-secret-DIYFAN"
+SMTP_PASS_ARN="arn:aws:secretsmanager:${AWS_REGION}:${ACCOUNT_ID}:secret:urbaniqa/dpi/smtp-password-2uhwUh"
 EXEC_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/urbaniqa-dpi-exec-role"
 TASK_ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/urbaniqa-dpi-task-role"
 
@@ -143,13 +145,30 @@ TASK_DEF=$(cat <<EOF
         {"name": "DYNAMODB_ALERTS_TABLE",       "value": "UrbaniAlerts"},
         {"name": "CORS_ORIGIN",         "value": ""},
         {"name": "SEED_ADMIN_EMAIL",    "value": "admin@urbani.io"},
-        {"name": "JWT_EXPIRES_IN",      "value": "8h"}
+        {"name": "JWT_EXPIRES_IN",      "value": "8h"},
+        {"name": "AUTH_PROVIDER",       "value": "oidc"},
+        {"name": "AUTH_LOCAL_ENABLED",  "value": "true"},
+        {"name": "OIDC_ISSUER",         "value": "https://accounts.google.com"},
+        {"name": "OIDC_CLIENT_ID",      "value": "241884732688-93di0ikd3u6dgqc2qa8tss194qicsje6.apps.googleusercontent.com"},
+        {"name": "OIDC_REDIRECT_URI",   "value": "https://dpi.urbani.io/api/auth/sso/callback"},
+        {"name": "OIDC_ALLOWED_EMAIL_DOMAIN", "value": "urbani.io"},
+        {"name": "OIDC_EMAIL_ROLE_MAP", "value": "{\"first.superadmin@urbani.io\":\"SUPER_ADMIN\"}"},
+        {"name": "SMTP_HOST",           "value": "smtp.gmail.com"},
+        {"name": "SMTP_PORT",           "value": "587"},
+        {"name": "SMTP_USER",           "value": "dpiurbani@gmail.com"},
+        {"name": "SMTP_FROM",           "value": "Urbani Radar <dpiurbani@gmail.com>"},
+        {"name": "ALERT_EMAIL_ROLES",   "value": "SUPER_ADMIN,QA_OPERATOR,INFRA_ADMIN"},
+        {"name": "DASHBOARD_BASE_URL",  "value": "https://dpi.urbani.io"},
+        {"name": "NOTIFICATIONS_ENABLED", "value": "true"},
+        {"name": "NOTIFICATIONS_DRY_RUN", "value": "true"}
       ],
       "secrets": [
         {"name": "URBANI_API_KEY",       "valueFrom": "${URBANI_API_KEY_SECRET_ARN}"},
         {"name": "JWT_SECRET",           "valueFrom": "${JWT_SECRET_ARN}"},
         {"name": "MFA_ENCRYPTION_KEY",   "valueFrom": "${MFA_KEY_ARN}"},
-        {"name": "SEED_ADMIN_PASSWORD",  "valueFrom": "${SEED_ADMIN_PASS_ARN}"}
+        {"name": "SEED_ADMIN_PASSWORD",  "valueFrom": "${SEED_ADMIN_PASS_ARN}"},
+        {"name": "OIDC_CLIENT_SECRET",   "valueFrom": "${OIDC_SECRET_ARN}"},
+        {"name": "SMTP_PASSWORD",        "valueFrom": "${SMTP_PASS_ARN}"}
       ],
       "mountPoints": [{"sourceVolume": "dpi-data", "containerPath": "/data"}],
       "healthCheck": {
